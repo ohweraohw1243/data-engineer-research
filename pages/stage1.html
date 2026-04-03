@@ -1,94 +1,198 @@
 <div class="page-content">
-<div class="page-header">
-    <h1 class="page-title">Этап 1: <span>Продвинутый SQL & Архитектура БД</span></h1>
-    <p class="page-desc">Идеальное владение SQL, оптимизация запросов и принципы DWH/OLAP. (Месяц: Апрель)</p>
-</div>
+    <div class="page-header">
+        <h1 class="page-title">Этап 1: <span>Теория СУБД, Архитектура и SQL</span></h1>
+        <p class="page-desc" style="font-size: 16px; line-height: 1.6; color: var(--text-dim);">Исчерпывающий теоретический фундамент. В этом разделе собраны подробные архитектурные концепты, знания о внутренних механизмах PostgreSQL и ClickHouse, которые необходимы для успешного прохождения секции Data Architecture и SQL в крупных компаниях.</p>
+    </div>
 
-<div class="card-grid">
+    <style>
+        .theory-block p { font-size: 16px; line-height: 1.7; margin-bottom: 12px; color: #e2e8f0; }
+        .theory-block ul { font-size: 16px; line-height: 1.7; margin-left: 24px; margin-bottom: 16px; list-style-type: disc; color: #e2e8f0; }
+        .theory-block li { margin-bottom: 8px; }
+        .theory-block h4 { font-size: 18px; font-weight: 600; margin-top: 24px; margin-bottom: 12px; color: var(--accent1); }
+        .theory-block strong { color: #f7fafc; }
+        .resource-block { background: rgba(108, 142, 247, 0.1); border-left: 4px solid var(--accent2); padding: 16px; border-radius: 6px; margin-top: 24px; }
+        .resource-block h4 { color: var(--accent2); margin-top: 0; }
+        .resource-block ul { color: #cbd5e0; margin-bottom: 0; }
+    </style>
 
-    <!-- DAY 1 -->
-    <div class="card" data-task-id="stage1-day1">
-        <h3 class="card-title">🐘 Тема 1: Архитектура DWH, Lake и OLAP</h3>
-        <h4 style="color: var(--accent1); font-weight: 600; margin-top: 16px; margin-bottom: 8px;">Суть под капотом</h4>
-        <div class="card-text">
-            <p><strong>DWH vs Data Lake:</strong> DWH (Data Warehouse) хранит структурированные данные (Схема при записи - Schema on Write). Data Lake (S3, HDFS) хранит сырые данные (Схема при чтении - Schema on Read). В SMT мы мигрируем пайплайны с HDFS на S3 для создания Data Lake.</p>
-            <p style="margin-top: 8px;"><strong>Моделирование данных:</strong> Звезда (Star Schema) и Снежинка. Разница между подходами Ральфа Кимбалла (шины данных и витрины) и Инмона (единое нормализованное хранилище). Data Vault — гибрид для аудита и историчности с разделением на Hub, Link, Satellite.</p>
-            <p style="margin-top: 8px;"><strong>Хранение в S3:</strong> Использование партиционирования путей (например, <code>s3://bucket/topic/year=2026/month=04/</code>) и форматов файлов как Parquet/ORC для колоночного чтения.</p>
-        </div>
+    <h2 style="font-size: 26px; font-weight: 600; margin-bottom: 24px; margin-top: 32px; color: white; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px;">Теоретические модули</h2>
 
-        <h4 style="color: var(--accent2); font-weight: 600; margin-top: 16px; margin-bottom: 8px;">Теоретическое задание</h4>
-        <div class="card-text" style="background: rgba(108, 142, 247, 0.1); padding: 12px; border-radius: 6px; border-left: 3px solid var(--accent2);">
-            <strong>Вопрос:</strong> Почему при проектировании аналитической БД (OLAP) чаще выбирают денормализованную схему "Звезда", а не 3 нормальную форму (3NF)?
-        </div>
-        <div class="answer-input-area">
-            <label for="answer-stage1-day1">Ваш ответ:</label>
-            <textarea id="answer-stage1-day1" class="answer-textarea" placeholder="В Звезде меньше JOIN-ов..."></textarea>
-            <button class="check-answer-btn" onclick="checkAnswer(this)">✓ Проверить ответ</button>
-            <div class="check-result"></div>
+    <!-- Module 1 -->
+    <div class="card theory-block" style="margin-bottom: 32px;">
+        <h3 class="card-title" style="font-size: 22px;">📚 Модуль 1: Эволюция аналитических хранилищ</h3>
+        <div class="card-text" style="margin-top: 16px;">
+            <p>Чтобы успешно мигрировать пайплайны и строить платформу, важно понимать, почему архитектуры исторически развивались от классических баз до Data Lakehouse.</p>
+            
+            <h4>1. DWH (Data Warehouse)</h4>
+            <p>Хранилище структурированных данных. Ключевая концепция: <strong>Schema-on-Write</strong>. Это значит, что перед загрузкой данных мы обязаны создать таблицы с жесткой типизацией. Если структура ломается на источнике — загрузка падает. Главные плюсы: высокая скорость аналитических запросов, 100% уверенность в типах данных. Основные представители: Greenplum, Teradata, Oracle.</p>
+            
+            <h4>2. Data Lake (Озеро данных) и Hadoop</h4>
+            <p>Озеро решает проблему Schema-on-Write. Это концепция <strong>Schema-on-Read</strong>: мы просто сваливаем все сырые данные в дешевое распределенное хранилище (например, HDFS или S3) в форматах JSON, CSV, Parquet. Схема накладывается только тогда, когда мы обращаемся к данным (через Spark или Presto). Плюсы: бесконечная масштабируемость, дешевое хранение. Минусы: озеро быстро превращается в "болото данных" (Data Swamp), в котором очень сложно что-то найти без Data Catalog-a.</p>
+
+            <h4>3. Хранение: Amazon S3 и Форматы файловой системы</h4>
+            <p>В современных архитектурах HDFS вытесняется объектным хранилищем S3 (или его on-premise аналогами MinIO/Ceph). В S3 нет привычных "папок", есть бакеты и префиксы. Чтобы Spark читал данные супербыстро, используются колоночные форматы (<strong>Parquet, ORC</strong>) в связке с партиционированием (например, <code>s3://datalake/events/year=2026/month=04/</code>). Parquet хранит данные столбцами, и внутри файла есть метаданные (min/max значения блоков), поэтому Spark может пропускать чтение мусорных фрагментов (Predicate Pushdown).</p>
+
+            <h4>4. Моделирование данных: Kimball vs Inmon vs Data Vault</h4>
+            <ul>
+                <li><strong>Bill Inmon (Normalized DWH):</strong> Сначала строится огромное нормализованное хранилище (до 3НФ), а из него строятся витрины. Долго проектировать, но минимум дублей.</li>
+                <li><strong>Ralph Kimball (Dimensional Modeling):</strong> Сразу строим "Звезды" и "Снежинки" вокруг бизнес-процессов. Таблицы фактов (Events, Transactions) соединяются с измерениями (Users, Items). Очень быстро для финальных JOIN-ов.</li>
+                <li><strong>Data Vault:</strong> Архитектура для сырого слоя. Hub (бизнес-ключ), Link (связи) и Satellite (атрибуты с историчностью). Решает проблему частых изменений схемы источника и дает полный аудит (кто и когда загрузил данные).</li>
+            </ul>
+
+            <div class="resource-block">
+                <h4>Где изучать (Источники)</h4>
+                <ul>
+                    <li>📖 <strong>Книга:</strong> <em>Ральф Кимбалл "The Data Warehouse Toolkit"</em> — прочитать первые 3 главы про Звезды, факты и SCD (медленно меняющиеся измерения).</li>
+                    <li>📄 <strong>Хабр / Статьи:</strong> Читать статьи "От DWH к Data Lakehouse", "Введение в Data Vault 2.0" (например, от Neoflex или Tinkoff).</li>
+                    <li>▶️ <strong>YouTube:</strong> Поиск "Формат Parquet Data Learn", разборы "HDFS vs S3".</li>
+                </ul>
+            </div>
         </div>
     </div>
 
-    <!-- DAY 2 -->
-    <div class="card" data-task-id="stage1-day2">
-        <h3 class="card-title">🚀 Тема 2: ClickHouse (Семейство MergeTree)</h3>
-        <h4 style="color: var(--accent1); font-weight: 600; margin-top: 16px; margin-bottom: 8px;">Суть под капотом</h4>
-        <div class="card-text">
-            <p><strong>MergeTree:</strong> Это не просто таблица, а целое семейство движков. Данные записываются кусками (parts), а в фоновом режиме сливаются (merge). Нет Update/Delete (используем CollapsingMergeTree или ReplacingMergeTree).</p>
-            <p style="margin-top: 8px;"><strong>Primary Key vs Order By:</strong> В ClickHouse Primary Key не гарантирует уникальность. Он создает sparse-индекс (разреженный), который позволяет быстро сужать поиск гранул данных (granules) при фильтрации.</p>
-            <p style="margin-top: 8px;"><strong>Шардирование и партиционирование:</strong> Партиционирование (обычно по месяцам) для ротации и DROP старых данных. Шардирование для распределения нагрузки по кластеру (Distributed таблицы).</p>
-        </div>
+    <!-- Module 2 -->
+    <div class="card theory-block" style="margin-bottom: 32px;">
+        <h3 class="card-title" style="font-size: 22px;">🐘 Модуль 2: Внутренности PostgreSQL и Оптимизация PostgreSQL</h3>
+        <div class="card-text" style="margin-top: 16px;">
+            <p>Даже если основной стек — ClickHouse и Spark, PostgreSQL остается мета-базой и сервисной БД для тысяч внутренних сервисов.</p>
+            
+            <h4>1. MVCC (Multiversion Concurrency Control)</h4>
+            <p>PostgreSQL не перезаписывает строки физически при UPDATE. Он помечает старую версию строки как "мертвую" (записывая ее xmax), и создает новую версию (с новым xmin). Это позволяет пишущим транзакциям не блокировать читающие. Но это порождает проблему: мертвые строки копятся (bloat). Для их очистки работает фоновый процесс <strong>VACUUM</strong>. Если он настроен плохо, наступает коллапс диска.</p>
+            
+            <h4>2. Изоляция транзакций (ACID)</h4>
+            <p>Уровни изоляции: Read Uncommitted (в PG работает как Read Committed), Read Committed (по умолчанию, видит только закоммиченные данные до начала стейтмента - возможно несовпадение данных при повторном чтении), Repeatable Read (сохраняет снимок БД на начало транзакции) и Serializable (жесткие блокировки, имитация последовательного выполнения). Нужно понимать разницу между аномалиями: Dirty Read, Non-repeatable read и Phantom Read.</p>
 
-        <h4 style="color: var(--accent2); font-weight: 600; margin-top: 16px; margin-bottom: 8px;">Практика: Проектирование ClickHouse</h4>
-        <div class="card-text" style="background: rgba(108, 142, 247, 0.1); padding: 12px; border-radius: 6px; border-left: 3px solid var(--accent2);">
-            <strong>Задача:</strong> Опишите, как бы вы спроектировали DDL таблицы в ClickHouse для логов событий интернет-магазина: <code>user_id</code>, <code>event_type</code>, <code>event_time</code>, чтобы запросы "количество покупок за вчера" работали мгновенно. Какой ORDER BY и PARTITION BY выберете?
-        </div>
-        <div class="answer-input-area">
-            <label for="answer-stage1-day2">Ваш ответ:</label>
-            <textarea id="answer-stage1-day2" class="answer-textarea" placeholder="PARTITION BY toYYYYMM(event_time) ... "></textarea>
-            <button class="check-answer-btn" onclick="checkAnswer(this)">✓ Проверить ответ</button>
-            <div class="check-result"></div>
+            <h4>3. Индексы: Под капотом B-Tree</h4>
+            <p>Физически это сильно-ветвистое дерево, где все данные лежат в листьях на одном уровне глубины. При запросе с <code>EXPLAIN</code> важно отличать <strong>Index Scan</strong> (Сначала БД нашла строку в индексе, потом сходила на диск в "кучу" Heap, чтобы достать те колонки, которых в индексе нет) от <strong>Index-Only Scan</strong> (Запрос попросил только те колонки, которые уже включены во вторичный индекс на этапе создания ключа - это в разы быстрее, так как не надо лезть в "кучу").</p>
+
+            <h4>4. Оконные функции (SQL)</h4>
+            <p>В отличие от <code>GROUP BY</code>, окна не схлопывают строки. Понимание фреймов (Framing): <code>ROWS</code> задает физические границы (2 строки назад), <code>RANGE</code> — логические (по стоимости сортировки). Дефолтный фрейм при ORDER BY — это <code>RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW</code>, что при наличии дублей может "повесить" запрос (O(n²)). Разница: <code>ROW_NUMBER()</code> просто инкрементирует счетчик, <code>RANK()</code> пропускает места при совпадении (1, 2, 2, 4), а <code>DENSE_RANK()</code> оставляет места подряд (1, 2, 2, 3).</p>
+
+            <div class="resource-block">
+                <h4>Где изучать (Источники)</h4>
+                <ul>
+                    <li>📖 <strong>Книга:</strong> <em>Егор Рогов "PostgreSQL изнутри"</em> — обязательно к прочтению! Есть бесплатная PDF версия от Postgres Professional.</li>
+                    <li>📄 <strong>Хабр / Статьи:</strong> Блог Postgres Professional. Читать статьи про "MVCC", "Блокировки" и "VACUUM".</li>
+                    <li>▶️ <strong>YouTube:</strong> Антон Жиянов — лекции "Оконные функции SQL". Видео "Как читать EXPLAIN".</li>
+                </ul>
+            </div>
         </div>
     </div>
 
-    <!-- DAY 3 -->
-    <div class="card" data-task-id="stage1-day3">
-        <h3 class="card-title">🔍 Тема 3: SQL На максималках</h3>
-        <h4 style="color: var(--accent1); font-weight: 600; margin-top: 16px; margin-bottom: 8px;">Суть под капотом</h4>
-        <div class="card-text">
-            <p><strong>Оконные функции и CTE:</strong> Окна избавляют от self-join. Понимание разницы между ROWS и RANGE предел (frame semantics). Рекурсивные CTE (<code>WITH RECURSIVE</code>) для работы с деревьями и иерархиями.</p>
-            <p style="margin-top: 8px;"><strong>Под капотом PostgreSQL:</strong> Поиск узких мест с <code>EXPLAIN ANALYZE</code>. Какие бывают Join: Nested Loop, Hash Join, Merge Join. Влияние буферов (work_mem) на производительность сортировок.</p>
-            <p style="margin-top: 8px;"><strong>Индексы:</strong> B-tree, Hash, GIN. Разница между Index Scan (чтение индекса + поход в кучу Heap) и Index-Only Scan (данные читаются прямо из листьев индекса, если таблица VACUUM-обработана).</p>
-        </div>
+    <!-- Module 3 -->
+    <div class="card theory-block" style="margin-bottom: 48px;">
+        <h3 class="card-title" style="font-size: 22px;">🚀 Модуль 3: ClickHouse: выжимаем OLAP-максимум</h3>
+        <div class="card-text" style="margin-top: 16px;">
+            <p>ClickHouse будет вашим основным OLAP движком в новой дата-платформе. Это колоночная СУБД с принципиально иными механизмами работы в сравнении с PostgreSQL.</p>
+            
+            <h4>1. Движки семейства MergeTree</h4>
+            <p>Данные пишутся пачками (parts), которые сортируются в момент попадания на диск, а затем в фоне процессы ClickHouse сливают (merge) эти пачки вместе. Настоящих операций <code>UPDATE</code> и <code>DELETE</code> здесь нет (они эмулируются тяжелым мутационным запросом ALTER). Для реальной работы с изменяемыми данными созданы <code>CollapsingMergeTree</code> (со столбцом Знака +1/-1) и <code>ReplacingMergeTree</code> (оставляет самую свежую версию по версии времени).</p>
 
-        <h4 style="color: var(--accent2); font-weight: 600; margin-top: 16px; margin-bottom: 8px;">Интерактивная практика (Оконные)</h4>
-        <div class="card-text" style="background: rgba(108, 142, 247, 0.1); padding: 12px; border-radius: 6px; border-left: 3px solid var(--accent2);">
-            <strong>Задача:</strong> Напишите SQL, который для каждого <code>user_id</code> из таблицы <code>purchases (user_id, purchase_date, amount)</code> находит день его первой покупки и сумму, потраченную в этот день (через оконную функцию).
-        </div>
-        <div class="answer-input-area">
-            <label for="answer-stage1-day3">Ваш SQL:</label>
-            <textarea id="answer-stage1-day3" class="answer-textarea" placeholder="WITH ranked AS ( ... ) "></textarea>
-            <button class="check-answer-btn" onclick="checkAnswer(this)">✓ Проверить ответ</button>
-            <div class="check-result"></div>
-        </div>
-        <button class="btn" onclick="showHint(this, 1)">💡 Подсказка</button>
-        <button class="btn btn-secondary" onclick="showSQLSolution(this)">Показать решение</button>
-        <div class="hint-level" style="border-color: var(--accent3); background: rgba(247, 160, 74, 0.08);">
-            Используйте ROW_NUMBER() OVER(PARTITION BY user_id ORDER BY purchase_date ASC). Затем отфильтруйте внешним запросом rn = 1.
-        </div>
-        <div class="solution-code">
-WITH RankedPurchases AS (
-    SELECT 
-        user_id, 
-        purchase_date, 
-        amount,
-        ROW_NUMBER() OVER(PARTITION BY user_id ORDER BY purchase_date ASC) as rn
-    FROM purchases
-)
-SELECT user_id, purchase_date, amount
-FROM RankedPurchases
-WHERE rn = 1;
+            <h4>2. Primary Key vs Order By и Разреженный индекс</h4>
+            <p>В отличие от PostgreSQL, <code>PRIMARY KEY</code> в ClickHouse не гарантирует уникальность. Он выполняет роль разреженного индекса (Sparse Index). Данные на диске нарезаны на гранулы (по умолчанию 8192 строки). Первая строка каждой гранулы попадает в индекс. Когда вы делаете фильтрацию по первичному ключу, база быстро понимает, в каких гранулах поискать данные, а какие пропустить целиком (skip granules).</p>
+
+            <h4>3. Партиционирование и Шардирование</h4>
+            <ul>
+                <li><strong>Партиционирование (PARTITION BY):</strong> Обычно по месяцам или дням. Разделяет данные на независимые куски на одном сервере. Отлично подходит для быстрого удаления старых данных (<code>ALTER TABLE ... DROP PARTITION</code>).</li>
+                <li><strong>Шардирование (Distributed таблица):</strong> Режет данные по хэш-функции от какого-то ключа (например <code>user_id</code>) на разные сервера кластера, балансируя нагрузку и объем дисков.</li>
+            </ul>
+
+            <div class="resource-block">
+                <h4>Где изучать (Источники)</h4>
+                <ul>
+                    <li>📄 <strong>Документация:</strong> <a href="https://clickhouse.com/docs/ru" style="color: var(--accent1); text-decoration: underline;">Официальная документация ClickHouse</a> — она потрясающая.</li>
+                    <li>▶️ <strong>YouTube:</strong> Доклады Алексея Миловидова (создатель CH). Искать: "ClickHouse как это работает", "ClickHouse для начинающих".</li>
+                    <li>📄 <strong>Хабр / Статьи:</strong> "Трюки оптимизации в ClickHouse", "Как проектировать ключи в MergeTree" (много статей от Avito/VK).</li>
+                </ul>
+            </div>
         </div>
     </div>
 
-</div>
+    <!-- QUIZ SECTION -->
+    <div style="border-top: 1px solid rgba(255,255,255,0.1); margin-bottom: 32px;"></div>
+    <h2 style="font-size: 26px; font-weight: 600; margin-bottom: 12px; color: white;">Проверка усвоения теории (Quiz)</h2>
+    <p class="mb-12 theory-block" style="color: var(--text-dim);">Ниже представлены 5 теоретических вопросов, которые часто задают мидлам на секциях Data Architecture / DB Internals. Проверьте себя и нажмите "Показать ответ", чтобы свериться с правильным подходом.</p>
+
+    <!-- Q1 -->
+    <div class="card mb-12" data-task-id="stage1-q1">
+        <h4 style="color: var(--accent2); font-weight: 600; font-size: 18px; margin-bottom: 8px;">Вопрос 1: Парадигмы хранилищ</h4>
+        <div class="card-text" style="font-size: 16px;">
+            В чем техническое ключевое различие парадигм "Schema-on-Write" и "Schema-on-Read", и к каким архитектурам (DWH, Data Lake) они относятся? В чем слабое место Озера Данных?
+        </div>
+        <div class="answer-input-area" style="margin-top: 16px;">
+            <textarea class="answer-textarea" placeholder="Ваш ответ..."></textarea>
+        </div>
+        <button class="btn btn-secondary mt-8" onclick="showSQLSolution(this)">Показать правильный ответ</button>
+        <div class="solution-code theory-block" style="margin-top: 16px;">
+            <p><strong>Schema-on-Write (DWH):</strong> Схема данных (типы колонок, ключи) жестко задается до записи (например, в PostgreSQL/Greenplum). Если данные не подходят под схему, запись падает с ошибкой. Плюс: строгая типизация и быстрое чтение.</p>
+            <p><strong>Schema-on-Read (Data Lake):</strong> Данные сохраняются в сыром виде в распределенном хранилище (JSON на S3/HDFS). Схема накладывается только в момент чтения (через Spark/Presto). Из-за этого данные могут быть мусорными.</p>
+            <p>Слабое место Data Lake — без жесткого управления (Data Governance/Catalog) озеро быстро превращается в "болото данных" (Data Swamp).</p>
+        </div>
+    </div>
+
+    <!-- Q2 -->
+    <div class="card mb-12" data-task-id="stage1-q2">
+        <h4 style="color: var(--accent2); font-weight: 600; font-size: 18px; margin-bottom: 8px;">Вопрос 2: Внутренности PostgreSQL (MVCC)</h4>
+        <div class="card-text" style="font-size: 16px;">
+            Объясните, почему в PostgreSQL таблица может раздуваться в размерах даже если вы не вставляете новые данные, а только обновляете существующие (делать частый UPDATE). Как работает процесс VACUUM?
+        </div>
+        <div class="answer-input-area" style="margin-top: 16px;">
+            <textarea class="answer-textarea" placeholder="Ваш ответ..."></textarea>
+        </div>
+        <button class="btn btn-secondary mt-8" onclick="showSQLSolution(this)">Показать правильный ответ</button>
+        <div class="solution-code theory-block" style="margin-top: 16px;">
+            <p>Из-за механизма MVCC (Multiversion Concurrency Control) операция <code>UPDATE</code> в PostgreSQL физически работает как <code>DELETE</code> старой версии строки (тупла) и <code>INSERT</code> новой версии. Старая строка помечается как "мертвая" (через заголовок xmax), но остается на диске, так как ее могут пока еще читать конкурентные паралелльные транзакции.</p>
+            <p>Фоновый сборщик мусора (<code>VACUUM</code>) проходит по страницам диска и ищет такие "мертвые" туплы, помечая занимаемое ими пространство как свободное (Free Space Map) для последующих вставок. Без работы VACUUM файл таблицы будет бесконечно пухнуть.</p>
+        </div>
+    </div>
+
+    <!-- Q3 -->
+    <div class="card mb-12" data-task-id="stage1-q3">
+        <h4 style="color: var(--accent2); font-weight: 600; font-size: 18px; margin-bottom: 8px;">Вопрос 3: Оптимизация СУБД (Scan Types)</h4>
+        <div class="card-text" style="font-size: 16px;">
+            Вы анализируете план запроса (EXPLAIN) и видите <code>Index Scan</code>, а затем переписываете запрос и видите <code>Index-Only Scan</code>. В чем заключается их архитектурная разница, и почему второй радикально быстрее?
+        </div>
+        <div class="answer-input-area" style="margin-top: 16px;">
+            <textarea class="answer-textarea" placeholder="Ваш ответ..."></textarea>
+        </div>
+        <button class="btn btn-secondary mt-8" onclick="showSQLSolution(this)">Показать правильный ответ</button>
+        <div class="solution-code theory-block" style="margin-top: 16px;">
+            <p><strong>Index Scan:</strong> БД находит нужный указатель(типа RowID) в индексе (B-Tree), но требуемых колонок для вывода (SELECT cols) в индексе нет. Поэтому БД делает дополнительное дисковое чтение страницы из табличной "кучи" (Heap), чтобы достать недостающие колонки.</p>
+            <p><strong>Index-Only Scan:</strong> Запрос составлен так, что все запрашиваемые колонки уже присутствуют прямо в самом индексе (как ключ или через INCLUDE). БД возвращает результат из кэша дерева индекса, вообще не обращаясь к куче (при условии что Visibility Map позволяет), что в разы снижает медленный дисковый I/O.</p>
+        </div>
+    </div>
+
+    <!-- Q4 -->
+    <div class="card mb-12" data-task-id="stage1-q4">
+        <h4 style="color: var(--accent2); font-weight: 600; font-size: 18px; margin-bottom: 8px;">Вопрос 4: Под капотом ClickHouse</h4>
+        <div class="card-text" style="font-size: 16px;">
+            В ClickHouse (MergeTree) <code>Primary Key</code> не контролирует уникальность строк (как это принято в классических БД). Для чего тогда он нужен, что такое "гранулы" и как он помогает ускорить SELECT-запросы?
+        </div>
+        <div class="answer-input-area" style="margin-top: 16px;">
+            <textarea class="answer-textarea" placeholder="Ваш ответ..."></textarea>
+        </div>
+        <button class="btn btn-secondary mt-8" onclick="showSQLSolution(this)">Показать правильный ответ</button>
+        <div class="solution-code theory-block" style="margin-top: 16px;">
+            <p>В движке MergeTree данные лежат физически отсортированно (по столбцам из <code>ORDER BY</code>) и нарезаны на блоки, называемые гранулами (по умолчанию 8192 строки).</p>
+            <p><code>Primary Key</code> формирует "разреженный индекс" (sparse index) — он хранит значение ключа не для физически каждой строки (как B-tree), а только для первой(стартовой) строки каждой гранулы. Когда приходит SELECT с WHERE-фильтром, ClickHouse загружает в оперативку первичный ключ с диска, применяет бинарный поиск и за доли миллисекунд выбрасывает гранулы вне диапазона. Грузятся только нужные куски, что колоссально экономит время.</p>
+        </div>
+    </div>
+
+    <!-- Q5 -->
+    <div class="card mb-12" data-task-id="stage1-q5">
+        <h4 style="color: var(--accent2); font-weight: 600; font-size: 18px; margin-bottom: 8px;">Вопрос 5: SQL Оконные функции</h4>
+        <div class="card-text" style="font-size: 16px;">
+            Вы пишете запрос <code>SUM(amount) OVER (PARTITION BY user_id ORDER BY purchase_date)</code>. Каким является фрейм (окно строк) по умолчанию, и почему наличие полных дублей <code>purchase_date</code> может привести к неожиданному результату или сильному повешению памяти (O(n²))?
+        </div>
+        <div class="answer-input-area" style="margin-top: 16px;">
+            <textarea class="answer-textarea" placeholder="Ваш ответ..."></textarea>
+        </div>
+        <button class="btn btn-secondary mt-8" onclick="showSQLSolution(this)">Показать правильный ответ</button>
+        <div class="solution-code theory-block" style="margin-top: 16px;">
+            <p>По умолчанию при указании <code>ORDER BY</code> в PostgreSQL граница фрейма выставляется неявно в: <code>RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW</code>.</p>
+            <p><strong>RANGE</strong> обрабатывает не физические скачки, а логические значения ключа сортировки. Это значит что он стягивает <em>все строки с одинаковым значением сортировки (дубли дат)</em> в один блок. Если у одного юзера 10 000 покупок в одну и ту же дату без времени (микросекунд), база будет вынуждена держать их все в памяти для пересчета агрегата, что ведет к деградации до O(n²).</p>
+            <p>Чтобы считать агрегат строго строка за строкой за O(N), нужно явно сказать БД считать по физическим строкам: <code>ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW</code>.</p>
+        </div>
+    </div>
+
 </div>
