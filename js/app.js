@@ -159,23 +159,29 @@
         }
 
         // ===== НАВИГАЦИЯ ПО ВКЛАДКАМ =====
-        function switchTab(tabId) {
-            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-            const page = document.getElementById(tabId);
-            if (page) {
-                page.classList.add('active');
-            } else {
-                console.warn(`Вкладка не найдена: ${tabId}`);
-                // Fallback на главную
-                const homePage = document.getElementById('home');
-                if (homePage) homePage.classList.add('active');
+        async function switchTab(tabId) {
+            const container = document.getElementById('page-container');
+            if (!container) return;
+            
+            try {
+                const response = await fetch(`pages/${tabId}.html`);
+                if (!response.ok) throw new Error('Network response was not ok');
+                const html = await response.text();
+                container.innerHTML = html;
+                
+                document.querySelectorAll('.nav-item').forEach(item => {
+                    item.classList.toggle('active', item.getAttribute('data-tab') === tabId);
+                });
+                
+                if (typeof setupAnswerField !== 'undefined') {
+                    document.querySelectorAll('.answer-textarea').forEach(setupAnswerField);
+                }
+                saveProgress();
+                
+            } catch (error) {
+                console.error('Error loading page:', error);
+                container.innerHTML = `<h2>Ошибка загрузки страницы.</h2><p>Убедитесь, что страница загружена на хостинг с сохранением папок <code>pages/</code>, <code>css/</code>, <code>js/</code>.</p><p><small>${error.message}</small></p>`;
             }
-
-            document.querySelectorAll('.nav-item').forEach(item => {
-                item.classList.toggle('active', item.getAttribute('data-tab') === tabId);
-            });
-
-            saveProgress();
         }
 
         // ===== АККОРДЕОН =====
@@ -554,6 +560,9 @@
                 document.querySelectorAll('[data-task-id]').forEach(container => {
                     setupAnswerField(container);
                 });
+                
+                const currTab = localStorage.getItem('streamflow_current_tab') || 'home';
+                switchTab(currTab);
             } catch (error) {
                 console.error('Ошибка при инициализации:', error);
                 showErrorMessage('Ошибка при загрузке данных. Некоторые функции могут работать неправильно.');
