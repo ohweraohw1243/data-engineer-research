@@ -164,7 +164,14 @@
             if (!container) return;
             
             try {
-                const response = await fetch(`pages/${tabId}.html`);
+                let basePath = '';
+                if (window.location.hostname.includes('github.io')) {
+                    const parts = window.location.pathname.split('/');
+                    if (parts.length > 1 && parts[1] !== '') {
+                        basePath = '/' + parts[1] + '/';
+                    }
+                }
+                const response = await fetch(`${basePath}pages/${tabId}.html`);
                 if (!response.ok) throw new Error('Network response was not ok');
                 const html = await response.text();
                 container.innerHTML = html;
