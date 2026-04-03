@@ -5,59 +5,45 @@
                 </div>
 
                 <div class="space-y-6">
-                    <div class="card" data-task-id="task-window-1">
-                        <h3 class="card-title">📌 Кейс 1: Топ-3 по просмотрам в каждой категории</h3>
-                        <div class="card-text" style="margin-bottom: 12px;">
-                            <strong>Задача:</strong> Найти топ-3 стримов в каждой категории.<br>
-                            <strong>Таблица:</strong> streams (id, name, category, views)
-                        </div>
-                        
-                        <!-- Поле для ввода ответа -->
-                        <div class="answer-input-area">
-                            <label for="answer-task-window-1">Напишите ваше SQL решение:</label>
-                            <textarea id="answer-task-window-1" class="answer-textarea" placeholder="SELECT ...&#10;FROM ...&#10;WHERE ..."></textarea>
-                            <button class="check-answer-btn" onclick="checkAnswer(this)">✓ Проверить ответ</button>
-                            <div class="check-result"></div>
-                        </div>
+                    <div class="task-box" data-task-id="task-window-1" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid var(--accent1);">
+                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">📌 Кейс 1: Топ-3 по просмотрам в каждой категории</h4>
+                <p style="margin-bottom: 16px;"><strong>Задача:</strong> Найти топ-3 стримов в каждой категории.<br>
+                <strong>Таблица:</strong> <code>streams (id, name, category, views)</code></p>
 
-                        <button class="btn" onclick="showHint(this, 1)">💡 Подсказка 1</button>
-                        <button class="btn btn-secondary" onclick="showSQLSolution(this)">Показать решение</button>
-                        <div class="hint-level" style="border-color: var(--accent3); background: rgba(247, 160, 74, 0.08);">
-                            <strong style="color: var(--accent3);">Подсказка 1:</strong> Используйте RANK() OVER (PARTITION BY category ORDER BY views DESC)
-                        </div>
-                        <div class="solution-code">
-WITH ranked AS (
+                <div class="answer-input-area">
+                    <label>Ваш SQL:</label>
+                    <textarea rows="8" class="answer-textarea" placeholder="SELECT ..."></textarea>
+                    <button class="check-answer-btn" onclick="checkAnswer(this)">Проверить мое решение</button>
+                    <div class="check-result"></div>
+                </div>
+
+                <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
+                    <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
+<pre style="background:#1e293b; padding:12px; border-radius:6px; margin-top: 12px; margin-bottom: 0; color:#e2e8f0; overflow-x: auto;"><code>WITH ranked AS (
   SELECT 
     *,
     RANK() OVER (PARTITION BY category ORDER BY views DESC) as rank
   FROM streams
 )
-SELECT * FROM ranked WHERE rank <= 3;
-                        </div>
-                    </div>
+SELECT * FROM ranked WHERE rank <= 3;</code></pre>
+                </details>
+            </div>
 
-                    <div class="card" data-task-id="task-window-2">
-                        <h3 class="card-title">📌 Кейс 2: Скользящее среднее за 7 дней</h3>
-                        <div class="card-text" style="margin-bottom: 12px;">
-                            <strong>Задача:</strong> Рассчитать 7-дневное скользящее среднее.<br>
-                            <strong>Таблица:</strong> daily_stats (date, views)
-                        </div>
+            <div class="task-box" data-task-id="task-window-2" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid var(--accent1);">
+                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">📌 Кейс 2: Скользящее среднее за 7 дней</h4>
+                <p style="margin-bottom: 16px;"><strong>Задача:</strong> Рассчитать 7-дневное скользящее среднее.<br>
+                <strong>Таблица:</strong> <code>daily_stats (date, views)</code></p>
 
-                        <!-- Поле для ввода ответа -->
-                        <div class="answer-input-area">
-                            <label for="answer-task-window-2">Напишите ваше SQL решение:</label>
-                            <textarea id="answer-task-window-2" class="answer-textarea" placeholder="SELECT ...&#10;FROM ..."></textarea>
-                            <button class="check-answer-btn" onclick="checkAnswer(this)">✓ Проверить ответ</button>
-                            <div class="check-result"></div>
-                        </div>
+                <div class="answer-input-area">
+                    <label>Ваш SQL:</label>
+                    <textarea rows="8" class="answer-textarea" placeholder="SELECT ..."></textarea>
+                    <button class="check-answer-btn" onclick="checkAnswer(this)">Проверить мое решение</button>
+                    <div class="check-result"></div>
+                </div>
 
-                        <button class="btn" onclick="showHint(this, 1)">💡 Подсказка</button>
-                        <button class="btn btn-secondary" onclick="showSQLSolution(this)">Показать решение</button>
-                        <div class="hint-level" style="border-color: var(--accent3); background: rgba(247, 160, 74, 0.08);">
-                            <strong style="color: var(--accent3);">Подсказка:</strong> AVG() OVER (ORDER BY date ROWS BETWEEN 6 PRECEDING AND CURRENT ROW)
-                        </div>
-                        <div class="solution-code">
-SELECT
+                <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
+                    <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
+<pre style="background:#1e293b; padding:12px; border-radius:6px; margin-top: 12px; margin-bottom: 0; color:#e2e8f0; overflow-x: auto;"><code>SELECT
   date,
   views,
   AVG(views) OVER (
@@ -65,36 +51,33 @@ SELECT
     ROWS BETWEEN 6 PRECEDING AND CURRENT ROW
   ) as moving_avg_7d
 FROM daily_stats
-ORDER BY date;
-                        </div>
-                    </div>
+ORDER BY date;</code></pre>
+                </details>
+            </div>
 
-                    <div class="card" data-task-id="task-window-3">
-                        <h3 class="card-title">📌 Кейс 3: Running total (кумулятивная сумма)</h3>
-                        <div class="card-text" style="margin-bottom: 12px;">
-                            <strong>Задача:</strong> Рассчитать running total доходов.<br>
-                            <strong>Таблица:</strong> revenue (date, amount)
-                        </div>
+            <div class="task-box" data-task-id="task-window-3" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid var(--accent1);">
+                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">📌 Кейс 3: Running total (кумулятивная сумма)</h4>
+                <p style="margin-bottom: 16px;"><strong>Задача:</strong> Рассчитать running total доходов.<br>
+                <strong>Таблица:</strong> <code>revenue (date, amount)</code></p>
 
-                        <!-- Поле для ввода ответа -->
-                        <div class="answer-input-area">
-                            <label for="answer-task-window-3">Напишите ваше SQL решение:</label>
-                            <textarea id="answer-task-window-3" class="answer-textarea" placeholder="SELECT ...&#10;FROM ..."></textarea>
-                            <button class="check-answer-btn" onclick="checkAnswer(this)">✓ Проверить ответ</button>
-                            <div class="check-result"></div>
-                        </div>
+                <div class="answer-input-area">
+                    <label>Ваш SQL:</label>
+                    <textarea rows="8" class="answer-textarea" placeholder="SELECT ..."></textarea>
+                    <button class="check-answer-btn" onclick="checkAnswer(this)">Проверить мое решение</button>
+                    <div class="check-result"></div>
+                </div>
 
-                        <button class="btn btn-secondary" onclick="showSQLSolution(this)">Показать решение</button>
-                        <div class="solution-code">
-SELECT
+                <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
+                    <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
+<pre style="background:#1e293b; padding:12px; border-radius:6px; margin-top: 12px; margin-bottom: 0; color:#e2e8f0; overflow-x: auto;"><code>SELECT
   date,
   amount,
   SUM(amount) OVER (ORDER BY date) as running_total
 FROM revenue
-ORDER BY date;
-                        </div>
-                    </div>
-                
+ORDER BY date;</code></pre>
+                </details>
+            </div>
+        </div>
 
 <h2 style="font-size: 26px; font-weight: 600; margin-top: 48px; margin-bottom: 24px; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px;">Практические Задачи (Этап 1)</h2>
         <p style="margin-bottom: 20px; color:#cbd5e1;">Задачи ниже собраны строго по теории Этапа 1: Docker, SQL (GROUP BY/JOIN/оконные функции) и архитектура DWH (STG/DDS + Star Schema).</p>
@@ -110,20 +93,6 @@ ORDER BY date;
                     <button class="check-answer-btn" onclick="checkAnswer(this)">Проверить мое решение</button>
                     <div class="check-result"></div>
                 </div>
-
-                <pre class="solution-code">version: "3.8"
-services:
-  postgres:
-    image: postgres:15-alpine
-    environment:
-      POSTGRES_DB: dwh_db
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: 1234
-    ports:
-      - "5432:5432"
-
-Image - это неизменяемый шаблон.
-Container - это запущенный экземпляр image в изоляции.</pre>
 
                 <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
                     <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
@@ -154,16 +123,6 @@ Container - это запущенный экземпляр image.</code></pre>
                     <div class="check-result"></div>
                 </div>
 
-                <pre class="solution-code">SELECT
-  u.country,
-  COUNT(*) AS orders_cnt,
-  SUM(o.amount) AS total_amount
-FROM orders o
-JOIN users u ON u.id = o.user_id
-GROUP BY u.country
-HAVING SUM(o.amount) &gt; 5000
-ORDER BY total_amount DESC;</pre>
-
                 <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
                     <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
 <pre style="background:#1e293b; padding:12px; border-radius:6px; margin-top: 12px; margin-bottom: 0; color:#e2e8f0; overflow-x: auto;"><code>SELECT
@@ -188,19 +147,6 @@ ORDER BY total_amount DESC;</code></pre>
                     <button class="check-answer-btn" onclick="checkAnswer(this)">Проверить мое решение</button>
                     <div class="check-result"></div>
                 </div>
-
-                <pre class="solution-code">WITH ranked AS (
-  SELECT
-    o.*,
-    ROW_NUMBER() OVER (
-      PARTITION BY o.user_id
-      ORDER BY o.created_at DESC
-    ) AS rn
-  FROM orders o
-)
-SELECT id, user_id, amount, created_at
-FROM ranked
-WHERE rn = 1;</pre>
 
                 <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
                     <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
@@ -230,17 +176,6 @@ WHERE rn = 1;</code></pre>
                     <div class="check-result"></div>
                 </div>
 
-                <pre class="solution-code">STG:
-- сырой слой, данные из API без бизнес-трансформаций.
-
-DDS:
-- fact: fct_orders(order_id, user_id, product_id, amount, order_dt)
-- dim_user(user_id, country)
-- dim_product(product_id, category_name)
-
-В факт кладем метрики и внешние ключи.
-В измерения кладем описательные атрибуты (кто/что/где).</pre>
-
                 <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
                     <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
                     <p style="margin-top: 8px; font-size: 14px; color: #cbd5e1; margin-bottom: 0;">
@@ -266,15 +201,6 @@ DDS:
                     <div class="check-result"></div>
                 </div>
 
-                <pre class="solution-code">import requests
-
-url = "https://api.coincap.io/v2/assets/bitcoin"
-response = requests.get(url)
-data = response.json()
-
-price = data["data"]["priceUsd"]
-print(f"Текущая цена Bitcoin: {price} $")</pre>
-
                 <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
                     <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
 <pre style="background:#1e293b; padding:12px; border-radius:6px; margin-top: 12px; margin-bottom: 0; color:#e2e8f0; overflow-x: auto;"><code>import requests
@@ -298,26 +224,6 @@ print(f"Текущая цена Bitcoin: {price} $")</code></pre>
                     <button class="check-answer-btn" onclick="checkAnswer(this)">Проверить мое решение</button>
                     <div class="check-result"></div>
                 </div>
-
-                <pre class="solution-code">import psycopg2
-
-users_data = [(1, 'Alice'), (2, 'Bob')]
-
-conn = psycopg2.connect(
-    dbname="my_dwh",
-    user="dev",
-    password="123",
-    host="127.0.0.1",
-    port="5432"
-)
-cursor = conn.cursor()
-
-insert_query = "INSERT INTO dim_users (id, username) VALUES (%s, %s);"
-cursor.executemany(insert_query, users_data)
-
-conn.commit()
-cursor.close()
-conn.close()</pre>
 
                 <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
                     <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
@@ -353,17 +259,6 @@ conn.close()</code></pre>
                     <button class="check-answer-btn" onclick="checkAnswer(this)">Проверить мое решение</button>
                     <div class="check-result"></div>
                 </div>
-
-                <pre class="solution-code">FROM python:3.10-slim
-
-WORKDIR /app
-
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-COPY etl.py .
-
-CMD ["python", "etl.py"]</pre>
 
                 <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
                     <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
