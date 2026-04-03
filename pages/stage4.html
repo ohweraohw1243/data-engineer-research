@@ -1,23 +1,71 @@
 <div class="page-content">
-<div class="page-header">
-    <h1 class="page-title">Этап 4: <span>Streaming, Kafka & Data Quality</span></h1>
-    <p class="page-desc">Высоконагруженная передача данных. Топики, Партиции. Гарантии доставки, Data Contracts. (Июнь)</p>
-</div>
+    <div class="page-header">
+        <h1 class="page-title">Этап 4: <span>Streaming, Kafka & Data Quality</span></h1>
+        <p class="page-desc">Высоконагруженная передача данных и контроль их качества. Архитектура топиков, Data Lineage и мониторинг. Все практические задания перенесены в раздел "Лайв-кодинг".</p>
+    </div>
 
-<div class="card-grid">
-    <div class="card">
-        <h3 class="card-title">🌊 Streaming, Kafka & Data Quality (В разработке)</h3>
+    <h2 style="font-size: 26px; font-weight: 600; margin-bottom: 24px; margin-top: 32px; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px;">Теоретические модули</h2>
+
+    <!-- Модуль 1 -->
+    <div class="card theory-block" style="margin-bottom: 32px;">
+        <h3 class="card-title">🌊 Модуль 1: Архитектура Apache Kafka</h3>
         <div class="card-text" style="margin-top: 16px;">
-            <p>Теория и задания для этого этапа в данный момент структурируются куратором. Загляните сюда чуть позже! (Следите за дорожной картой).</p>
-            <p style="margin-top: 8px; color: var(--text-dim);"><em>Этот раздел разблокируется ближе к началу соответствующего месяца.</em></p>
+            <p><strong>Apache Kafka</strong> — это распределенный брокер сообщений. Он используется для потоковой (Streaming) передачи данных в реальном времени.</p>
+            <ul>
+                <li><strong>Топики и Партиции:</strong> Данные пишутся в Topics (как таблицы), которые делятся на Partitions для параллельной записи и чтения.</li>
+                <li><strong>Producer & Consumer:</strong> Продюсеры отправляют данные, а Консюмеры (объединенные в Consumer Groups) читают их. Kafka просто хранит лог событий (Append-only log).</li>
+                <li><strong>Гарантии доставки:</strong> At-most-once (можем потерять), At-least-once (базовый стандарт, могут быть дубли), Exactly-once (идеально, но сложно в настройке).</li>
+            </ul>
 
             <div class="resource-block" style="margin-top: 16px; background: rgba(255,255,255,0.05); padding: 16px; border-radius: 8px;">
                 <h4 style="margin-top: 0">Что посмотреть/почитать:</h4>
                 <ul>
-                    <li>⏳ <em>Материалы готовятся к публикации... (Ожидайте лекции по Apache Kafka)</em></li>
+                    <li>📖 <strong>Книга:</strong> "Kafka: The Definitive Guide" (Gwen Shapira, Todd Palino).</li>
+                    <li>▶️ <strong>YouTube:</strong> Apache Kafka Crash Course (архитектура, Zookeeper / KRaft).</li>
+                    <li>📝 <strong>Статья:</strong> Как работает Consumer Group и ребалансировка в Kafka.</li>
                 </ul>
             </div>
         </div>
     </div>
-</div>
+
+    <!-- Модуль 2 -->
+    <div class="card theory-block" style="margin-bottom: 32px;">
+        <h3 class="card-title">🧬 Модуль 2: Data Governance и Data Lineage</h3>
+        <div class="card-text" style="margin-top: 16px;">
+            <p>Когда хранилище разрастается до сотен таблиц, нужно понимать, откуда берутся данные и кто ими владеет.</p>
+            <ul>
+                <li><strong>Data Catalog:</strong> Единый реестр (словарь) всех таблиц, метрик и источников в компании (например, DataHub, Amundsen, OpenMetadata).</li>
+                <li><strong>Data Lineage:</strong> Визуальный граф "происхождения" данных. Показывает, из какой сырой таблицы (STG) собралась витрина (DDS) и в каком BI-дашборде она используется. Помогает при расследовании инцидентов.</li>
+            </ul>
+
+            <div class="resource-block" style="margin-top: 16px; background: rgba(255,255,255,0.05); padding: 16px; border-radius: 8px;">
+                <h4 style="margin-top: 0">Что посмотреть/почитать:</h4>
+                <ul>
+                    <li>▶️ <strong>YouTube:</strong> Что такое Data Governance простыми словами.</li>
+                    <li>📝 <strong>Статья:</strong> Внедрение DataHub или OpenMetadata (как работает Lineage).</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модуль 3 -->
+    <div class="card theory-block" style="margin-bottom: 32px;">
+        <h3 class="card-title">🛡️ Модуль 3: Data Quality (Качество данных)</h3>
+        <div class="card-text" style="margin-top: 16px;">
+            <p>Хороший пайплайн не просто перекладывает данные, но и проверяет их на аномалии.</p>
+            <ul>
+                <li><strong>Data Contracts:</strong> Соглашение (контракт) между поставщиком данных (бэкенд) и потребителем (DWH). Если бэкенд меняет тип колонки — пайплайн падает еще на этапе CI/CD.</li>
+                <li><strong>Проверки (DQ Checks):</strong> Проверка на NULL, уникальность (Primary Key), диапазоны значений (например, возраст > 0). Инструменты: Great Expectations, Soda.</li>
+                <li><strong>Мониторинг/Алертинг:</strong> Если в таблице стало на 50% меньше строк, чем вчера — отправляем алерт в Slack/Telegram.</li>
+            </ul>
+
+            <div class="resource-block" style="margin-top: 16px; background: rgba(255,255,255,0.05); padding: 16px; border-radius: 8px;">
+                <h4 style="margin-top: 0">Что посмотреть/почитать:</h4>
+                <ul>
+                    <li>▶️ <strong>YouTube:</strong> Введение в Data Contracts (Chad Sanderson).</li>
+                    <li>💻 <strong>Инструментарий:</strong> Документация Great Expectations (как писать базовые тесты для данных).</li>
+                </ul>
+            </div>
+        </div>
+    </div>
 </div>
