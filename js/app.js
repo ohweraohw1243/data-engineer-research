@@ -196,13 +196,72 @@
 
         // ===== АККОРДЕОН =====
         function toggleAccordion(header) {
-            if (header.classList) {
-                header.classList.toggle('active');
-                if (header.nextElementSibling) {
-                    header.nextElementSibling.classList.toggle('active');
+            const item = header.parentElement;
+            if (!item) return;
+            const content = item.querySelector('.accordion-content') || header.nextElementSibling;
+            const toggle = header.querySelector('.accordion-toggle');
+            if (!content) return;
+            
+            const isVisible = content.style.display === 'block' || content.classList.contains('active');
+
+            if (!isVisible) {
+                content.style.display = 'block';
+                content.classList.add('active');
+                if (header) header.classList.add('active');
+                if (toggle) {
+                    toggle.classList.add('active');
+                    toggle.style.transform = 'rotate(180deg)';
+                    if (toggle.innerText.includes('ответ')) {
+                        toggle.innerText = 'Скрыть ответ ▲';
+                    }
                 }
-                const toggle = header.querySelector('.accordion-toggle');
-                if (toggle) toggle.classList.toggle('active');
+            } else {
+                content.style.display = 'none';
+                content.classList.remove('active');
+                if (header) header.classList.remove('active');
+                if (toggle) {
+                    toggle.classList.remove('active');
+                    toggle.style.transform = 'rotate(0deg)';
+                    if (toggle.innerText.includes('ответ')) {
+                        toggle.innerText = 'Показать ответ ▼';
+                    }
+                }
+            }
+        }
+
+        function toggleAll(show) {
+            document.querySelectorAll('.accordion-content').forEach(c => {
+                c.style.display = show ? 'block' : 'none';
+                if (show) c.classList.add('active');
+                else c.classList.remove('active');
+            });
+            document.querySelectorAll('.accordion-header').forEach(h => {
+                if (show) h.classList.add('active');
+                else h.classList.remove('active');
+            });
+            document.querySelectorAll('.accordion-toggle').forEach(t => {
+                if (show) t.classList.add('active');
+                else t.classList.remove('active');
+                t.style.transform = show ? 'rotate(180deg)' : 'rotate(0deg)';
+                if (t.innerText.includes('ответ')) {
+                    t.innerText = show ? 'Скрыть ответ ▲' : 'Показать ответ ▼';
+                }
+            });
+        }
+
+        function randomQuestion() {
+            const items = document.querySelectorAll('.accordion-item');
+            if (items.length === 0) return;
+            
+            toggleAll(false);
+            
+            const randomIndex = Math.floor(Math.random() * items.length);
+            const selected = items[randomIndex];
+            const header = selected.querySelector('.accordion-header');
+            
+            if (header) {
+                header.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                setTimeout(() => { toggleAccordion(header); }, 300);
             }
         }
 
