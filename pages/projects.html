@@ -49,19 +49,53 @@
     </div>
 
     <!-- Этап 3 -->
-    <div class="card project-card">
-        <h3>⚡ Этап 3: Распределенные вычисления (PySpark)</h3>
+    <div class="card project-card" style="border-left-color: #eab308;">
+        <h3 style="color: #eab308;">⚡ Этап 3: Распределенные вычисления (PySpark)</h3>
         <div class="repo-name">📂 Папка в репо: /stage3_spark_processing</div>
-        <p class="card-text"><strong>Бизнес-задача:</strong> Очистить сырые данные и загрузить их в витрины (DDS слой).</p>
+        <p class="card-text"><strong>Бизнес-задача:</strong> Очистить сырые данные и загрузить их в витрины (DDS слой), используя движок для Big Data.</p>
         <h4>План действий:</h4>
         <ul class="card-text">
             <li>Добавить в <code>docker-compose.yml</code> контейнер Jupyter с PySpark.</li>
-            <li>В Jupyter Notebook вычитать сырые таблицы из STG.</li>
-            <li>Очистить данные, отформатировать даты, сделать джоины со справочниками.</li>
-            <li>Записать готовый DataFrame обратно в PostgreSQL (схема <code>dwh</code>).</li>
+            <li>В Jupyter Notebook вычитать сырые таблицы из STG (PostgreSQL) в Spark DataFrame.</li>
+            <li>Очистить данные, отформатировать даты, сделать распределенные джоины со справочниками (с использованием Broadcast Hash Join для маленьких таблиц).</li>
+            <li>Записать готовый агрегированный DataFrame обратно в PostgreSQL (схема <code>dwh</code>).</li>
         </ul>
         <div class="stack-badges">
-            <span class="badge">PySpark</span> <span class="badge">Jupyter</span> <span class="badge">Data Cleaning</span> <span class="badge">Joins</span> <span class="badge">JDBC</span>
+            <span class="badge" style="background:#a16207;">PySpark</span> <span class="badge" style="background:#a16207;">Jupyter</span> <span class="badge" style="background:#a16207;">Data Cleaning</span> <span class="badge" style="background:#a16207;">Joins</span> <span class="badge" style="background:#a16207;">JDBC</span>
         </div>
     </div>
+
+    <!-- Этап 4 -->
+    <div class="card project-card" style="border-left-color: #a855f7;">
+        <h3 style="color: #a855f7;">🌊 Этап 4: Streaming, Kafka & Оркестрация (Airflow)</h3>
+        <div class="repo-name">📂 Папка в репо: /stage4_streaming_airflow</div>
+        <p class="card-text"><strong>Бизнес-задача:</strong> Перейти от ручного запуска скриптов к автоматизации пайплайнов по расписанию и добавить стриминг транзакций в реальном времени с контролем Data Quality.</p>
+        <h4>План действий:</h4>
+        <ul class="card-text">
+            <li><strong>Брокер:</strong> Добавить кластер Kafka + Zookeeper (или KRaft) в <code>docker-compose.yml</code>. Инициализировать топики.</li>
+            <li><strong>Producer & Consumer:</strong> Написать Python Producer для генерации потока покупок и Consumer, который пишет батчами в БД. Интегрировать проверки Great Expectations (DQ-тесты).</li>
+            <li><strong>Оркестрация:</strong> Поднять Apache Airflow. Написать DAG, который каждый день в 00:00 запускает Batch PySpark-джобу (из Этапа 3) с ретраями при падении.</li>
+        </ul>
+        <div class="stack-badges">
+            <span class="badge" style="background:#7e22ce;">Apache Kafka</span> <span class="badge" style="background:#7e22ce;">Apache Airflow</span> <span class="badge" style="background:#7e22ce;">Great Expectations</span> <span class="badge" style="background:#7e22ce;">Docker DAGs</span>
+        </div>
+    </div>
+
+    <!-- Этап 5 -->
+    <div class="card project-card" style="border-left-color: #ef4444;">
+        <h3 style="color: #ef4444;">🏗️ Этап 5: Мультитенантный Data Lakehouse (S3 + BI)</h3>
+        <div class="repo-name">📂 Папка в репо: /stage5_datalake_bi</div>
+        <p class="card-text"><strong>Бизнес-задача:</strong> Системе перестало хватать PostgreSQL. Внедряем архитектуру Lakehouse. Настраиваем S3 (MinIO) как наше Data Lake и подключаем BI-дашборды для аналитиков.</p>
+        <h4>План действий:</h4>
+        <ul class="card-text">
+            <li><strong>Озеро:</strong> Добавить локальный S3-совместимый <strong>MinIO</strong>. Настроить bucket'ы <code>bronze</code>, <code>silver</code>, <code>gold</code>.</li>
+            <li><strong>Форматы:</strong> Переписать Spark джоб, чтобы он выгружал витрины в MinIO в формате <strong>Parquet</strong> или <strong>Apache Iceberg</strong> (партиционирование по датам/годам).</li>
+            <li><strong>Деливерика:</strong> Развернуть BI-инструмент (Apache Superset или Metabase). Подключить его к нашим данным и собрать финальный интерактивный Дашборд продаж.</li>
+            <li><strong>Финал:</strong> Запустить `docker-compose up`, который поднимет всё: от источника -> Kafka -> Airflow -> Spark -> S3 -> BI. Энд-ту-энд готов!</li>
+        </ul>
+        <div class="stack-badges">
+            <span class="badge" style="background:#b91c1c;">MinIO (S3)</span> <span class="badge" style="background:#b91c1c;">Apache Iceberg</span> <span class="badge" style="background:#b91c1c;">Parquet</span> <span class="badge" style="background:#b91c1c;">Superset / Metabase</span> <span class="badge" style="background:#b91c1c;">System Design</span>
+        </div>
+    </div>
+
 </div>
