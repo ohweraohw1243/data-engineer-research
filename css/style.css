@@ -52,7 +52,6 @@
             width: 240px;
             background: var(--bg2);
             border-right: 1px solid var(--border);
-            overflow-y: auto;
             position: fixed;
             left: 0;
             top: 0;
@@ -69,7 +68,6 @@
             flex: 1;
             margin-top: 10px;
             margin-bottom: 20px;
-            justify-content: stretch;
             height: 100%;
         }
 
