@@ -1,0 +1,150 @@
+<div class="page-content">
+    <div class="page-header">
+        <h1 class="page-title">Практика <span>и Проекты для GitHub</span></h1>
+        <p class="page-desc" style="font-size: 16px; line-height: 1.6; color: var(--text-dim);">
+            Интересные и реалистичные проекты для каждого этапа. Создавайте под каждый проект отдельный репозиторий на GitHub. 
+            Это покажет будущему работодателю в SMT/Тинькофф/Яндексе, что вы не просто читали теорию, а реально работали 
+            (hands-on опыт), писали код, оптимизировали скрипты и строили архитектуру Data Lakehouse.
+        </p>
+    </div>
+
+    <style>
+        .project-card { border-left: 5px solid var(--accent2); background: rgba(56, 178, 172, 0.05); padding: 24px; margin-bottom: 32px; border-radius: 8px; }
+        .project-card h3 { font-size: 22px; font-weight: 600; color: var(--accent2); margin-top: 0; margin-bottom: 16px; display: flex; align-items: center; gap: 12px; }
+        .project-card .repo-name { font-family: monospace; background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 4px; font-size: 14px; color: #e2e8f0; margin-bottom: 16px; display: inline-block; }
+        .project-card h4 { font-size: 18px; color: var(--accent1); margin-top: 16px; margin-bottom: 12px; }
+        .project-card p { font-size: 16px; line-height: 1.7; color: #e2e8f0; margin-bottom: 12px; }
+        .project-card ul { font-size: 16px; line-height: 1.7; color: #cbd5e0; margin-bottom: 16px; padding-left: 24px; list-style-type: disc; }
+        .project-card .stack-badges { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+        .project-card .badge { background: rgba(255,255,255,0.1); color: #fff; padding: 4px 10px; border-radius: 12px; font-size: 13px; font-weight: 500; }
+        .project-card .bonus-task { background: rgba(159, 122, 234, 0.15); border-left: 3px solid #9f7aea; padding: 12px 16px; margin-top: 16px; border-radius: 4px; }
+        .project-card .bonus-task h5 { color: #d6bcfa; margin-top: 0; margin-bottom: 8px; font-size: 16px; }
+    </style>
+
+    <!-- Проект 1 -->
+    <div class="card project-card">
+        <h3>🐘 Этап 1: Перевод сырых логов в витрины (DWH)</h3>
+        <div class="repo-name">📂 GitHub Repo: e-commerce-dwh-modeling</div>
+        <p><strong>Бизнес-задача:</strong> У вас есть выгрузки "грязных" логов покупок интернет-магазина (в CSV) и справочники клиентов. Нужно построить хранилище в PostgreSQL по методологии Кимбалла (Star Schema) и написать SQL-скрипты миграции (ETL).</p>
+        
+        <h4>План действий:</h4>
+        <ul>
+            <li>Сгенерировать фейковые данные (мокап) с помощью Python (Faker) или скачать датасет с Kaggle. Сохранить как <code>raw_events.csv</code>.</li>
+            <li>Поднять локально Docker-контейнер с <strong>PostgreSQL</strong>.</li>
+            <li>Написать DDL-скрипты для слоя STG (Stage), где данные лежат "как есть" (типы text/varchar).</li>
+            <li>Спроектировать DDS слой (Dimensional Data Store): таблицу фактов <code>fact_purchases</code> и измерения <code>dim_users</code>, <code>dim_products</code>. Реализовать <strong>SCD Type 2</strong> (сохранение историчности изменений у клиентов).</li>
+            <li>Написать SQL(PL/pgSQL) скрипты/функции или просто `.sql` файлы, которые делают `INSERT INTO ... SELECT` для переливки данных STG -> DDS.</li>
+        </ul>
+        
+        <div class="bonus-task">
+            <h5>🌟 Бонус (Performance)</h5>
+            <p>Сгенерировать 10 млн+ строк. Сделать запросы к таблице фактов медленными. Проанализировать <code>EXPLAIN ANALYZE</code>. Создать правильные B-Tree / BRIN индексы, применить секционирование (Partitioning) таблицы фактов по дате покупки и доказать, что запрос ускорился.</p>
+        </div>
+        
+        <div class="stack-badges">
+            <span class="badge">PostgreSQL</span> <span class="badge">Docker</span> <span class="badge">SQL/DDL</span> <span class="badge">Kimball</span> <span class="badge">SCD2</span>
+        </div>
+    </div>
+
+    <!-- Проект 2 -->
+    <div class="card project-card">
+        <h3>🐍 Этап 2: Custom Python ETL Framework & S3 Upload</h3>
+        <div class="repo-name">📂 GitHub Repo: external-api-to-datalake-etl</div>
+        <p><strong>Бизнес-задача:</strong> Данные лежат в стороннем REST API (например, API погоды, криптобиржи Binance или Github API). Задача — надежно их выкачивать каждый день, парсить JSON, валидировать и складывать в Data Lake (S3).</p>
+        
+        <h4>План действий:</h4>
+        <ul>
+            <li>Поднять локально <strong>MinIO</strong> (аналог Amazon S3) в Docker.</li>
+            <li>Написать ООП-класс-коннектор на Python (с использованием <code>requests</code>, <code>aiohttp</code>), который забирает данные по API с учетом пагинации (pagination) и Rate Limits (использовать <code>backoff</code>/<code>retry</code> декораторы).</li>
+            <li>Использовать библиотеку <strong>Pydantic</strong> или Pandera для строгой валидации JSON (своя Schema-on-Write проверка).</li>
+            <li>Преобразовывать (flatten) сложный JSON в плоскую структуру с помощью Python (pandas/boto3/pyarrow) и сохранять локально в формат <strong>Parquet</strong>.</li>
+            <li>Написать логику загрузки Parquet-файла в MinIO локально в бакет <code>s3://raw-zone/binance/year=2026/month=04/</code> (партиционирование по датам в стиле Hive).</li>
+        </ul>
+        
+        <div class="bonus-task">
+            <h5>🌟 Бонус (Асинхронность и ООП)</h5>
+            <p>Реализовать скачивание данных асинхронно через <code>asyncio</code> и <code>aiohttp</code>. Завернуть логику выгрузки в базовый абстрактный класс `BaseExtractor`, от которого будут наследоваться экстракторы для разных API (соблюсти SOLID).</p>
+        </div>
+
+        <div class="stack-badges">
+            <span class="badge">Python (ООП)</span> <span class="badge">MinIO / S3</span> <span class="badge">Pydantic</span> <span class="badge">Parquet</span> <span class="badge">Asyncio</span>
+        </div>
+    </div>
+
+    <!-- Проект 3 -->
+    <div class="card project-card">
+        <h3>⚡ Этап 3: PySpark Big Data Processing</h3>
+        <div class="repo-name">📂 GitHub Repo: spark-datalake-pipeline</div>
+        <p><strong>Бизнес-задача:</strong> Нужно обработать "огромный" объем сырых данных (логи посещений веб-сайта, кликстрим), очистить их, присоединить к справочникам и собрать аналитическую витрину активности пользователей (сессии). Объем такой, что Pandas уже падает из-за нехватки RAM.</p>
+        
+        <h4>План действий:</h4>
+        <ul>
+            <li>Написать Python-скрипт для генерации "тяжелого" датасета (10+ ГБ).</li>
+            <li>Поднять локальный Spark (Pyspark через Jupyter/Zeppelin или просто python-скрипты, запускаемые через `spark-submit`).</li>
+            <li>В PySpark прочитать данные (CSV/JSON), выполнить очистку (удаление дублей, fillna, приведение типов, парсинг User-Agent или URL).</li>
+            <li>Выполнить Broadcast JOIN с маленькой таблицей справочника (например, `dim_devices`). Сделать агрегаты (Group By) с использованием Window Functions (найти первую и последнюю страницу пользователя в сессии).</li>
+            <li>Сохранить результат (Data Mart) как <strong>Parquet</strong> с секционированием. Показать разницу в объеме (до и после сжатия Snappy в Parquet).</li>
+        </ul>
+
+        <div class="bonus-task">
+            <h5>🌟 Бонус (Оптимизация и Внутренности Spark)</h5>
+            <p>Специально спровоцировать проблему <strong>Data Skew</strong> (перекоса данных) (например, 90% данных относятся к одному <code>device_id=NULL</code>). Показать через Spark UI, что одна таска висит бесконечно долго. Решить проблему через Salting (добавление соли к ключам JOIN) или фильтрацию до JOIN, и задокументировать это скриншотами.</p>
+        </div>
+
+        <div class="stack-badges">
+            <span class="badge">PySpark</span> <span class="badge">Spark SQL</span> <span class="badge">Data Skew</span> <span class="badge">Window Functions</span> <span class="badge">Broadcast Join</span>
+        </div>
+    </div>
+
+    <!-- Проект 4 -->
+    <div class="card project-card">
+        <h3>🌊 Этап 4: Real-time Streaming (Kafka + ClickHouse)</h3>
+        <div class="repo-name">📂 GitHub Repo: realtime-fraud-detection-streaming</div>
+        <p><strong>Бизнес-задача:</strong> Магазин хочет бороться с мошенниками в реальном времени. Если с одного аккаунта за 1 минуту поступает более 5 транзакций из разных городов — транзакцию нужно заблокировать (оповестить).</p>
+        
+        <h4>План действий:</h4>
+        <ul>
+            <li>Поднять мощный `docker-compose.yml`, в котором работают: <strong>Zookeeper, Kafka, ClickHouse</strong>.</li>
+            <li>Написать <code>Producer</code> на Python, который бесконечно генерирует фейковые события транзакций (JSON с `user_id`, `amount`, `city`, `timestamp`) и шлет их в топик Kafka <code>transactions_raw</code>.</li>
+            <li>В ClickHouse настроить движок таблиц <strong>Kafka Engine</strong>, который будет читать данные напрямую из топика и перекладывать через Materialized View в таблицу <code>MergeTree</code> (или <code>ReplacingMergeTree</code>).</li>
+            <li>Продемонстрировать способность ClickHouse молниеносно агрегировать данные и рисовать график (например, подключить туда Metabase или Superset "на коленке", или просто SQL-запросами показать fraud-операции).</li>
+        </ul>
+
+        <div class="bonus-task">
+            <h5>🌟 Бонус (Spark Structured Streaming)</h5>
+            <p>Вместо `ClickHouse Kafka Engine` написать пайплайн на <strong>Spark Structured Streaming</strong>. Он читает топик `transactions_raw`, выполняет расчет агрегата с окном (Tumbling Window в 1 минуту), записывает suspicious аккаунты в другой (output) топик <code>fraud_alerts</code>.</p>
+        </div>
+
+        <div class="stack-badges">
+            <span class="badge">Apache Kafka</span> <span class="badge">ClickHouse</span> <span class="badge">Docker Compose</span> <span class="badge">Kafka Engine</span> <span class="badge">Streaming</span>
+        </div>
+    </div>
+
+    <!-- Проект 5 -->
+    <div class="card project-card">
+        <h3>🏗️ Этап 5: Оркестрация с Airflow & Финальная сборка</h3>
+        <div class="repo-name">📂 GitHub Repo: end-to-end-airflow-datalake</div>
+        <p><strong>Бизнес-задача:</strong> У вас есть весь написанный ранее код (забор по API, SQL миграции в PostgreSQL, Spark джобы), но чтобы оно работало автоматически, его нужно "оркестрировать" — засунуть в планировщик, поставить зависимости и настроить алерты об ошибках.</p>
+        
+        <h4>План действий:</h4>
+        <ul>
+            <li>Развернуть официальный <strong>Apache Airflow</strong> через <code>docker-compose</code> (с CeleryExecutor и Redis).</li>
+            <li>Написать 1 комплексный DAG, который объединяет все шаги пайплайна:
+                <ol>
+                    <li><code>Sensor</code> - ждет появления файла/события.</li>
+                    <li><code>PythonOperator</code> - забирает данные по API и кладет в MinIO (Этап 2).</li>
+                    <li><code>SparkSubmitOperator</code> или <code>DockerOperator</code> - запускает PySpark job для очистки и сохранения витрины (Этап 3).</li>
+                    <li><code>PostgresOperator</code> - обновляет агрегаты или переливает очищенные витрины в базу (Этап 1).</li>
+                </ol>
+            </li>
+            <li>Настроить обработку ошибок (on_failure_callback) с отправкой уведомления в Telegram-бота.</li>
+            <li>Использовать XCom или передачу параметров через S3 (не гонять тяжелые данные через XCom!).</li>
+            <li>Подготовить классный <code>README.md</code> в репозитории с архитектурной схемой пайплайна (нарисованной в draw.io) и прикрепить его в резюме!</li>
+        </ul>
+
+        <div class="stack-badges">
+            <span class="badge">Apache Airflow</span> <span class="badge">DAGs</span> <span class="badge">Operators</span> <span class="badge">Telegram Alerts</span> <span class="badge">System Design</span>
+        </div>
+    </div>
+
+</div>
