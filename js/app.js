@@ -269,9 +269,10 @@
         function showHint(btn, level) {
             const container = btn.closest('.card, .task-box');
             if (!container) return;
-            const hint = container.querySelector(`.hint-level:nth-of-type(${level})`);
-            if (hint) {
-                hint.classList.add('active');
+            const hints = container.querySelectorAll('.hint-level');
+            if (hints && hints.length >= level) {
+                hints[level - 1].classList.add('active');
+                hints[level - 1].style.display = 'block';
             }
         }
 
@@ -280,7 +281,13 @@
             if (!container) return;
             const solution = container.querySelector('.solution-code');
             if (solution) {
-                solution.style.display = solution.style.display === 'none' ? 'block' : 'none';
+                const isHidden = window.getComputedStyle(solution).display === 'none';
+                solution.style.display = isHidden ? 'block' : 'none';
+                if (isHidden) {
+                    solution.classList.add('active');
+                } else {
+                    solution.classList.remove('active');
+                }
             }
         }
 
