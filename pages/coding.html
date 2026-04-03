@@ -479,5 +479,54 @@ print("Valid transactions sent.")</code></pre>
             </div>
         </div>
 
+        <h2 style="font-size: 26px; font-weight: 600; margin-top: 48px; margin-bottom: 24px; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px;">Практические Задачи (Этап 5)</h2>
+
+        <!-- Project 1 (Stage 5) -->
+        <div class="space-y-6">
+            <div class="task-box" data-task-id="stage5-data-modeling" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid #ef4444;">
+                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">💻 Проект 1: Моделирование данных (Star Schema)</h4>
+                <p style="margin-bottom: 16px;"><strong>Цель:</strong> Написать DDL-скрипты на SQL для создания модели «Звезда» (Star Schema) под аналитику продаж. Из денормализованных «сырых» данных о продажах создайте одну Таблицу Фактов (Sales Fact) и две Таблицы Измерений (Products Dim, Time Dim).</p>
+                <div style="background: rgba(0,0,0,0.3); padding: 12px; border-radius: 6px; margin-bottom: 16px; font-family: monospace; font-size: 13px; color: #cbd5e1;">
+                    Исходные сырые данные (raw_sales):<br>
+                    sale_id, sale_date, product_id, product_name, category, price, quantity, total_amount
+                </div>
+
+                <div class="answer-input-area">
+                    <label>Ваши SQL DDL запросы:</label>
+                    <textarea rows="12" class="answer-textarea" placeholder="CREATE TABLE dim_products (&#10;..."></textarea>
+                    <button class="check-answer-btn" onclick="checkAnswer(this)">Проверить мое решение</button>
+                    <div class="check-result"></div>
+                </div>
+
+                <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
+                    <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
+<pre style="background:#1e293b; padding:12px; border-radius:6px; margin-top: 12px; margin-bottom: 0; color:#e2e8f0; overflow-x: auto;"><code>-- 1. Таблица измерений (Справочник товаров)
+CREATE TABLE dim_products (
+    product_id INT PRIMARY KEY,
+    product_name VARCHAR(150),
+    category VARCHAR(50),
+    price DECIMAL(10,2)
+);
+
+-- 2. Таблица измерений (Справочник времени)
+CREATE TABLE dim_time (
+    time_id INT PRIMARY KEY, -- сурогатный ключ, напр. формат YYYYMMDD
+    sale_date DATE
+);
+
+-- 3. Таблица фактов (Транзакции продаж)
+CREATE TABLE fact_sales (
+    sale_id INT PRIMARY KEY,
+    time_id INT,    -- FK к dim_time
+    product_id INT, -- FK к dim_products
+    quantity INT,
+    total_amount DECIMAL(15,2)
+);
+-- В DWH реальные констрейнты ForeignKey часто отключают для производительности, 
+-- но логическая связь идёт от таблицы фактов к измерениям.</code></pre>
+                </details>
+            </div>
+        </div>
+
     </div>
 </div>
