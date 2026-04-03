@@ -171,7 +171,8 @@
                         basePath = '/' + parts[1] + '/';
                     }
                 }
-                const response = await fetch(`${basePath}pages/${tabId}.html`);
+                const nocache = new Date().getTime();
+                const response = await fetch(`${basePath}pages/${tabId}.html?v=${nocache}`);
                 if (!response.ok) throw new Error('Network response was not ok');
                 const html = await response.text();
                 container.innerHTML = html;
