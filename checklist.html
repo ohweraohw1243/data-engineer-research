@@ -1,0 +1,137 @@
+<div class="page-content">
+<div class="page-header">
+                    <h1 class="page-title">Чеклист <span>подготовки</span></h1>
+                    <p class="page-desc">Отслеживайте прогресс подготовки окружения.</p>
+                </div>
+
+                <div class="space-y-6">
+                    <div class="card">
+                        <h3 style="font-size: 16px; font-weight: 600; color: #fff; margin-bottom: 16px;">📦 Postgres Setup</h3>
+                        <div style="margin-bottom: 12px;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                                <span style="color: var(--text-dim); font-size: 12px;">Прогресс</span>
+                                <span id="progress-postgres" style="color: var(--accent1); font-weight: 600;">0/5</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="progress-postgres-bar" style="width: 0%;"></div>
+                            </div>
+                        </div>
+                        <div class="checkbox-item">
+                            <label style="display: flex; align-items: center;">
+                                <input type="checkbox" data-module="postgres" onchange="updateChecklist()">
+                                <span>Установить PostgreSQL 15+</span>
+                            </label>
+                        </div>
+                        <div class="checkbox-item">
+                            <label style="display: flex; align-items: center;">
+                                <input type="checkbox" data-module="postgres" onchange="updateChecklist()">
+                                <span>Настроить postgresql.conf (shared_buffers, work_mem)</span>
+                            </label>
+                        </div>
+                        <div class="checkbox-item">
+                            <label style="display: flex; align-items: center;">
+                                <input type="checkbox" data-module="postgres" onchange="updateChecklist()">
+                                <span>Создать базу streamflow_dwh</span>
+                            </label>
+                        </div>
+                        <div class="checkbox-item">
+                            <label style="display: flex; align-items: center;">
+                                <input type="checkbox" data-module="postgres" onchange="updateChecklist()">
+                                <span>Настроить pg_hba.conf</span>
+                            </label>
+                        </div>
+                        <div class="checkbox-item">
+                            <label style="display: flex; align-items: center;">
+                                <input type="checkbox" data-module="postgres" onchange="updateChecklist()">
+                                <span>Установить расширения (pg_stat_statements)</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3 style="font-size: 16px; font-weight: 600; color: #fff; margin-bottom: 16px;">🐍 Python Environment</h3>
+                        <div style="margin-bottom: 12px;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                                <span style="color: var(--text-dim); font-size: 12px;">Прогресс</span>
+                                <span id="progress-python" style="color: var(--accent1); font-weight: 600;">0/5</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="progress-python-bar" style="width: 0%;"></div>
+                            </div>
+                        </div>
+                        <div class="checkbox-item">
+                            <label style="display: flex; align-items: center;">
+                                <input type="checkbox" data-module="python" onchange="updateChecklist()">
+                                <span>Установить Python 3.11+</span>
+                            </label>
+                        </div>
+                        <div class="checkbox-item">
+                            <label style="display: flex; align-items: center;">
+                                <input type="checkbox" data-module="python" onchange="updateChecklist()">
+                                <span>Создать virtual environment</span>
+                            </label>
+                        </div>
+                        <div class="checkbox-item">
+                            <label style="display: flex; align-items: center;">
+                                <input type="checkbox" data-module="python" onchange="updateChecklist()">
+                                <span>Установить зависимости (psycopg2, pandas, sqlalchemy)</span>
+                            </label>
+                        </div>
+                        <div class="checkbox-item">
+                            <label style="display: flex; align-items: center;">
+                                <input type="checkbox" data-module="python" onchange="updateChecklist()">
+                                <span>Настроить pre-commit hooks</span>
+                            </label>
+                        </div>
+                        <div class="checkbox-item">
+                            <label style="display: flex; align-items: center;">
+                                <input type="checkbox" data-module="python" onchange="updateChecklist()">
+                                <span>Установить linters (black, flake8, mypy)</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3 style="font-size: 16px; font-weight: 600; color: #fff; margin-bottom: 16px;">🐳 Docker</h3>
+                        <div style="margin-bottom: 12px;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                                <span style="color: var(--text-dim); font-size: 12px;">Прогресс</span>
+                                <span id="progress-docker" style="color: var(--accent1); font-weight: 600;">0/4</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="progress-docker-bar" style="width: 0%;"></div>
+                            </div>
+                        </div>
+                        <div class="checkbox-item">
+                            <label style="display: flex; align-items: center;">
+                                <input type="checkbox" data-module="docker" onchange="updateChecklist()">
+                                <span>Создать Dockerfile</span>
+                            </label>
+                        </div>
+                        <div class="checkbox-item">
+                            <label style="display: flex; align-items: center;">
+                                <input type="checkbox" data-module="docker" onchange="updateChecklist()">
+                                <span>Настроить docker-compose.yml</span>
+                            </label>
+                        </div>
+                        <div class="checkbox-item">
+                            <label style="display: flex; align-items: center;">
+                                <input type="checkbox" data-module="docker" onchange="updateChecklist()">
+                                <span>Добавить volume для данных</span>
+                            </label>
+                        </div>
+                        <div class="checkbox-item">
+                            <label style="display: flex; align-items: center;">
+                                <input type="checkbox" data-module="docker" onchange="updateChecklist()">
+                                <span>Проверить сетевую связность контейнеров</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 24px; display: flex; gap: 12px; flex-wrap: wrap;">
+                    <button class="btn" onclick="exportChecklist()">📥 Экспортировать</button>
+                    <button class="btn btn-secondary" onclick="importChecklist()">📤 Импортировать</button>
+                    <button class="btn btn-secondary" onclick="resetChecklist()">🔄 Сбросить</button>
+                </div>
+</div>

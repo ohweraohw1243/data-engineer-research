@@ -1,0 +1,152 @@
+<div class="page-content">
+<div class="page-header">
+                    <h1 class="page-title">Вопросы для <span>собеседований</span></h1>
+                    <p class="page-desc">15+ вопросов уровня Senior с развернутыми ответами.</p>
+                </div>
+
+                <div style="margin-bottom: 20px;">
+                    <button class="btn" onclick="randomQuestion()">🎲 Случайный вопрос</button>
+                </div>
+
+                <div class="space-y-4">
+                    <div class="accordion-item">
+                        <div class="accordion-header" onclick="toggleAccordion(this)">
+                            <span style="font-weight: 600;">Чем Hash Join отличается от Merge Join?</span>
+                            <span class="accordion-toggle">▼</span>
+                        </div>
+                        <div class="accordion-content">
+                            <strong style="color: var(--accent1);">Ответ:</strong><br><br>
+                            <strong>Hash Join O(n+m):</strong> Строит хеш-таблицу по образцу (наименьший набор), затем сканирует дорожный набор. Требует O(n) памяти, но очень быстро.<br><br>
+                            <strong>Merge Join O(n log n + m log m):</strong> Требует отсортированные наборы. Работает как zipper — идет по обоим потокам одновременно.<br><br>
+                            <strong>Выбор:</strong> Hash для маленьких inner tables, Merge для sorted input, Nested Loop для маленьких наборов с индексом.
+                        </div>
+                    </div>
+
+                    <div class="accordion-item">
+                        <div class="accordion-header" onclick="toggleAccordion(this)">
+                            <span style="font-weight: 600;">Как работает MVCC в PostgreSQL? xmin/xmax?</span>
+                            <span class="accordion-toggle">▼</span>
+                        </div>
+                        <div class="accordion-content">
+                            <strong style="color: var(--accent1);">Ответ:</strong><br><br>
+                            <strong>MVCC:</strong> Каждая строка имеет версии. Читатели берут snapshot транзакций на момент начала.<br><br>
+                            <strong>xmin/xmax:</strong><br>
+                            • xmin — ID транзакции, создавшей версию<br>
+                            • xmax — ID транзакции, удалившей версию<br><br>
+                            SELECT проверяет видимость: если xmin видна и xmax не видна, строка живая. VACUUM очищает версии когда все xmax < active xids.
+                        </div>
+                    </div>
+
+                    <div class="accordion-item">
+                        <div class="accordion-header" onclick="toggleAccordion(this)">
+                            <span style="font-weight: 600;">B-tree vs Hash индексы</span>
+                            <span class="accordion-toggle">▼</span>
+                        </div>
+                        <div class="accordion-content">
+                            <strong style="color: var(--accent1);">Ответ:</strong><br><br>
+                            <strong>B-tree:</strong> Диапазонные запросы, сортировка, height = log_fanout(N).<br><br>
+                            <strong>Hash:</strong> Только точное совпадение O(1), не поддерживает диапазоны и NULL.<br><br>
+                            <strong>Практика:</strong> В 99% B-tree лучше. Hash редко используется.
+                        </div>
+                    </div>
+
+                    <div class="accordion-item">
+                        <div class="accordion-header" onclick="toggleAccordion(this)">
+                            <span style="font-weight: 600;">Isolation levels и trade-offs</span>
+                            <span class="accordion-toggle">▼</span>
+                        </div>
+                        <div class="accordion-content">
+                            <strong style="color: var(--accent1);">Ответ:</strong><br><br>
+                            <strong>Read Committed (default):</strong> Видит committed данные. Быстро, но некоторые anomalies.<br><br>
+                            <strong>Repeatable Read:</strong> Snapshot на BEGIN. Защищает от lost updates.<br><br>
+                            <strong>Serializable:</strong> Полная изоляция. PostgreSQL использует SSI. Может быть slow и требует retries.
+                        </div>
+                    </div>
+
+                    <div class="accordion-item">
+                        <div class="accordion-header" onclick="toggleAccordion(this)">
+                            <span style="font-weight: 600;">multiprocessing vs threading в Python</span>
+                            <span class="accordion-toggle">▼</span>
+                        </div>
+                        <div class="accordion-content">
+                            <strong style="color: var(--accent1);">Ответ:</strong><br><br>
+                            <strong>Threading:</strong> Один процесс, несколько потоков. GIL — только один bytecode выполняется. I/O-bound OK, CPU-bound slow.<br><br>
+                            <strong>Multiprocessing:</strong> Отдельные процессы, истинный параллелизм. Overhead: pickle, memory duplication. CPU-bound OK.<br><br>
+                            <strong>Правило:</strong> I/O → threading, CPU → multiprocessing, I/O+compute → asyncio.
+                        </div>
+                    </div>
+
+                    <div class="accordion-item">
+                        <div class="accordion-header" onclick="toggleAccordion(this)">
+                            <span style="font-weight: 600;">Как работает GIL и почему он существует?</span>
+                            <span class="accordion-toggle">▼</span>
+                        </div>
+                        <div class="accordion-content">
+                            <strong style="color: var(--accent1);">Ответ:</strong><br><br>
+                            <strong>GIL:</strong> Мьютекс, защищающий Python объекты. Один потокзащитает bytecode одновременно.<br><br>
+                            <strong>Зачем:</strong> Reference counting (rc) рискует race conditions. Вместо fine-grained locking всех объектов используется один глобальный lock.<br><br>
+                            <strong>Последствия:</strong> CPU-bound threading не ускоряет. I/O-bound работает (GIL отпускается при I/O).
+                        </div>
+                    </div>
+
+                    <div class="accordion-item">
+                        <div class="accordion-header" onclick="toggleAccordion(this)">
+                            <span style="font-weight: 600;">async/await на низком уровне</span>
+                            <span class="accordion-toggle">▼</span>
+                        </div>
+                        <div class="accordion-content">
+                            <strong style="color: var(--accent1);">Ответ:</strong><br><br>
+                            <strong>async def:</strong> Возвращает coroutine object. Не выполняется сразу.<br><br>
+                            <strong>await:</strong> Выдает управление event loop. Если operation не готова, loop переходит к другой coroutine. Когда готова — resumes.<br><br>
+                            <strong>Event loop:</strong> Кооперативная многозадачность. Много coroutines могут быть pending I/O одновременно. CPU-bound блокирует весь loop.
+                        </div>
+                    </div>
+
+                    <div class="accordion-item">
+                        <div class="accordion-header" onclick="toggleAccordion(this)">
+                            <span style="font-weight: 600;">Backpressure и как с ним справляться</span>
+                            <span class="accordion-toggle">▼</span>
+                        </div>
+                        <div class="accordion-content">
+                            <strong style="color: var(--accent1);">Ответ:</strong><br><br>
+                            Producer быстрее consumer → queue переполняется, memory растет.<br><br>
+                            <strong>Решения:</strong><br>
+                            1. Buffer с лимитом: producer блокируется когда полнка<br>
+                            2. Semaphore: ограничивает одновременные задачи<br>
+                            3. Rate limiting: замедляет producer<br>
+                            4. Sampling: берет только часть элементов
+                        </div>
+                    </div>
+
+                    <div class="accordion-item">
+                        <div class="accordion-header" onclick="toggleAccordion(this)">
+                            <span style="font-weight: 600;">SCD Type 1 vs Type 2</span>
+                            <span class="accordion-toggle">▼</span>
+                        </div>
+                        <div class="accordion-content">
+                            <strong style="color: var(--accent1);">Ответ:</strong><br><br>
+                            <strong>Type 1 — Overwrite:</strong> Просто обновить старую запись. Быстро, теряется история.<br><br>
+                            <strong>Type 2 — History:</strong> Новая строка с is_current флагом и valid_from/valid_to. История сохраняется. Медленнее и сложнее.
+                        </div>
+                    </div>
+
+                    <div class="accordion-item">
+                        <div class="accordion-header" onclick="toggleAccordion(this)">
+                            <span style="font-weight: 600;">Exactly-once семантика в ETL</span>
+                            <span class="accordion-toggle">▼</span>
+                        </div>
+                        <div class="accordion-content">
+                            <strong style="color: var(--accent1);">Ответ:</strong><br><br>
+                            <strong>Семантики:</strong><br>
+                            • At-most-once: потеря возможна<br>
+                            • At-least-once: дубли возможны<br>
+                            • Exactly-once: каждое событие обрабатывается один раз<br><br>
+                            <strong>Техники:</strong><br>
+                            1. Idempotency keys: UUID для каждого события<br>
+                            2. Deduplication: кешировать processed_keys<br>
+                            3. Idempotent ops: SET vs UPDATE +=<br>
+                            4. exactly-once source + idempotent sink + duplicate detection
+                        </div>
+                    </div>
+                </div>
+</div>
