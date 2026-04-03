@@ -381,5 +381,50 @@ CMD ["python", "etl.py"]</code></pre>
             </div>
         </div>
 
+        <h2 style="font-size: 26px; font-weight: 600; margin-top: 48px; margin-bottom: 24px; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px;">Практические Задачи (Этап 3)</h2>
+
+        <!-- Project 1 (Stage 3) -->
+        <div class="space-y-6">
+            <div class="task-box" data-task-id="stage3-pyspark-etl" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid var(--accent3);">
+                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">💻 Проект 1: PySpark Streaming / Batch ETL</h4>
+                <p style="margin-bottom: 16px;"><strong>Цель:</strong> Написать скрипт на PySpark, который читает CSV файл (<code>events.csv</code>), оставляет только события 'purchase', группирует по 'user_id' и считает сумму покупок, затем сохраняет результат в Parquet партиционированно по 'date'.</p>
+                <div style="background: rgba(0,0,0,0.3); padding: 12px; border-radius: 6px; margin-bottom: 16px; font-family: monospace; font-size: 13px; color: #cbd5e1;">
+                    events.csv:<br>
+                    user_id,event_type,amount,date<br>
+                    1,purchase,100,2026-05-01<br>
+                    2,click,0,2026-05-01<br>
+                    1,purchase,50,2026-05-01
                 </div>
+
+                <div class="answer-input-area">
+                    <label>Ваш PySpark код:</label>
+                    <textarea rows="10" class="answer-textarea" placeholder="from pyspark.sql import SparkSession&#10;..."></textarea>
+                    <button class="check-answer-btn" onclick="checkAnswer(this)">Проверить мое решение</button>
+                    <div class="check-result"></div>
+                </div>
+
+                <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
+                    <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
+<pre style="background:#1e293b; padding:12px; border-radius:6px; margin-top: 12px; margin-bottom: 0; color:#e2e8f0; overflow-x: auto;"><code>from pyspark.sql import SparkSession
+from pyspark.sql.functions import col, sum
+
+spark = SparkSession.builder.appName("ETL_Project").getOrCreate()
+
+# Чтение
+df = spark.read.csv("events.csv", header=True, inferSchema=True)
+
+# Трансформации
+result = df.filter(col("event_type") == "purchase") \
+           .groupBy("user_id", "date") \
+           .agg(sum("amount").alias("total_amount"))
+
+# Запись (Parquet + partition)
+result.write.partitionBy("date").mode("overwrite").parquet("output_data/")
+
+spark.stop()</code></pre>
+                </details>
+            </div>
+        </div>
+
+    </div>
 </div>
