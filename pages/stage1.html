@@ -1,58 +1,29 @@
 <div class="page-content">
     <div class="page-header">
-        <h1 class="page-title">Этап 1: <span>Теория СУБД, Архитектура и SQL</span></h1>
-        <p class="page-desc">Исчерпывающий теоретический фундамент. В этом разделе собраны подробные архитектурные концепты, знания о внутренних механизмах PostgreSQL и ClickHouse, которые необходимы для успешного прохождения секции Data Architecture и SQL в крупных компаниях.</p>
+        <h1 class="page-title">Этап 1: <span>Базовый SQL, Docker и Теория Хранилищ</span></h1>
+        <p class="page-desc">Первые шаги: как обернуть базу данных в контейнер Docker, как писать SQL-запросы, и как устроена архитектура хранилищ (DWH).</p>
     </div>
 
-    <h2 style="font-size: 26px; font-weight: 600; margin-bottom: 24px; margin-top: 32px; color: white; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px;">Теоретические модули</h2>
+    <h2 style="font-size: 26px; font-weight: 600; margin-bottom: 24px; margin-top: 32px; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px;">Теоретические модули</h2>
 
     <!-- Module 1 -->
     <div class="card theory-block" style="margin-bottom: 32px;">
-        <h3 class="card-title" style="font-size: 22px;">📚 Модуль 1: Эволюция аналитических хранилищ</h3>
+        <h3 class="card-title">🐳 Модуль 1: Docker для инженеров</h3>
         <div class="card-text" style="margin-top: 16px;">
-            <p>Чтобы успешно мигрировать пайплайны и строить платформу, важно понимать, почему архитектуры исторически развивались от классических баз до Data Lakehouse.</p>
+            <p><strong>Docker</strong> — это система, которая упаковывает ваш код (и базу данных) со всеми зависимостями в контейнер. Контейнер работает идентично везде: и на вашем Mac, и на корпоративном сервере Linux.</p>
 
-            <h4>1. DWH vs Data Lake vs Data Lakehouse</h4>
-            <p><strong>DWH (Data Warehouse)</strong>: Традиционное хранилище структурированных данных (например, Teradata, Oracle, Greenplum). Базируется на парадигме <strong>Schema-on-Write</strong>: схема данных (таблицы, типы столбцов) жестко определяется до загрузки. Это гарантирует высокое качество данных и скорость SQL-запросов, но делает систему дорогостоящей в масштабировании и негибкой для неструктурированных данных (ML, логи, JSON). DWH часто использует ACID-транзакции и глубоко завязан на вычислительные мощности (состояние compute and storage tightly coupled).</p>
-
-            <p><strong>Data Lake (Озеро данных)</strong>: Ответом на дороговизну DWH стал Hadoop (HDFS). Парадигма <strong>Schema-on-Read</strong>: данные (логи, картинки, CSV, JSON) "сваливаются" в дешевое распределенное хранилище как есть. Схема накладывается только в момент чтения (например, через Spark или Hive). Плюсы: бесконечное и дешевое горизонтальное масштабирование (Commodity Hardware). Минусы: отсутствие транзакционности, невозможность нормального UPDATE/DELETE, риск превращения в "Data Swamp" (болото данных) из-за потери контроля над качеством и метаданными.</p>
-
-            <p><strong>Data Lakehouse</strong>: Современная архитектура, объединяющая гибкость и дешевизну Data Lake с транзакционностью и структурой DWH. Хранение остается дешевым (объектные хранилища S3), но поверх него накладывается <strong>ACID-слой транзакций и метаданных</strong> (форматы таблиц: Apache Iceberg, Delta Lake, Apache Hudi). Это позволяет делать SQL UPDATE/DELETE, путешествовать во времени (Time Travel) и обеспечивать строгую консистентность прямо поверх "сырых" Parquet-файлов в S3, разделяя хранение (Storage) и вычисления (Compute — Spark, Trino, ClickHouse).</p>
-
-            <h4>2. Основные парадигмы: Schema-on-Write vs Schema-on-Read</h4>
-            <p><strong>Schema-on-Write (Схема при записи):</strong> Перед вставкой данных реляционная БД или DWH проверяет их на соответствие жесткой схеме (типы данных, ограничения, внешние ключи). Если в JSON-источнике появилось новое поле или изменился тип (например, int стал string) — ETL-пайплайн падает, защищая DWH от мусора. Это дает 100% гарантию структуры для аналитиков, но требует постоянной поддержки (DDL-миграций) со стороны инженеров.</p>
-            
-            <p><strong>Schema-on-Read (Схема при чтении):</strong> Характерна для Data Lake. Мы сохраняем сырые файлы (например, JSON-события) в S3 без валидации типов на входе ("закидываем как есть"). Когда аналитик пишет <code>SELECT * FROM s3_table</code>, движок (например, AWS Athena или Spark) применяет схему "на лету", пытаясь распарсить файл согласно заданным в метасторе (Hive Metastore) правилам. Если структура файла не совпадает со схемой — мы получаем NULL в столбцах или ошибку чтения, но сам процесс сохранения сырых данных никогда не блокируется.</p>
-
-            <h4>3. HDFS vs S3 (и объектные хранилища)</h4>
-            <p><strong>HDFS (Hadoop Distributed File System):</strong> Классическая распределенная <em>файловая система</em>. Имеет строгую иерархию папок, поддерживает Append (дозапись в файл). Вычисления в HDFS (MapReduce) работают по принципу <em>Data Locality</em>: вычисления отправляются на те же физические узлы (Data Nodes), где лежат блоки данных. HDFS отлично работал в on-premise кластерах, но имеет предел масштабирования из-за NameNode (который хранит все метаданные в RAM) и жесткой связки дисков и процессоров.</p>
-            
-            <p><strong>S3 (Simple Storage Service):</strong> <em>Объектное хранилище</em> (Object Store). В нем нет реальных папок и файлов, есть только "Бакеты" (Buckets) и плоский список "Объектов" с ключами (например, <code>bucket-name/folder/data.parquet</code> — это просто уникальная строка-ключ). В S3 нет Data Locality (вычисления и хранение живут в разных сетях), файлы иммутабельны (нельзя дописать в середину объекта, только перезаписать целиком). Зато S3 предлагает бесконечное, феноменально дешевое масштабирование без узкого горлышка NameNode, что сделало его индустриальным стандартом для Data Lakehouse (как в облаке AWS, так и on-premise через MinIO или Ceph RADOS Gateway).</p>
-
-            <h4>4. Parquet: Внутреннее устройство и Колоночное хранение</h4>
-            <p>В строковых форматах (CSV, JSON, классический PostgreSQL) данные физически лежат на диске строка за строкой. Если в таблице 100 колонок, а запрос <code>SELECT user_id, amount</code> обращается к двум, диск все равно прочитает все 100 столбцов (Full Scan). <strong>Apache Parquet</strong> — это бинарный колоночный формат. Значения одного столбца хранятся на диске рядом друг с другом.</p>
-            
-            <p><strong>Внутренняя иерархия Parquet:</strong></p>
             <ul>
-                <li><strong>Файл (File):</strong> Состоит из магии (Magic Bytes: 'PAR1'), одной или нескольких Row Groups и Footer-а. Важно: все метаданные лежат в <em>Footer</em> (в конце файла). Читатель (Spark) сначала прыгает в конец файла, читает Footer и понимает, где лежат нужные колонки.</li>
-                <li><strong>Row Group (Группа строк):</strong> Горизонтальный срез данных (например, 1 миллион строк или 128 МБ). Каждая Row Group содержит все колонки для этих строк.</li>
-                <li><strong>Column Chunk (Чанк колонки):</strong> Кусок конкретной колонки внутри одной Row Group. Здесь лежат сами данные.</li>
-                <li><strong>Page (Страница):</strong> Наименьшая единица чтения (обычно 1-8 МБ). Страницы сжимаются и кодируются.</li>
+                <li><strong>Image (Образ):</strong> Это "чертеж" или "рецепт". Как ISO-образ диска. Образы статичны и неизменяемы.</li>
+                <li><strong>Container (Контейнер):</strong> Это запущенный экземпляр Образа. Он работает как отдельная изолированная мини-операционная система (свои папки, порты, сеть).</li>
+                <li><strong>Dockerfile:</strong> Текстовый файл с инструкциями, как собрать свой личный Образ: "Возьми чистый Python 3.9, скопируй скрипт, установи requests".</li>
+                <li><strong>Docker Compose:</strong> Инструмент для запуска нескольких контейнеров сразу в единой сети (<code>docker network</code>) с помощью файла <code>docker-compose.yml</code>.</li>
             </ul>
 
-            <p><strong>Ключевые механизмы ускорения в Parquet:</strong></p>
-            <ul>
-                <li><strong>Кодирование (Encoding):</strong> Так как в колонке лежат однотипные данные (например, миллион нулей и единиц), их легко сжать. Применяются: <em>Dictionary Encoding</em> (замена длинных повторяющихся строк на короткие ID) и <em>RLE (Run-Length Encoding)</em> (замена "0,0,0,0,0" на "5 x 0").</li>
-                <li><strong>Predicate Pushdown (Фильтрация на уровне хранилища):</strong> В Footer файла и в метаданных каждой Row Group/Page хранятся статистики: минимум (MIN) и максимум (MAX) для каждой колонки. Если мы делаем <code>SELECT * WHERE age > 50</code>, механизм проверяет Footer: если <code>max_age</code> в этой Row Group равно <code>40</code>, весь многомегабайтный блок <strong>даже не читается с диска</strong>. Это радикально ускоряет I/O.</li>
-                <li><strong>Projection Pushdown:</strong> Spark извлекает из Parquet только те Column Chunks, которые явно указаны в <code>SELECT</code>, полностью игнорируя остальные столбцы на диске.</li>
-            </ul>
-
-            <div class="resource-block">
-                <h4>Где изучать (Источники)</h4>
+            <div class="resource-block" style="margin-top: 16px; background: rgba(255,255,255,0.05); padding: 16px; border-radius: 8px;">
+                <h4 style="margin-top: 0">Что посмотреть:</h4>
                 <ul>
-                    <li>📖 <strong>Книга:</strong> <em>Ральф Кимбалл "The Data Warehouse Toolkit"</em> — прочитать первые 3 главы про Звезды, факты и SCD (медленно меняющиеся измерения).</li>
-                    <li>📄 <strong>Хабр / Статьи:</strong> Читать статьи "От DWH к Data Lakehouse", "Введение в Data Vault 2.0" (например, от Neoflex или Tinkoff).</li>
-                    <li>▶️ <strong>YouTube:</strong> Поиск "Формат Parquet Data Learn", разборы "HDFS vs S3".</li>
+                    <li>▶️ <strong>YouTube:</strong> Богдан Станкевич - "Docker для начинающих" (до Docker-compose).</li>
+                    <li>▶️ <strong>YouTube:</strong> Ulbi TV - "Docker Compose за 10 минут".</li>
                 </ul>
             </div>
         </div>
@@ -60,147 +31,53 @@
 
     <!-- Module 2 -->
     <div class="card theory-block" style="margin-bottom: 32px;">
-        <h3 class="card-title" style="font-size: 22px;">🐘 Модуль 2: Внутренности PostgreSQL и Оптимизация PostgreSQL</h3>
+        <h3 class="card-title">🐘 Модуль 2: Реляционные БД и SQL (PostgreSQL)</h3>
         <div class="card-text" style="margin-top: 16px;">
-            <p>Даже если основной стек — ClickHouse и Spark, PostgreSQL остается мета-базой и сервисной БД для тысяч внутренних сервисов.</p>
+            <p>Дата-инженер проводит половину жизни за написанием SQL. База данных — это программа, которая умеет эффективно хранить таблицы на диске и быстро отвечать на запросы.</p>
             
-            <h4>1. MVCC (Multiversion Concurrency Control)</h4>
-            <p>PostgreSQL не перезаписывает строки физически при UPDATE. Он помечает старую версию строки как "мертвую" (записывая ее xmax), и создает новую версию (с новым xmin). Это позволяет пишущим транзакциям не блокировать читающие. Но это порождает проблему: мертвые строки копятся (bloat). Для их очистки работает фоновый процесс <strong>VACUUM</strong>. Если он настроен плохо, наступает коллапс диска.</p>
-            
-            <h4>2. Изоляция транзакций (ACID)</h4>
-            <p>Уровни изоляции: Read Uncommitted (в PG работает как Read Committed), Read Committed (по умолчанию, видит только закоммиченные данные до начала стейтмента - возможно несовпадение данных при повторном чтении), Repeatable Read (сохраняет снимок БД на начало транзакции) и Serializable (жесткие блокировки, имитация последовательного выполнения). Нужно понимать разницу между аномалиями: Dirty Read, Non-repeatable read и Phantom Read.</p>
+            <h4>Уровни владения SQL:</h4>
+            <p><strong>1. Базовый DML/DQL:</strong></p>
+            <ul>
+                <li><strong>SELECT, WHERE, LIMIT:</strong> Выборка и фильтрация строк.</li>
+                <li><strong>GROUP BY, HAVING:</strong> Агрегации (SUM, COUNT).</li>
+                <li><strong>JOIN:</strong> Разница между <code>INNER JOIN</code>, <code>LEFT JOIN</code> и <code>FULL OUTER JOIN</code>.</li>
+            </ul>
 
-            <h4>3. Индексы: Под капотом B-Tree</h4>
-            <p>Физически это сильно-ветвистое дерево, где все данные лежат в листьях на одном уровне глубины. При запросе с <code>EXPLAIN</code> важно отличать <strong>Index Scan</strong> (Сначала БД нашла строку в индексе, потом сходила на диск в "кучу" Heap, чтобы достать те колонки, которых в индексе нет) от <strong>Index-Only Scan</strong> (Запрос попросил только те колонки, которые уже включены во вторичный индекс на этапе создания ключа - это в разы быстрее, так как не надо лезть в "кучу").</p>
+            <p><strong>2. Продвинутый (Инженерный) уровень:</strong></p>
+            <ul>
+                <li><strong>Оконные функции:</strong> <code>ROW_NUMBER()</code>, <code>RANK()</code>, <code>LAG()</code>, <code>LEAD()</code>. В отличие от GROUP BY, окно считает агрегаты, <em>сохраняя оригинальные строки</em>.</li>
+                <li><strong>CTE (WITH):</strong> Структурирование сложных запросов для читаемости.</li>
+                <li><strong>DDL:</strong> Создание таблиц (<code>CREATE TABLE</code>), связей (Primary Key, Foreign Key) и типов (Integer, Varchar).</li>
+            </ul>
 
-            <h4>4. Оконные функции (SQL)</h4>
-            <p>В отличие от <code>GROUP BY</code>, окна не схлопывают строки. Понимание фреймов (Framing): <code>ROWS</code> задает физические границы (2 строки назад), <code>RANGE</code> — логические (по стоимости сортировки). Дефолтный фрейм при ORDER BY — это <code>RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW</code>, что при наличии дублей может "повесить" запрос (O(n²)). Разница: <code>ROW_NUMBER()</code> просто инкрементирует счетчик, <code>RANK()</code> пропускает места при совпадении (1, 2, 2, 4), а <code>DENSE_RANK()</code> оставляет места подряд (1, 2, 2, 3).</p>
-
-            <div class="resource-block">
-                <h4>Где изучать (Источники)</h4>
+            <div class="resource-block" style="margin-top: 16px; background: rgba(255,255,255,0.05); padding: 16px; border-radius: 8px;">
+                <h4 style="margin-top: 0">Тренажеры SQL:</h4>
                 <ul>
-                    <li>📖 <strong>Книга:</strong> <em>Егор Рогов "PostgreSQL изнутри"</em> — обязательно к прочтению! Есть бесплатная PDF версия от Postgres Professional.</li>
-                    <li>📄 <strong>Хабр / Статьи:</strong> Блог Postgres Professional. Читать статьи про "MVCC", "Блокировки" и "VACUUM".</li>
-                    <li>▶️ <strong>YouTube:</strong> Антон Жиянов — лекции "Оконные функции SQL". Видео "Как читать EXPLAIN".</li>
+                    <li>💻 <strong>Курс Stepik:</strong> Интерактивный тренажер по SQL (В. Овечкин).</li>
+                    <li>💻 <strong>SQL-ex.ru:</strong> Раздел SELECT (задачи 1-50).</li>
                 </ul>
             </div>
         </div>
     </div>
 
     <!-- Module 3 -->
-    <div class="card theory-block" style="margin-bottom: 48px;">
-        <h3 class="card-title" style="font-size: 22px;">🚀 Модуль 3: ClickHouse: выжимаем OLAP-максимум</h3>
+    <div class="card theory-block" style="margin-bottom: 32px;">
+        <h3 class="card-title">🏛️ Модуль 3: Архитектура DWH (Kimball & Stars)</h3>
         <div class="card-text" style="margin-top: 16px;">
-            <p>ClickHouse будет вашим основным OLAP движком в новой дата-платформе. Это колоночная СУБД с принципиально иными механизмами работы в сравнении с PostgreSQL.</p>
-            
-            <h4>1. Движки семейства MergeTree</h4>
-            <p>Данные пишутся пачками (parts), которые сортируются в момент попадания на диск, а затем в фоне процессы ClickHouse сливают (merge) эти пачки вместе. Настоящих операций <code>UPDATE</code> и <code>DELETE</code> здесь нет (они эмулируются тяжелым мутационным запросом ALTER). Для реальной работы с изменяемыми данными созданы <code>CollapsingMergeTree</code> (со столбцом Знака +1/-1) и <code>ReplacingMergeTree</code> (оставляет самую свежую версию по версии времени).</p>
+            <p>Классическое хранилище данных (DWH) проектируется по методологии Ральфа Кимбалла.</p>
 
-            <h4>2. Primary Key vs Order By и Разреженный индекс</h4>
-            <p>В отличие от PostgreSQL, <code>PRIMARY KEY</code> в ClickHouse не гарантирует уникальность. Он выполняет роль разреженного индекса (Sparse Index). Данные на диске нарезаны на гранулы (по умолчанию 8192 строки). Первая строка каждой гранулы попадает в индекс. Когда вы делаете фильтрацию по первичному ключу, база быстро понимает, в каких гранулах поискать данные, а какие пропустить целиком (skip granules).</p>
-
-            <h4>3. Партиционирование и Шардирование</h4>
+            <h4>Слои хранилища</h4>
             <ul>
-                <li><strong>Партиционирование (PARTITION BY):</strong> Обычно по месяцам или дням. Разделяет данные на независимые куски на одном сервере. Отлично подходит для быстрого удаления старых данных (<code>ALTER TABLE ... DROP PARTITION</code>).</li>
-                <li><strong>Шардирование (Distributed таблица):</strong> Режет данные по хэш-функции от какого-то ключа (например <code>user_id</code>) на разные сервера кластера, балансируя нагрузку и объем дисков.</li>
+                <li><strong>STG (Staging Layer) — Сырой слой:</strong> Сюда мы просто переносим 1:1 данные из внешних источников (API). Данные не чистятся. Типы колонок часто тексты (Varchar), чтобы вставка не падала с ошибкой.</li>
+                <li><strong>DDS (Dimensional Data Store) — Слой витрин:</strong> Ядро DWH. Данные очищены, типизированы и лежат по методологии "Звезда" (Star Schema).</li>
             </ul>
 
-            <div class="resource-block">
-                <h4>Где изучать (Источники)</h4>
-                <ul>
-                    <li>📄 <strong>Документация:</strong> <a href="https://clickhouse.com/docs/ru" style="color: var(--accent1); text-decoration: underline;">Официальная документация ClickHouse</a> — она потрясающая.</li>
-                    <li>▶️ <strong>YouTube:</strong> Доклады Алексея Миловидова (создатель CH). Искать: "ClickHouse как это работает", "ClickHouse для начинающих".</li>
-                    <li>📄 <strong>Хабр / Статьи:</strong> "Трюки оптимизации в ClickHouse", "Как проектировать ключи в MergeTree" (много статей от Avito/VK).</li>
-                </ul>
-            </div>
+            <h4>Методология "Звезды" (Star Schema)</h4>
+            <p>В центре "звезды" всегда лежит <strong>Таблица Фактов (Fact Table)</strong>, а вокруг неё "лучами" присоединяются <strong>Таблицы-Измерения (Dimensions)</strong>.</p>
+            <ul>
+                <li><strong>Факт:</strong> Действие (транзакция, клик). Содержит миллионы строк, состоит из внешних ключей (user_id, product_id) и метрик (сумма).</li>
+                <li><strong>Измерение (Справочник):</strong> Описание. Отвечает на вопросы КТО, ГДЕ, КОГДА (Например: Пользователь, Товар, Дата). В ней содержатся текстовые атрибуты для фильтрации.</li>
+            </ul>
         </div>
     </div>
-
-    <!-- QUIZ SECTION -->
-    <div style="border-top: 1px solid rgba(255,255,255,0.1); margin-bottom: 32px;"></div>
-    <h2 style="font-size: 26px; font-weight: 600; margin-bottom: 12px; color: white;">Проверка усвоения теории (Quiz)</h2>
-    <p class="mb-12 theory-block" style="color: var(--text-dim);">Ниже представлены 5 теоретических вопросов, которые часто задают мидлам на секциях Data Architecture / DB Internals. Проверьте себя и нажмите "Показать ответ", чтобы свериться с правильным подходом.</p>
-
-    <!-- Q1 -->
-    <div class="card mb-12" data-task-id="stage1-q1">
-        <h4 style="color: var(--accent2); font-weight: 600; font-size: 18px; margin-bottom: 8px;">Вопрос 1: Парадигмы хранилищ</h4>
-        <div class="card-text" style="font-size: 16px;">
-            В чем техническое ключевое различие парадигм "Schema-on-Write" и "Schema-on-Read", и к каким архитектурам (DWH, Data Lake) они относятся? В чем слабое место Озера Данных?
-        </div>
-        <div class="answer-input-area" style="margin-top: 16px;">
-            <textarea class="answer-textarea" placeholder="Ваш ответ..."></textarea>
-        </div>
-        <button class="btn btn-secondary mt-8" onclick="showSQLSolution(this)">Показать правильный ответ</button>
-        <div class="solution-code theory-block" style="margin-top: 16px;">
-            <p><strong>Schema-on-Write (DWH):</strong> Схема данных (типы колонок, ключи) жестко задается до записи (например, в PostgreSQL/Greenplum). Если данные не подходят под схему, запись падает с ошибкой. Плюс: строгая типизация и быстрое чтение.</p>
-            <p><strong>Schema-on-Read (Data Lake):</strong> Данные сохраняются в сыром виде в распределенном хранилище (JSON на S3/HDFS). Схема накладывается только в момент чтения (через Spark/Presto). Из-за этого данные могут быть мусорными.</p>
-            <p>Слабое место Data Lake — без жесткого управления (Data Governance/Catalog) озеро быстро превращается в "болото данных" (Data Swamp).</p>
-        </div>
-    </div>
-
-    <!-- Q2 -->
-    <div class="card mb-12" data-task-id="stage1-q2">
-        <h4 style="color: var(--accent2); font-weight: 600; font-size: 18px; margin-bottom: 8px;">Вопрос 2: Внутренности PostgreSQL (MVCC)</h4>
-        <div class="card-text" style="font-size: 16px;">
-            Объясните, почему в PostgreSQL таблица может раздуваться в размерах даже если вы не вставляете новые данные, а только обновляете существующие (делать частый UPDATE). Как работает процесс VACUUM?
-        </div>
-        <div class="answer-input-area" style="margin-top: 16px;">
-            <textarea class="answer-textarea" placeholder="Ваш ответ..."></textarea>
-        </div>
-        <button class="btn btn-secondary mt-8" onclick="showSQLSolution(this)">Показать правильный ответ</button>
-        <div class="solution-code theory-block" style="margin-top: 16px;">
-            <p>Из-за механизма MVCC (Multiversion Concurrency Control) операция <code>UPDATE</code> в PostgreSQL физически работает как <code>DELETE</code> старой версии строки (тупла) и <code>INSERT</code> новой версии. Старая строка помечается как "мертвая" (через заголовок xmax), но остается на диске, так как ее могут пока еще читать конкурентные паралелльные транзакции.</p>
-            <p>Фоновый сборщик мусора (<code>VACUUM</code>) проходит по страницам диска и ищет такие "мертвые" туплы, помечая занимаемое ими пространство как свободное (Free Space Map) для последующих вставок. Без работы VACUUM файл таблицы будет бесконечно пухнуть.</p>
-        </div>
-    </div>
-
-    <!-- Q3 -->
-    <div class="card mb-12" data-task-id="stage1-q3">
-        <h4 style="color: var(--accent2); font-weight: 600; font-size: 18px; margin-bottom: 8px;">Вопрос 3: Оптимизация СУБД (Scan Types)</h4>
-        <div class="card-text" style="font-size: 16px;">
-            Вы анализируете план запроса (EXPLAIN) и видите <code>Index Scan</code>, а затем переписываете запрос и видите <code>Index-Only Scan</code>. В чем заключается их архитектурная разница, и почему второй радикально быстрее?
-        </div>
-        <div class="answer-input-area" style="margin-top: 16px;">
-            <textarea class="answer-textarea" placeholder="Ваш ответ..."></textarea>
-        </div>
-        <button class="btn btn-secondary mt-8" onclick="showSQLSolution(this)">Показать правильный ответ</button>
-        <div class="solution-code theory-block" style="margin-top: 16px;">
-            <p><strong>Index Scan:</strong> БД находит нужный указатель(типа RowID) в индексе (B-Tree), но требуемых колонок для вывода (SELECT cols) в индексе нет. Поэтому БД делает дополнительное дисковое чтение страницы из табличной "кучи" (Heap), чтобы достать недостающие колонки.</p>
-            <p><strong>Index-Only Scan:</strong> Запрос составлен так, что все запрашиваемые колонки уже присутствуют прямо в самом индексе (как ключ или через INCLUDE). БД возвращает результат из кэша дерева индекса, вообще не обращаясь к куче (при условии что Visibility Map позволяет), что в разы снижает медленный дисковый I/O.</p>
-        </div>
-    </div>
-
-    <!-- Q4 -->
-    <div class="card mb-12" data-task-id="stage1-q4">
-        <h4 style="color: var(--accent2); font-weight: 600; font-size: 18px; margin-bottom: 8px;">Вопрос 4: Под капотом ClickHouse</h4>
-        <div class="card-text" style="font-size: 16px;">
-            В ClickHouse (MergeTree) <code>Primary Key</code> не контролирует уникальность строк (как это принято в классических БД). Для чего тогда он нужен, что такое "гранулы" и как он помогает ускорить SELECT-запросы?
-        </div>
-        <div class="answer-input-area" style="margin-top: 16px;">
-            <textarea class="answer-textarea" placeholder="Ваш ответ..."></textarea>
-        </div>
-        <button class="btn btn-secondary mt-8" onclick="showSQLSolution(this)">Показать правильный ответ</button>
-        <div class="solution-code theory-block" style="margin-top: 16px;">
-            <p>В движке MergeTree данные лежат физически отсортированно (по столбцам из <code>ORDER BY</code>) и нарезаны на блоки, называемые гранулами (по умолчанию 8192 строки).</p>
-            <p><code>Primary Key</code> формирует "разреженный индекс" (sparse index) — он хранит значение ключа не для физически каждой строки (как B-tree), а только для первой(стартовой) строки каждой гранулы. Когда приходит SELECT с WHERE-фильтром, ClickHouse загружает в оперативку первичный ключ с диска, применяет бинарный поиск и за доли миллисекунд выбрасывает гранулы вне диапазона. Грузятся только нужные куски, что колоссально экономит время.</p>
-        </div>
-    </div>
-
-    <!-- Q5 -->
-    <div class="card mb-12" data-task-id="stage1-q5">
-        <h4 style="color: var(--accent2); font-weight: 600; font-size: 18px; margin-bottom: 8px;">Вопрос 5: SQL Оконные функции</h4>
-        <div class="card-text" style="font-size: 16px;">
-            Вы пишете запрос <code>SUM(amount) OVER (PARTITION BY user_id ORDER BY purchase_date)</code>. Каким является фрейм (окно строк) по умолчанию, и почему наличие полных дублей <code>purchase_date</code> может привести к неожиданному результату или сильному повешению памяти (O(n²))?
-        </div>
-        <div class="answer-input-area" style="margin-top: 16px;">
-            <textarea class="answer-textarea" placeholder="Ваш ответ..."></textarea>
-        </div>
-        <button class="btn btn-secondary mt-8" onclick="showSQLSolution(this)">Показать правильный ответ</button>
-        <div class="solution-code theory-block" style="margin-top: 16px;">
-            <p>По умолчанию при указании <code>ORDER BY</code> в PostgreSQL граница фрейма выставляется неявно в: <code>RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW</code>.</p>
-            <p><strong>RANGE</strong> обрабатывает не физические скачки, а логические значения ключа сортировки. Это значит что он стягивает <em>все строки с одинаковым значением сортировки (дубли дат)</em> в один блок. Если у одного юзера 10 000 покупок в одну и ту же дату без времени (микросекунд), база будет вынуждена держать их все в памяти для пересчета агрегата, что ведет к деградации до O(n²).</p>
-            <p>Чтобы считать агрегат строго строка за строкой за O(N), нужно явно сказать БД считать по физическим строкам: <code>ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW</code>.</p>
-        </div>
-    </div>
-
 </div>
