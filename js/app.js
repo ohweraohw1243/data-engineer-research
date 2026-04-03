@@ -378,13 +378,22 @@
         // Обновление индикатора прогресса ответов
         function updateAnswerProgress() {
             const sections = {
-                'week1': '#week1 [data-task-id]',
-                'week2': '#week2 [data-task-id]'
+                'stage1': '.page-content [data-task-id^="stage1"]',
+                'stage2': '.page-content [data-task-id^="stage2"]',
+                'stage3': '.page-content [data-task-id^="stage3"]',
+                'stage4': '.page-content [data-task-id^="stage4"]',
+                'stage5': '.page-content [data-task-id^="stage5"]'
             };
 
-            Object.keys(sections).forEach(tabId => {
+            const activeTab = document.querySelector('.nav-item.active');
+            if (!activeTab) return;
+            const tabId = activeTab.getAttribute('data-tab');
+
+            if (sections[tabId]) {
                 const containers = document.querySelectorAll(sections[tabId]);
                 const total = containers.length;
+                if (total === 0) return;
+                
                 const answered = Array.from(containers).filter(c => {
                     const textarea = c.querySelector('.answer-textarea');
                     return textarea && textarea.value.trim().length > 0;
@@ -392,17 +401,16 @@
                 
                 const navItem = document.querySelector(`.nav-item[data-tab="${tabId}"] span:last-child`);
                 if (navItem) {
-                    const percent = total > 0 ? Math.round((answered / total) * 100) : 0;
+                    const percent = Math.round((answered / total) * 100);
                     navItem.setAttribute('data-progress', `${answered}/${total}`);
                     
-                    // Визуальный индикатор
                     if (percent === 100) {
                         navItem.style.color = 'var(--accent1)';
                     } else if (percent >= 50) {
                         navItem.style.color = 'var(--accent3)';
                     }
                 }
-            });
+            }
         }
 
         // ===== POMODORO ТАЙМЕР =====
@@ -746,7 +754,7 @@
                 }
 
                 // Проверка DOM элементов
-                const requiredElements = ['home', 'week1', 'week2', 'resources', 'checklist'];
+                const requiredElements = ['home', 'resources', 'checklist'];
                 requiredElements.forEach(el => {
                     const elem = document.getElementById(el);
                     console.log(`${elem ? '✅' : '❌'} Page "${el}": ${elem ? 'OK' : 'NOT FOUND'}`);

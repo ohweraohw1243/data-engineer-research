@@ -1,0 +1,94 @@
+<div class="page-content">
+<div class="page-header">
+    <h1 class="page-title">Этап 1: <span>Продвинутый SQL & Архитектура БД</span></h1>
+    <p class="page-desc">Идеальное владение SQL, оптимизация запросов и принципы DWH/OLAP. (Месяц: Апрель)</p>
+</div>
+
+<div class="card-grid">
+
+    <!-- DAY 1 -->
+    <div class="card" data-task-id="stage1-day1">
+        <h3 class="card-title">🐘 Тема 1: Архитектура DWH, Lake и OLAP</h3>
+        <h4 style="color: var(--accent1); font-weight: 600; margin-top: 16px; margin-bottom: 8px;">Суть под капотом</h4>
+        <div class="card-text">
+            <p><strong>DWH vs Data Lake:</strong> DWH (Data Warehouse) хранит структурированные данные (Схема при записи - Schema on Write). Data Lake (S3, HDFS) хранит сырые данные (Схема при чтении - Schema on Read). В SMT мы мигрируем пайплайны с HDFS на S3 для создания Data Lake.</p>
+            <p style="margin-top: 8px;"><strong>Моделирование данных:</strong> Звезда (Star Schema) и Снежинка. Разница между подходами Ральфа Кимбалла (шины данных и витрины) и Инмона (единое нормализованное хранилище). Data Vault — гибрид для аудита и историчности с разделением на Hub, Link, Satellite.</p>
+            <p style="margin-top: 8px;"><strong>Хранение в S3:</strong> Использование партиционирования путей (например, <code>s3://bucket/topic/year=2026/month=04/</code>) и форматов файлов как Parquet/ORC для колоночного чтения.</p>
+        </div>
+
+        <h4 style="color: var(--accent2); font-weight: 600; margin-top: 16px; margin-bottom: 8px;">Теоретическое задание</h4>
+        <div class="card-text" style="background: rgba(108, 142, 247, 0.1); padding: 12px; border-radius: 6px; border-left: 3px solid var(--accent2);">
+            <strong>Вопрос:</strong> Почему при проектировании аналитической БД (OLAP) чаще выбирают денормализованную схему "Звезда", а не 3 нормальную форму (3NF)?
+        </div>
+        <div class="answer-input-area">
+            <label for="answer-stage1-day1">Ваш ответ:</label>
+            <textarea id="answer-stage1-day1" class="answer-textarea" placeholder="В Звезде меньше JOIN-ов..."></textarea>
+            <button class="check-answer-btn" onclick="checkAnswer(this)">✓ Проверить ответ</button>
+            <div class="check-result"></div>
+        </div>
+    </div>
+
+    <!-- DAY 2 -->
+    <div class="card" data-task-id="stage1-day2">
+        <h3 class="card-title">🚀 Тема 2: ClickHouse (Семейство MergeTree)</h3>
+        <h4 style="color: var(--accent1); font-weight: 600; margin-top: 16px; margin-bottom: 8px;">Суть под капотом</h4>
+        <div class="card-text">
+            <p><strong>MergeTree:</strong> Это не просто таблица, а целое семейство движков. Данные записываются кусками (parts), а в фоновом режиме сливаются (merge). Нет Update/Delete (используем CollapsingMergeTree или ReplacingMergeTree).</p>
+            <p style="margin-top: 8px;"><strong>Primary Key vs Order By:</strong> В ClickHouse Primary Key не гарантирует уникальность. Он создает sparse-индекс (разреженный), который позволяет быстро сужать поиск гранул данных (granules) при фильтрации.</p>
+            <p style="margin-top: 8px;"><strong>Шардирование и партиционирование:</strong> Партиционирование (обычно по месяцам) для ротации и DROP старых данных. Шардирование для распределения нагрузки по кластеру (Distributed таблицы).</p>
+        </div>
+
+        <h4 style="color: var(--accent2); font-weight: 600; margin-top: 16px; margin-bottom: 8px;">Практика: Проектирование ClickHouse</h4>
+        <div class="card-text" style="background: rgba(108, 142, 247, 0.1); padding: 12px; border-radius: 6px; border-left: 3px solid var(--accent2);">
+            <strong>Задача:</strong> Опишите, как бы вы спроектировали DDL таблицы в ClickHouse для логов событий интернет-магазина: <code>user_id</code>, <code>event_type</code>, <code>event_time</code>, чтобы запросы "количество покупок за вчера" работали мгновенно. Какой ORDER BY и PARTITION BY выберете?
+        </div>
+        <div class="answer-input-area">
+            <label for="answer-stage1-day2">Ваш ответ:</label>
+            <textarea id="answer-stage1-day2" class="answer-textarea" placeholder="PARTITION BY toYYYYMM(event_time) ... "></textarea>
+            <button class="check-answer-btn" onclick="checkAnswer(this)">✓ Проверить ответ</button>
+            <div class="check-result"></div>
+        </div>
+    </div>
+
+    <!-- DAY 3 -->
+    <div class="card" data-task-id="stage1-day3">
+        <h3 class="card-title">🔍 Тема 3: SQL На максималках</h3>
+        <h4 style="color: var(--accent1); font-weight: 600; margin-top: 16px; margin-bottom: 8px;">Суть под капотом</h4>
+        <div class="card-text">
+            <p><strong>Оконные функции и CTE:</strong> Окна избавляют от self-join. Понимание разницы между ROWS и RANGE предел (frame semantics). Рекурсивные CTE (<code>WITH RECURSIVE</code>) для работы с деревьями и иерархиями.</p>
+            <p style="margin-top: 8px;"><strong>Под капотом PostgreSQL:</strong> Поиск узких мест с <code>EXPLAIN ANALYZE</code>. Какие бывают Join: Nested Loop, Hash Join, Merge Join. Влияние буферов (work_mem) на производительность сортировок.</p>
+            <p style="margin-top: 8px;"><strong>Индексы:</strong> B-tree, Hash, GIN. Разница между Index Scan (чтение индекса + поход в кучу Heap) и Index-Only Scan (данные читаются прямо из листьев индекса, если таблица VACUUM-обработана).</p>
+        </div>
+
+        <h4 style="color: var(--accent2); font-weight: 600; margin-top: 16px; margin-bottom: 8px;">Интерактивная практика (Оконные)</h4>
+        <div class="card-text" style="background: rgba(108, 142, 247, 0.1); padding: 12px; border-radius: 6px; border-left: 3px solid var(--accent2);">
+            <strong>Задача:</strong> Напишите SQL, который для каждого <code>user_id</code> из таблицы <code>purchases (user_id, purchase_date, amount)</code> находит день его первой покупки и сумму, потраченную в этот день (через оконную функцию).
+        </div>
+        <div class="answer-input-area">
+            <label for="answer-stage1-day3">Ваш SQL:</label>
+            <textarea id="answer-stage1-day3" class="answer-textarea" placeholder="WITH ranked AS ( ... ) "></textarea>
+            <button class="check-answer-btn" onclick="checkAnswer(this)">✓ Проверить ответ</button>
+            <div class="check-result"></div>
+        </div>
+        <button class="btn" onclick="showHint(this, 1)">💡 Подсказка</button>
+        <button class="btn btn-secondary" onclick="showSQLSolution(this)">Показать решение</button>
+        <div class="hint-level" style="border-color: var(--accent3); background: rgba(247, 160, 74, 0.08);">
+            Используйте ROW_NUMBER() OVER(PARTITION BY user_id ORDER BY purchase_date ASC). Затем отфильтруйте внешним запросом rn = 1.
+        </div>
+        <div class="solution-code">
+WITH RankedPurchases AS (
+    SELECT 
+        user_id, 
+        purchase_date, 
+        amount,
+        ROW_NUMBER() OVER(PARTITION BY user_id ORDER BY purchase_date ASC) as rn
+    FROM purchases
+)
+SELECT user_id, purchase_date, amount
+FROM RankedPurchases
+WHERE rn = 1;
+        </div>
+    </div>
+
+</div>
+</div>
