@@ -1,23 +1,68 @@
 <div class="page-content">
-<div class="page-header">
-    <h1 class="page-title">Этап 3: <span>Spark & Обработка Big Data</span></h1>
-    <p class="page-desc">Главный инструмент платформы. Уметь готовить Spark 3+ на больших объемах. (Май)</p>
-</div>
+    <div class="page-header">
+        <h1 class="page-title">Этап 3: <span>Spark & Обработка Big Data</span></h1>
+        <p class="page-desc">Главный инструмент платформы. Учимся писать Spark-джобы, парсить большие файлы, очищать данные и работать с партициями. Все практические задания перенесены в раздел "Лайв-кодинг".</p>
+    </div>
 
-<div class="card-grid">
-    <div class="card">
-        <h3 class="card-title">⚡ Spark & Обработка Big Data (В разработке)</h3>
+    <h2 style="font-size: 26px; font-weight: 600; margin-bottom: 24px; margin-top: 32px; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px;">Теоретические модули</h2>
+
+    <!-- Модуль 1 -->
+    <div class="card theory-block" style="margin-bottom: 32px;">
+        <h3 class="card-title">🚀 Модуль 1: Архитектура Apache Spark</h3>
         <div class="card-text" style="margin-top: 16px;">
-            <p>Теория и задания для этого этапа в данный момент структурируются куратором. Загляните сюда чуть позже! (Следите за дорожной картой).</p>
-            <p style="margin-top: 8px; color: var(--text-dim);"><em>Этот раздел разблокируется ближе к началу соответствующего месяца.</em></p>
-            
+            <p><strong>Apache Spark</strong> — это фреймворк для распределенных вычислений. Если данные не лезут на 1 сервер, мы делим их на части (партиции) и процессим на 10 серверах параллельно.</p>
+            <ul>
+                <li><strong>Driver vs Executor:</strong> Driver пишет план (DAG) и раздает задачи (Tasks), а Executors (Воркеры) их выполняют на конкретных партициях данных.</li>
+                <li><strong>Lazy Evaluation:</strong> Трансформации (<code>filter</code>, <code>withColumn</code>) не выполняются сразу. Spark просто строит граф обработки (DAG). Реальное вычисление стартует только при вызове Action (<code>show()</code>, <code>count()</code>, <code>write</code>).</li>
+            </ul>
+
             <div class="resource-block" style="margin-top: 16px; background: rgba(255,255,255,0.05); padding: 16px; border-radius: 8px;">
                 <h4 style="margin-top: 0">Что посмотреть/почитать:</h4>
                 <ul>
-                    <li>⏳ <em>Материалы готовятся к публикации... (Ожидайте книги и видео по архитектуре Spark)</em></li>
+                    <li>📖 <strong>Книга:</strong> "Spark: The Definitive Guide" (Bill Chambers, Matei Zaharia).</li>
+                    <li>▶️ <strong>YouTube:</strong> Лекции "Архитектура Apache Spark" (найти базовые объяснения Driver, Executor, Memory).</li>
+                    <li>📝 <strong>Документация:</strong> Cluster Mode Overview в официальной доке Spark.</li>
                 </ul>
             </div>
         </div>
     </div>
-</div>
+
+    <!-- Модуль 2 -->
+    <div class="card theory-block" style="margin-bottom: 32px;">
+        <h3 class="card-title">📊 Модуль 2: DataFrame API и Трансформации</h3>
+        <div class="card-text" style="margin-top: 16px;">
+            <p>В основе PySpark лежат <strong>DataFrames</strong>, которые визуально напоминают Pandas, но принципиально отличаются ленивой природой и распределенностью.</p>
+            <p><strong>Базовые операции:</strong> <code>select</code>, <code>filter</code>, <code>groupBy</code>, <code>agg</code>, <code>join</code>, <code>withColumn</code> (создание новой/замена колонки), <code>drop</code>.</p>
+            <p><strong>Чтение/Запись:</strong> Spark умеет читать и писать множество форматов из коробки. Наиболее популярный и эффективный для Big Data — <strong>Parquet</strong> (колоночный формат), а также <strong>JSON</strong>/<strong>CSV</strong> во время прототипирования.</p>
+
+            <div class="resource-block" style="margin-top: 16px; background: rgba(255,255,255,0.05); padding: 16px; border-radius: 8px;">
+                <h4 style="margin-top: 0">Что посмотреть/почитать:</h4>
+                <ul>
+                    <li>💻 <strong>Практика:</strong> Примеры из официальной доки Spark DataFrame API (PySpark).</li>
+                    <li>▶️ <strong>YouTube:</strong> Руководства "PySpark DataFrames Tutorial".</li>
+                    <li>📝 <strong>Статья:</strong> Отличия Parquet, ORC, Avro форматы (колоночное хранение).</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модуль 3 -->
+    <div class="card theory-block" style="margin-bottom: 32px;">
+        <h3 class="card-title">🛠️ Модуль 3: Оптимизация (Партиции, Shuffle)</h3>
+        <div class="card-text" style="margin-top: 16px;">
+            <p>Боль, с которой сталкивается каждый ДЕ:</p>
+            <ul>
+                <li><strong>Shuffle (Перетасовка):</strong> Когда после <code>groupBy</code> или <code>join</code> данные должны физически перелететь по сети между экзекьюторами на другие ноды. Это самая дорогая операция!</li>
+                <li><strong>Partitioning:</strong> Правильное разделение данных (<code>repartition</code> vs <code>coalesce</code>). Coalesce уменьшает число партиций без полного шаффла, repartition делает полный шаффл но равномерно балансирует.</li>
+            </ul>
+
+            <div class="resource-block" style="margin-top: 16px; background: rgba(255,255,255,0.05); padding: 16px; border-radius: 8px;">
+                <h4 style="margin-top: 0">Что посмотреть/почитать:</h4>
+                <ul>
+                    <li>▶️ <strong>YouTube:</strong> Spark Shuffle Optimization (как избегать shuffle и как работает BroadCast join).</li>
+                    <li>📝 <strong>Статья:</strong> "Coalesce vs Repartition в Apache Spark".</li>
+                </ul>
+            </div>
+        </div>
+    </div>
 </div>
