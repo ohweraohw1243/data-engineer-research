@@ -426,5 +426,58 @@ spark.stop()</code></pre>
             </div>
         </div>
 
+        <h2 style="font-size: 26px; font-weight: 600; margin-top: 48px; margin-bottom: 24px; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px;">Практические Задачи (Этап 4)</h2>
+
+        <!-- Project 1 (Stage 4) -->
+        <div class="space-y-6">
+            <div class="task-box" data-task-id="stage4-kafka-streaming" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid #a855f7;">
+                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">💻 Проект 1: Kafka Producer & Data Quality</h4>
+                <p style="margin-bottom: 16px;"><strong>Цель:</strong> Написать Kafka Producer на Python, который симулирует поток транзакций. Перед отправкой скрипт валидирует данные (DQ check): сумма (amount) должна быть > 0. Если данные невалидны — они отбрасываются.</p>
+                <div style="background: rgba(0,0,0,0.3); padding: 12px; border-radius: 6px; margin-bottom: 16px; font-family: monospace; font-size: 13px; color: #cbd5e1;">
+                    События на генерацию:<br>
+                    {'txn_id': 1, 'amount': 150}<br>
+                    {'txn_id': 2, 'amount': -10} -- должно быть отброшено<br>
+                    {'txn_id': 3, 'amount': 200}<br>
+                    Топик: "transactions"
+                </div>
+
+                <div class="answer-input-area">
+                    <label>Ваш Python код (Producer):</label>
+                    <textarea rows="12" class="answer-textarea" placeholder="import json&#10;from kafka import KafkaProducer&#10;..."></textarea>
+                    <button class="check-answer-btn" onclick="checkAnswer(this)">Проверить мое решение</button>
+                    <div class="check-result"></div>
+                </div>
+
+                <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
+                    <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
+<pre style="background:#1e293b; padding:12px; border-radius:6px; margin-top: 12px; margin-bottom: 0; color:#e2e8f0; overflow-x: auto;"><code>import json
+from kafka import KafkaProducer
+
+producer = KafkaProducer(
+    bootstrap_servers=['localhost:9092'],
+    value_serializer=lambda v: json.dumps(v).encode('utf-8')
+)
+
+transactions = [
+    {'txn_id': 1, 'amount': 150},
+    {'txn_id': 2, 'amount': -10},
+    {'txn_id': 3, 'amount': 200}
+]
+
+for txn in transactions:
+    # DQ Check
+    if txn['amount'] <= 0:
+        print(f"DQ Alert: Invalid amount for txn_id {txn['txn_id']}")
+        continue
+
+    # Send to Kafka
+    producer.send('transactions', value=txn)
+
+producer.flush()
+print("Valid transactions sent.")</code></pre>
+                </details>
+            </div>
+        </div>
+
     </div>
 </div>
