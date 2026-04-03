@@ -110,10 +110,20 @@
             }
         }
         
-        // Initial load
+        // Initial load + nav click handlers
         window.addEventListener('DOMContentLoaded', () => {
             const currentTab = localStorage.getItem('streamflow_current_tab') || 'home';
             switchTab(currentTab);
+
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const tabId = item.getAttribute('data-tab');
+                    if (tabId) {
+                        localStorage.setItem('streamflow_current_tab', tabId);
+                        switchTab(tabId);
+                    }
+                });
+            });
         });
     </script>
 
