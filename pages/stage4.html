@@ -1,71 +1,64 @@
 <div class="page-content">
     <div class="page-header">
-        <h1 class="page-title">Этап 4: <span>Streaming, Kafka & Data Quality</span></h1>
-        <p class="page-desc">Высоконагруженная передача данных и контроль их качества. Архитектура топиков, Data Lineage и мониторинг. Все практические задания перенесены в раздел "Лайв-кодинг".</p>
+        <h1 class="page-title">Этап 4: <span>Kafka, Стриминг и Data Governance</span></h1>
+        <p class="page-desc">Массивная реал-тайм архитектура. Секреты Zero-Copy в топиках, ZooKeeper vs KRaft, Data Lineage и строгие Data Contracts.</p>
     </div>
 
     <h2 style="font-size: 26px; font-weight: 600; margin-bottom: 24px; margin-top: 32px; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px;">Теоретические модули</h2>
 
     <!-- Модуль 1 -->
     <div class="card theory-block" style="margin-bottom: 32px;">
-        <h3 class="card-title">🌊 Модуль 1: Архитектура Apache Kafka</h3>
+        <h3 class="card-title">🌊 Модуль 1: Внутренности Apache Kafka</h3>
         <div class="card-text" style="margin-top: 16px;">
-            <p><strong>Apache Kafka</strong> — это распределенный брокер сообщений. Он используется для потоковой (Streaming) передачи данных в реальном времени.</p>
+            <p>Горизонтально масштабируемый брокер для миллионов событий в секунду.</p>
             <ul>
-                <li><strong>Топики и Партиции:</strong> Данные пишутся в Topics (как таблицы), которые делятся на Partitions для параллельной записи и чтения.</li>
-                <li><strong>Producer & Consumer:</strong> Продюсеры отправляют данные, а Консюмеры (объединенные в Consumer Groups) читают их. Kafka просто хранит лог событий (Append-only log).</li>
-                <li><strong>Гарантии доставки:</strong> At-most-once (можем потерять), At-least-once (базовый стандарт, могут быть дубли), Exactly-once (идеально, но сложно в настройке).</li>
+                <li><strong>Topics и Partitions:</strong> Логика инженеров пишется в Topic-и, но физически топик - это набор Партиций (Partitions) раскиданных по жестким дискам разных Брокеров. Чем больше партиций — тем выше параллелизм записи консьюмер-группой. Минус: мы теряем гарантию порядка сообщений (порядок гарантируется лишь внутри 1 Partiton!).</li>
+                <li><strong>Append-only Log + Zero Copy:</strong> Kafka - это не обычная база данных. Это просто линейный файл журнала. Запись идет строго в хвост файла на диске (Sequential I/O). За счет этого и технологии <em>Zero Copy Bypass</em> (передача байтов из диска сразу в сетевой сокет, минуя User-Space приложения), Kafka пишет на старый HDD диск так же быстро, как в оперативную память.</li>
+                <li><strong>ZooKeeper vs KRaft:</strong> Исторически для консенсуса кластера (выбора мастер-лидера партиции) был сложный ZooKeeper. Сейчас Kafka (2.8+) имеет встроенный протокол консенсуса KRaft. Брокер сам себе выбирает 'контроллер-кворум', что ускоряет создание тысяч топиков.</li>
+                <li><strong>Offsets:</strong> 'Закладки' (курсоры) того, на каком сообщении внутри конкретной партиции сейчас находится Consumer-клиент. Прочитал -> закоммитил оффсет на сервер.</li>
             </ul>
-
             <div class="resource-block" style="margin-top: 16px; background: rgba(255,255,255,0.05); padding: 16px; border-radius: 8px;">
                 <h4 style="margin-top: 0">Что посмотреть/почитать:</h4>
                 <ul>
-                    <li>📖 <strong>Книга:</strong> "Kafka: The Definitive Guide" (Gwen Shapira, Todd Palino).</li>
-                    <li>▶️ <strong>YouTube:</strong> Apache Kafka Crash Course (архитектура, Zookeeper / KRaft).</li>
-                    <li>📝 <strong>Статья:</strong> Как работает Consumer Group и ребалансировка в Kafka.</li>
+<li>📖 <strong>Книга:</strong> Kafka: The Definitive Guide (Gwen Shapira, Todd Palino).</li><li>▶️ <strong>YouTube:</strong> Understanding KRaft protocol Apache Kafka (Confluent).</li>
                 </ul>
             </div>
         </div>
     </div>
-
     <!-- Модуль 2 -->
     <div class="card theory-block" style="margin-bottom: 32px;">
-        <h3 class="card-title">🧬 Модуль 2: Data Governance и Data Lineage</h3>
+        <h3 class="card-title">🧩 Модуль 2: Schema Registry, Форматы и Streaming</h3>
         <div class="card-text" style="margin-top: 16px;">
-            <p>Когда хранилище разрастается до сотен таблиц, нужно понимать, откуда берутся данные и кто ими владеет.</p>
             <ul>
-                <li><strong>Data Catalog:</strong> Единый реестр (словарь) всех таблиц, метрик и источников в компании (например, DataHub, Amundsen, OpenMetadata).</li>
-                <li><strong>Data Lineage:</strong> Визуальный граф "происхождения" данных. Показывает, из какой сырой таблицы (STG) собралась витрина (DDS) и в каком BI-дашборде она используется. Помогает при расследовании инцидентов.</li>
+                <li><strong>Schema Registry:</strong> Кафка не знает, что внутри сообщения (для нее это просто массив [011000100]). Чтобы программист продюсера не сломал аналитика на приемке (вдруг он переименовал поле `id` в `user_id`), поднимается отдельный микросервис Schema Registry. Там хранятся жесткие схемы (JSON Schema). Если продюсер шлет грязный JSON — схема не пускает его и бросает Serialization Exception.</li>
+                <li><strong>Форматы сериализации:</strong> В Big Data Кафку не гоняют чистым JSON (он раздувает сеть пробелами и ключами). Используют <strong>Avro</strong> или <strong>Protobuf</strong>: они бинарны, сжимают размер сообщений в 4-6 раз и требуют явного контракта.</li>
+                <li><strong>Spark Structured Streaming и Kafka Streams:</strong> Когда мы читаем из Kafka в Data Lake, мы работаем с логикой бесконечного потока (unbounded stream table). Spark каждые 5-10 сек (Micro-batch interval) собирает пачку ивентов и процессит их как обычный DataFrame, используя те же агрегации Catalyst. Flink/Kafka Streams же идут еще дальше, обрабатывая ивент поштучно (Row-by-Row).</li>
             </ul>
-
             <div class="resource-block" style="margin-top: 16px; background: rgba(255,255,255,0.05); padding: 16px; border-radius: 8px;">
                 <h4 style="margin-top: 0">Что посмотреть/почитать:</h4>
                 <ul>
-                    <li>▶️ <strong>YouTube:</strong> Что такое Data Governance простыми словами.</li>
-                    <li>📝 <strong>Статья:</strong> Внедрение DataHub или OpenMetadata (как работает Lineage).</li>
+<li>📝 <strong>Документация:</strong> Confluent Schema Registry Overview & Avro Serialization.</li><li>▶️ <strong>Видео:</strong> 'Structured Streaming in Apache Spark 3.x'.</li>
                 </ul>
             </div>
         </div>
     </div>
-
     <!-- Модуль 3 -->
     <div class="card theory-block" style="margin-bottom: 32px;">
-        <h3 class="card-title">🛡️ Модуль 3: Data Quality (Качество данных)</h3>
+        <h3 class="card-title">🛡️ Модуль 3: Data Quality, Contracts & Data Governance</h3>
         <div class="card-text" style="margin-top: 16px;">
-            <p>Хороший пайплайн не просто перекладывает данные, но и проверяет их на аномалии.</p>
+            <p>Когда вы сливаете миллиарды грязных пользовательских строк в DWH, как доказать бизнесу, что метрики в BI-дашбордах - достоверны?</p>
             <ul>
-                <li><strong>Data Contracts:</strong> Соглашение (контракт) между поставщиком данных (бэкенд) и потребителем (DWH). Если бэкенд меняет тип колонки — пайплайн падает еще на этапе CI/CD.</li>
-                <li><strong>Проверки (DQ Checks):</strong> Проверка на NULL, уникальность (Primary Key), диапазоны значений (например, возраст > 0). Инструменты: Great Expectations, Soda.</li>
-                <li><strong>Мониторинг/Алертинг:</strong> Если в таблице стало на 50% меньше строк, чем вчера — отправляем алерт в Slack/Telegram.</li>
+                <li><strong>Data Contracts:</strong> Юридические обязательства от команды Backend'a. Бэкенд пушит контракты (схему таблиц) в репозиторий DE. Если на бэкенде Senior-developer внезапно мигрирует поле <code>user_age</code> из Integer в String, CI/CD Pipeline падает на этапе сборки приложения! Бэкенд физически не может выкатить релиз, пока не согласует изменение с DE-командой.</li>
+                <li><strong>Качество Данных (Great Expectations / Soda Core):</strong> Пишем автотесты для табличных данных в Airflow: "Колонка <code>is_active</code> не может быть NULL", "Метрика <code>total_revenue</code> должна быть в диапазоне ±20% от вчерашнего дня (Аномалия!)" -> При отклонениях Airflow отправляет алерт в Slack/Telegram и <em>тормозит</em> пайплайн инъекции данных, не пуская мусор в BI.</li>
+                <li><strong>Data Catalog & Lineage (DataHub / OpenMetadata / Amundsen):</strong> У гендиректора на дашборде упала конверсия. Он идет в Data Catalog (внутренняя Википедия Дата-Отдела). Ищет там дашборд и открывает вкладку Lineage (визуальный граф зависимостей данных): Дашборд -> Слой DDS_SALES -> Слой ODS_RAW -> Сырой лог из Kafka_Payment_Topic. Он видит красным светом, что сгорел сырой лог Kafka. Инцидент эскалируется к Backend-команде за 5 минут, а не за 3 дня раскопок дата-инженером.</li>
             </ul>
-
             <div class="resource-block" style="margin-top: 16px; background: rgba(255,255,255,0.05); padding: 16px; border-radius: 8px;">
                 <h4 style="margin-top: 0">Что посмотреть/почитать:</h4>
                 <ul>
-                    <li>▶️ <strong>YouTube:</strong> Введение в Data Contracts (Chad Sanderson).</li>
-                    <li>💻 <strong>Инструментарий:</strong> Документация Great Expectations (как писать базовые тесты для данных).</li>
+<li>📖 <strong>Книга:</strong> 'Data Quality Fundamentals' (O'Reilly).</li><li>▶️ <strong>YouTube:</strong> The rise of Data Contracts (Chad Sanderson) - System Design.</li>
                 </ul>
             </div>
         </div>
     </div>
+
 </div>

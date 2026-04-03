@@ -1,71 +1,65 @@
 <div class="page-content">
     <div class="page-header">
-        <h1 class="page-title">Этап 5: <span>Системный дизайн (System Design)</span></h1>
-        <p class="page-desc">Проектирование и архитектура платформ данных. Как выбрать между Batch и Streaming, проектирование DWH и Data Lake. Все практические задания перенесены в раздел "Лайв-кодинг".</p>
+        <h1 class="page-title">Этап 5: <span>System Design, Lakehouse и MPP базы данных</span></h1>
+        <p class="page-desc">Системный дизайн: от Lambda до Zero-ETL подходов. Революция ACID-таблиц поверх S3 (От HDFS к Apache Iceberg) и векторные SQL движки ClickHouse.</p>
     </div>
 
     <h2 style="font-size: 26px; font-weight: 600; margin-bottom: 24px; margin-top: 32px; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px;">Теоретические модули</h2>
 
     <!-- Модуль 1 -->
     <div class="card theory-block" style="margin-bottom: 32px;">
-        <h3 class="card-title">🧩 Модуль 1: Архитектура DWH, Data Lake и Lakehouse</h3>
+        <h3 class="card-title">🏰 Модуль 1: От HDFS к S3 и Архитектура Lakehouse</h3>
         <div class="card-text" style="margin-top: 16px;">
-            <p>Эволюция систем хранения аналитических данных:</p>
+            <p>Эволюция Big Data: почему мы перестали строить огромные кластеры Hadoop?</p>
             <ul>
-                <li><strong>Data Warehouse (DWH):</strong> Структурированные данные (SQL), жесткая схема (Schema-on-Write). Примеры: ClickHouse, Greenplum, Snowflake. Отлично для готовой отчетности.</li>
-                <li><strong>Data Lake:</strong> Хранение сырых данных любых форматов (JSON, Parquet, картинки) в дешевом облаке (S3/HDFS). Гибкость на старте, но есть риск превратить хранилище в "болото данных" (Data Swamp).</li>
-                <li><strong>Data Lakehouse:</strong> Гибрид. Данные лежат дешево в S3, но поверх них используются ACID-транзакции и SQL-движки (как в DWH). Популярные форматы: Apache Iceberg, Delta Lake, Apache Hudi.</li>
+                <li><strong>HDFS:</strong> Привязка компьютера к жесткому диску (Coupled Compute & Storage). Сервер (Node), считающий Spark-джобы, физически хранит части файлов на своих же дисках. Считалось, что локальный диск быстрее сети. Огромный минус: масштабирование. Чтобы увеличить хранилище петабайтов на 10% вам нужно покупать еще один мощнейший дорогущий сервер с 64 ядрами, которые будут простаивать!</li>
+                <li><strong>S3 Object Storage (MinIO, AWS S3):</strong> Разделение вычислений и хранилища (Decoupled Architecture). В S3 данные лежат на дешевых медленных дисках клауда (Storage Layer), а Spark разворачивается отдельно в Kubernetes (Compute Layer). Сети стали 100 Gbit+, локальность больше не нужна.</li>
+                <li><strong>Lakehouse (Iceberg / Delta Lake / Hudi):</strong> Раньше на S3 у вас лежали просто 10 миллионов голых Parquet файлов. Если вы читаете датасет, а Airflow в этот же момент его удаляет/переписывает — Data Lake возвращал ошибку файла (Отсутствие ACID!). Сегодня: <strong>Apache Iceberg</strong> добавляет слой Метаданных (Manifest files / Snapshots). Iceberg эмулирует полноценную SQL-базу поверх S3 (можно делать <code>UPDATE</code>, `MERGE INTO`, `DELETE`, получать Snapshot Isolation (транзакции) и Time-Travel — возможность запросом `SELECT * FROM tbl AS OF TIMESTAMP '12:00'` прочитать вчерашние данные озера!).</li>
             </ul>
-
             <div class="resource-block" style="margin-top: 16px; background: rgba(255,255,255,0.05); padding: 16px; border-radius: 8px;">
                 <h4 style="margin-top: 0">Что посмотреть/почитать:</h4>
                 <ul>
-                    <li>📖 <strong>Книга:</strong> "Designing Data-Intensive Applications" (Martin Kleppmann) — Библия архитектуры (Глава 3 про Storage Engine).</li>
-                    <li>▶️ <strong>YouTube:</strong> Data Lake vs Data Warehouse vs Data Lakehouse (концептуальные основы).</li>
-                    <li>📝 <strong>Статья:</strong> Введение в Apache Iceberg для Data Engineer (как устроено версионирование).</li>
+<li>📝 <strong>Документация:</strong> Apache Iceberg Architecture Deep Dive.</li><li>▶️ <strong>YouTube:</strong> Data Lakehouse vs Data Warehouse.</li>
                 </ul>
             </div>
         </div>
     </div>
-
     <!-- Модуль 2 -->
     <div class="card theory-block" style="margin-bottom: 32px;">
-        <h3 class="card-title">⚖️ Модуль 2: Lambda и Kappa Архитектуры</h3>
+        <h3 class="card-title">⚙️ Модуль 2: Lambda, Kappa и Zero-ETL</h3>
         <div class="card-text" style="margin-top: 16px;">
-            <p>Две классические парадигмы проектирования пайплайнов для обработки потоковых и исторических данных:</p>
+            <p>Эволюция систем обработки данных и корпоративных архитектур:</p>
             <ul>
-                <li><strong>Lambda Architecture:</strong> Данные делятся на 2 пути: <em>Batch Layer</em> (считает все точно по большим массивам, но раз в сутки) и <em>Speed Layer</em> (считает быстро в рантайме онлайн). <em>Serving Layer</em> объединяет результаты для пользователя (точность + скорость).</li>
-                <li><strong>Kappa Architecture:</strong> Упрощение лямбды. Разделения на Batch нет! Все данные обрабатываются только как потоковые <em>(Speed Layer)</em>, даже исторические данные, если нужно пересчитать (например Kafka + Flink).</li>
+                <li><strong>Lambda Architecture:</strong> Поток сырых событий делится на два ручья. Быстрый поток идет из Кафки сразу в NoSQL СУБД (приближенные быстрые метрики для сайта). Медленный лог идет в S3 Data Lake -> Spark Batch (раз в сутки) -> Мощный DWH (вечерняя сверка точных копеек и перезапись NoSQL). Минус: программисты дублируют одну и ту же логику дважды (Batch и Streaming). Дорогая поддержка 2-х пайплайнов.</li>
+                <li><strong>Kappa Architecture:</strong> Оставляем ТОЛЬКО Стриминговый (Fast) слой на базе Apache Flink/Kafka Streams! Пересчет исторического бага (Backfilling) делается через пуш исторических данных в старый топик Кафки, который читается в режиме "потока". Идеально 1 Codebase для реал-тайма и батчей!</li>
+                <li><strong>Zeta Architecture / Zero-ETL:</strong> Текущий мощный тренд облачных Cloud-вендоров (Snowflake/AWS/Databricks). Зачем DE-отделу писать сложные Airflow DAG-и для перекладывания из Postgres -> в аналитический DWH? AWS Aurora и Snowflake позволяют под капотом транслировать CDC репликации (Binary Log базы) в Snowflake/Iceberg автоматически в 1 клик! Инженеры данных (DE) сдвигаются от профессии 'перетаскивателей ETL' в инженеров качества, каталогизации и Analytics Engineers (SQL-трансформации в dbt).</li>
             </ul>
-
             <div class="resource-block" style="margin-top: 16px; background: rgba(255,255,255,0.05); padding: 16px; border-radius: 8px;">
                 <h4 style="margin-top: 0">Что посмотреть/почитать:</h4>
                 <ul>
-                    <li>📝 <strong>Статья:</strong> Лямбда- и каппа-архитектуры: понятия, плюсы и отличия на практике.</li>
-                    <li>▶️ <strong>YouTube:</strong> Паттерны проектирования потоковой обработки данных на масштабах.</li>
+<li>📝 <strong>Статья:</strong> Questioning the Lambda Architecture (Jay Kreps, создатель Kafka).</li><li>📝 <strong>Документация:</strong> Zero-ETL Integrations in AWS/Snowflake.</li>
                 </ul>
             </div>
         </div>
     </div>
-
     <!-- Модуль 3 -->
     <div class="card theory-block" style="margin-bottom: 32px;">
-        <h3 class="card-title">🗂️ Модуль 3: Моделирование данных (Data Modeling)</h3>
+        <h3 class="card-title">📊 Модуль 3: Массивные Аналитические БД (MPP / OLAP)</h3>
         <div class="card-text" style="margin-top: 16px;">
-            <p>Как физически и логически располагать таблицы в DWH, чтобы BI-дашборды крутились быстро, а аналитикам было удобно:</p>
+            <p>Где лежат самые быстрые и ценные витрины (Data Marts) для CEO-дашбордов:</p>
             <ul>
-                <li><strong>Нормализация (3NF):</strong> Минимизация дублирования данных (Inmon). Идеально для транзакционных баз (OLTP), но тяжело для аналитики (много JOIN).</li>
-                <li><strong>Star Schema (Звезда) / Snowflake:</strong> Подход Kimball (Dimensional Modeling). Одна центральная таблица фактов, окруженная маленькими таблицами измерений (справочниками). Оптимально для аналитики (OLAP).</li>
-                <li><strong>Data Vault:</strong> Архитектура под agile-хранилища (Хабы, Линки, Сателлиты). Позволяет легко расширять исторические модели баз.</li>
+                <li><strong>РБД СУБД (PostgreSQL / MySQL) - это OLTP:</strong> (Online Transaction Processing). Они хранят данные построчно (Row-oriented). Отлично подходят для миллисекундных поисков одной транзакции юзера по ИНДЕКСУ (<code>SELECT * WHERE id=1</code>), но погибают при суммировании столбца из миллиарда строк.</li>
+                <li><strong>Massively Parallel Processing (MPP) - это OLAP:</strong> (ClickHouse / Snowflake / Redshift / Greenplum). Колоночные кластерные системы (Columnar Storage). Данные одного столбца хранятся физически рядом на диске, что дает колоссальную степень сжатия (у одинаковых чисел в столбце высокая энтропия).</li>
+                <li><strong>Как работает MPP:</strong> ClickHouse не имеет супер-материнской платы. Вы кидаете <code>SELECT sum(cost)</code> -> Coordinator Node разбивает запрос на 10 кусков -> рассылает 10 воркерам (Scatter) -> воркеры суммируют свои шарды -> отправляют ответ Координатору (Gather). </li>
+                <li><strong>Векторная обработка (SIMD):</strong> Почему Яндекс.Метрика (ClickHouse) быстрее Greenplum? ClickHouse обрабатывает данные блоками (Векторами). CPU использует SIMD инструкции (Single Instruction, Multiple Data), обрабатывая 256 чисел математически за 1 такт процессора (кэшируя в регистрах L1), вместо циклов While!</li>
             </ul>
-
             <div class="resource-block" style="margin-top: 16px; background: rgba(255,255,255,0.05); padding: 16px; border-radius: 8px;">
                 <h4 style="margin-top: 0">Что посмотреть/почитать:</h4>
                 <ul>
-                    <li>📖 <strong>Книга:</strong> "The Data Warehouse Toolkit" (Ralph Kimball).</li>
-                    <li>▶️ <strong>YouTube:</strong> Разбор Data Modeling (Star Schema, Snowflake, Data Vault 2.0).</li>
+<li>📖 <strong>Материалы:</strong> Внутреннее устройство ClickHouse (MergeTree Engine, Secondary Indexes, SIMD).</li><li>▶️ <strong>YouTube:</strong> OLAP vs OLTP Database architecture differences.</li>
                 </ul>
             </div>
         </div>
     </div>
+
 </div>

@@ -1,66 +1,65 @@
 <div class="page-content">
     <div class="page-header">
-        <h1 class="page-title">Этап 2: <span>Python ETL и Сбор Данных</span></h1>
-        <p class="page-desc">В этом этапе учимся писать код на Python: делать API-запросы, парсить JSON, подключаться к PostgreSQL и запаковывать Python-скрипты в изолированные Docker контейнеры. Все практические задания перенесены в раздел "Вопросы".</p>
+        <h1 class="page-title">Этап 2: <span>Python Архитектура, API и ОС Linux</span></h1>
+        <p class="page-desc">Сбор данных под микроскопом: как убивает GIL и работает Garbage Collector, как правильно масштабировать API коннекторы (Asyncio, HTTP), потоки I/O в Bash.</p>
     </div>
 
     <h2 style="font-size: 26px; font-weight: 600; margin-bottom: 24px; margin-top: 32px; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px;">Теоретические модули</h2>
 
     <!-- Модуль 1 -->
     <div class="card theory-block" style="margin-bottom: 32px;">
-        <h3 class="card-title">🌐 Модуль 1: Python, API и JSON</h3>
+        <h3 class="card-title">🐍 Модуль 1: Внутренности Python</h3>
         <div class="card-text" style="margin-top: 16px;">
-            <p>Чтобы стать Data Инженером, достаточно понимать базовые структуры данных и уметь общаться по протоколу HTTP.</p>
+            <p>Для написания консистентных коннекторов и API-скрейперов нужно знать Python под капотом:</p>
             <ul>
-                <li><strong>Библиотека Requests:</strong> Стандарт для HTTP-запросов. Вы делаете <code style="background: rgba(0,0,0,0.3); padding: 2px 4px; border-radius: 4px;">requests.get('https://api.example.com/data')</code> и получаете ответ.</li>
-                <li><strong>JSON (JavaScript Object Notation):</strong> Главный формат обмена данными. Для Python формат JSON — это просто вложенные <strong>Словари (Dicts)</strong> и <strong>Списки (Lists)</strong>.</li>
+                <li><strong>GIL (Global Interpreter Lock):</strong> Главный бич многопоточности в CPython. Мьютекс, который не дает двум потокам исполнять байткод simultaneously. Для I/O операций (API, паузы сети) нужно использовать <code>asyncio</code> и <code>threading</code>, а для математики и CPU — процессы (<code>multiprocessing</code>).</li>
+                <li><strong>Garbage Collector (GC):</strong> В Python памятью управляет счетчик ссылок (Reference Counting). Если счетчик падает до 0 — объект удаляется. Для решения проблемы циклических ссылок (A ссылается на B, B на A) включается сборщик поколений (Generational GC).</li>
+                <li><strong>Генераторы и Итераторы:</strong> При выгрузке 10МБ JSON лучше не грузить его целиком в память <code>list</code>, а генерировать элементы по одному через <code>yield</code>. Итераторы (<code>__iter__ __next__</code>) экономят RAM (память) на Airflow Worker'e при парсинге файлов на терабайты.</li>
             </ul>
-
             <div class="resource-block" style="margin-top: 16px; background: rgba(255,255,255,0.05); padding: 16px; border-radius: 8px;">
                 <h4 style="margin-top: 0">Что посмотреть/почитать:</h4>
                 <ul>
-                    <li>▶️ <strong>YouTube:</strong> Лекции про REST API для начинающих, Postman tutorial.</li>
-                    <li>📖 <strong>Документация:</strong> Официальная документация библиотеки <code>requests</code> в Python (Quickstart).</li>
-                    <li>💻 <strong>Практика:</strong> Потренироваться дергать открытые API (например reqres.in или pokeapi.co).</li>
+<li>📖 <strong>Книга:</strong> "Fluent Python" (Luciano Ramalho) – Глава про Итераторы и GIL.</li><li>▶️ <strong>YouTube:</strong> Raymond Hettinger - Advanced Python (PyCon).</li>
                 </ul>
             </div>
         </div>
     </div>
-
     <!-- Модуль 2 -->
     <div class="card theory-block" style="margin-bottom: 32px;">
-        <h3 class="card-title">🔌 Модуль 2: Подключение Python к Базе Данных</h3>
+        <h3 class="card-title">🕸 Модуль 2: REST API, JSON и Сетевые Протоколы</h3>
         <div class="card-text" style="margin-top: 16px;">
-            <p>Выступать связующим мостом будет "драйвер базы данных".</p>
-            <p><strong>Низкоуровневый — psycopg2:</strong> Вы открываете соединение и пишете SQL: <code>cursor.execute("INSERT ...")</code>. Важно: для массивов данных используйте <code>executemany()</code>.</p>
-            <p><strong>Высокоуровневый — SQLAlchemy / Pandas:</strong> Просто кидаем DataFrame в БД через <code>df.to_sql('table_name')</code>.</p>
-
+            <p>Сбор данных по HTTP (самая частая задача Data-инженера для интеграции Cloud-сервисов):</p>
+            <ul>
+                <li><strong>HTTP Методы и Коды:</strong> GET (получить), POST (отправить), PUT (перезаписать), PATCH (обновить часть). 200 (ОК), 401 (Unauthorized), 403 (Forbidden), 429 (Too Many Requests — нужно добавить логику Retry c экспоненциальным затуханием (Exponential Backoff!)), 500 (Ошибка сервера).</li>
+                <li><strong>Pagination (Пагинация):</strong> Сторонние API отдают данные не сразу 1М записей, а «страницами» по 100 записей через курсоры (<code>cursor</code>). Нужно обрабатывать заголовки <code>Next-Page-Token</code> в While True цикле.</li>
+                <li><strong>Асинхронность (Asyncio):</strong> Использование <code>aiohttp</code> позволяет делать 1000 HTTP запросов конкурентно в Event Loop, не блокируя приложение во время "ожидания" ответа удаленного сервера (I/O Bound task).</li>
+            </ul>
             <div class="resource-block" style="margin-top: 16px; background: rgba(255,255,255,0.05); padding: 16px; border-radius: 8px;">
                 <h4 style="margin-top: 0">Что посмотреть/почитать:</h4>
                 <ul>
-                    <li>▶️ <strong>YouTube:</strong> Работа с базой данных в Python через psycopg2 (Основы).</li>
-                    <li>▶️ <strong>YouTube:</strong> SQLAlchemy Core tutorial (базовое подключение и engine).</li>
-                    <li>📝 <strong>Статья:</strong> Как правильно и быстро делать массовый INSERT (executemany vs execute_values) на Хабре.</li>
+<li>📝 <strong>Статья:</strong> Построение Resilient API-коннекторов для ETL.</li><li>▶️ <strong>Библиотеки:</strong> <code>requests</code> (sync) vs <code>httpx / aiohttp</code> (async).</li>
                 </ul>
             </div>
         </div>
     </div>
-
     <!-- Модуль 3 -->
     <div class="card theory-block" style="margin-bottom: 32px;">
-        <h3 class="card-title">🐳 Модуль 3: Docker-изация Python скрипта</h3>
+        <h3 class="card-title">🐧 Модуль 3: Основы Linux и Bash для DE</h3>
         <div class="card-text" style="margin-top: 16px;">
-            <p>Код нужно контейнеризировать, чтобы среда исполнения была изолирована.</p>
-            <p><strong>Сети в Docker Compose:</strong> Внутри контейнера "localhost" — это он сам. Обращайтесь по <strong>имени сервиса</strong> из <code>docker-compose.yml</code> (например, <code>host="postgres"</code>).</p>
-
+            <p>Запуск дата-пайплайнов всегда происходит в Linux-окружении (Ubuntu, Debian, CentOS, RHEL). Без графической мышки.</p>
+            <ul>
+                <li><strong>Потоки ввода/вывода (Pipes <code>|</code>):</strong> Объединение утилит. <code>cat access.log | grep 'ERROR' | awk '{{print $1}}' | sort | uniq -c | sort -nr</code> — классический мощный конвейер для подсчета ТОП-IP адресов без написания скриптов на Python!</li>
+                <li><strong>Управление процессами:</strong> <code>top</code> и <code>htop</code> (показывают кто жрет CPU/ОЗУ), <code>ps aux | grep python</code>, убийство зависшего Airflow-воркера <code>kill -9 $PID</code>. Перевод процесса в фон (<code>&</code>, <code>bg</code>, <code>fg</code>, <code>nohup</code>).</li>
+                <li><strong>Крон (cron) и Systemd:</strong> Как запускать скрипты по расписанию "дедовским" способом без оркестраторов. Звездочки крона: <code>* * * * *</code> (минута, час, день, месяц, день недели).</li>
+                <li><strong>Права доступа (chmod/chown):</strong> Разница между <code>drwxr-xr-x</code> (755) и <code>644</code>. Как выдать права на запись в папку S3/локального диска, чтобы Python-скрипт не падал с <code>Permission Denied</code>.</li>
+            </ul>
             <div class="resource-block" style="margin-top: 16px; background: rgba(255,255,255,0.05); padding: 16px; border-radius: 8px;">
                 <h4 style="margin-top: 0">Что посмотреть/почитать:</h4>
                 <ul>
-                    <li>▶️ <strong>YouTube:</strong> Docker для Python: Как упаковать свой скрипт (Python Dockerfile).</li>
-                    <li>▶️ <strong>YouTube:</strong> Связывание нескольких контейнеров в Docker Compose (Python + БД).</li>
-                    <li>📖 <strong>Практика:</strong> Официальный туториал Docker: "Containerize a Python application".</li>
+<li>▶️ <strong>YouTube:</strong> The Linux Command Line for Beginners.</li><li>🎮 <strong>Практика:</strong> Игра OverTheWire Bandit (обучение терминалу SSH в формате CTF-квеста).</li>
                 </ul>
             </div>
         </div>
     </div>
+
 </div>

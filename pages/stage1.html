@@ -1,94 +1,68 @@
 <div class="page-content">
     <div class="page-header">
         <h1 class="page-title">Этап 1: <span>Базовый SQL, Docker и Теория Хранилищ</span></h1>
-        <p class="page-desc">Первые шаги: как обернуть базу данных в контейнер Docker, как писать SQL-запросы, и как устроена архитектура хранилищ (DWH).</p>
+        <p class="page-desc">Сверхдетальное погружение во внутренности баз данных, устройство B-Tree и Hash индексов, транзакции (ACID) и теорию построения нормализованных DWH.</p>
     </div>
 
     <h2 style="font-size: 26px; font-weight: 600; margin-bottom: 24px; margin-top: 32px; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px;">Теоретические модули</h2>
 
-    <!-- Module 1 -->
+    <!-- Модуль 1 -->
     <div class="card theory-block" style="margin-bottom: 32px;">
-        <h3 class="card-title">🐳 Модуль 1: Docker для инженеров</h3>
+        <h3 class="card-title">🐘 Модуль 1: Базовый и Продвинутый SQL</h3>
         <div class="card-text" style="margin-top: 16px;">
-            <p><strong>Docker</strong> — это система, которая упаковывает ваш код (и базу данных) со всеми зависимостями в контейнер. Контейнер работает идентично везде: и на вашем Mac, и на корпоративном сервере Linux.</p>
-
+            <p><strong>Оконные функции (Window Functions):</strong> Не группируют строки, как <code>GROUP BY</code>, а позволяют вычислять агрегаты для каждой строки на основе "окна" соседних строк (<code>OVER (PARTITION BY ... ORDER BY ...)</code>). Основные функции: <code>ROW_NUMBER()</code>, <code>RANK()</code>, <code>DENSE_RANK()</code>, <code>LEAD()</code>, <code>LAG()</code>.</p>
+            <p><strong>CTE (Общие табличные выражения):</strong> Заменяют вложенные подзапросы, делая код более читаемым. Синтаксис <code>WITH ... AS (...)</code>. Существуют <strong>рекурсивные CTE</strong> для обхода графов или иерархий (например, структуры подчинения). Использование CTE материализует данные в памяти (в Postgres 12+ по умолчанию не материализует).</p>
+            <p><strong>Индексы и Планы Запроса (Execution Plans):</strong></p>
             <ul>
-                <li><strong>Image (Образ):</strong> Это "чертеж" или "рецепт". Как ISO-образ диска. Образы статичны и неизменяемы.</li>
-                <li><strong>Container (Контейнер):</strong> Это запущенный экземпляр Образа. Он работает как отдельная изолированная мини-операционная система (свои папки, порты, сеть).</li>
-                <li><strong>Dockerfile:</strong> Текстовый файл с инструкциями, как собрать свой личный Образ: "Возьми чистый Python 3.9, скопируй скрипт, установи requests".</li>
-                <li><strong>Docker Compose:</strong> Инструмент для запуска нескольких контейнеров сразу в единой сети (<code>docker network</code>) с помощью файла <code>docker-compose.yml</code>.</li>
+                <li><strong>B-Tree (Сбалансированное дерево):</strong> Стандартный индекс в PostgreSQL. Идеально для поиска диапазонов (<code>BETWEEN</code>, <code>></code>, <code><</code>). Сложность поиска $O(\log N)$.</li>
+                <li><strong>Hash-индекс:</strong> Только для поиска точного соответствия (<code>=</code>).</li>
+                <li><strong>Как читать EXPLAIN:</strong> Поиск идет от внутренних листьев к корню узла. Ключевые термины: <code>Seq Scan</code> (полный перебор, плохо), <code>Index Scan</code> (оптимально), <code>Merge Join</code> (для двух больших отсортированных таблиц), <code>Hash Join</code> (если одна таблица помещается в память, строится хеш-таблица).</li>
             </ul>
-
             <div class="resource-block" style="margin-top: 16px; background: rgba(255,255,255,0.05); padding: 16px; border-radius: 8px;">
                 <h4 style="margin-top: 0">Что посмотреть/почитать:</h4>
                 <ul>
-                    <li>▶️ <strong>YouTube:</strong> Богдан Станкевич - "Docker для начинающих" (до Docker-compose).</li>
-                    <li>▶️ <strong>YouTube:</strong> Ulbi TV - "Docker Compose за 10 минут".</li>
+<li>📖 <strong>Книга:</strong> "High Performance MySQL" (базовое понимание индексов).</li><li>▶️ <strong>YouTube:</strong> Как читать EXPLAIN ANALYZE в PostgreSQL.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <!-- Модуль 2 -->
+    <div class="card theory-block" style="margin-bottom: 32px;">
+        <h3 class="card-title">🐳 Модуль 2: Контейнеризация и Docker</h3>
+        <div class="card-text" style="margin-top: 16px;">
+            <p>Data Engineer постоянно запускает локальную копию инфраструктуры (Kafka, Airflow, Spark).</p>
+            <ul>
+                <li><strong>Namespaces и Cgroups:</strong> Технологии ядра Linux, на которых базируется Docker (изоляция процессов и лимиты ресурсов CPU/RAM). Контейнер — это просто процесс в изоляции, а не виртуальная машина.</li>
+                <li><strong>Volumes (Тома):</strong> Папки на хосте, примонтированные в контейнер. Без них удаление контейнера Postgres удалит и саму базу данных навсегда!</li>
+                <li><strong>Networking:</strong> Виртуальные сети Docker (bridge, host). Чтобы Airflow увидел Postgres в том же docker-compose, они должны быть в одной сети. По IP обращаться нельзя, Airflow будет обращаться по DNS-имени сервиса (напр. <code>postgres:5432</code>).</li>
+            </ul>
+            <div class="resource-block" style="margin-top: 16px; background: rgba(255,255,255,0.05); padding: 16px; border-radius: 8px;">
+                <h4 style="margin-top: 0">Что посмотреть/почитать:</h4>
+                <ul>
+<li>📝 <strong>Документация:</strong> Docker Networking Overview.</li><li>▶️ <strong>YouTube:</strong> Как работает Docker под капотом (про cgroups).</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <!-- Модуль 3 -->
+    <div class="card theory-block" style="margin-bottom: 32px;">
+        <h3 class="card-title">🏛 Модуль 3: Архитектура Хранилищ (DWH) и ACID</h3>
+        <div class="card-text" style="margin-top: 16px;">
+            <p><strong>Транзакции и ACID:</strong> Свойства транзакций в РСУБД:</p>
+            <ul>
+                <li><strong>A (Atomicity):</strong> Атомарность. Либо все операции транзакции выполняются (COMMIT), либо откатываются (ROLLBACK).</li>
+                <li><strong>C (Consistency):</strong> Консистентность. База всегда будет в валидном состоянии, не нарушая FK (Внешних ключей).</li>
+                <li><strong>I (Isolation):</strong> Изоляция. Транзакции не должны мешать друг другу (уровни Read Uncommitted -> Read Committed (PG Default) -> Repeatable Read -> Serializable).</li>
+                <li><strong>D (Durability):</strong> Запись на диск. При сбое питания зафиксированные данные не удалятся (пишутся сперва в лог Write-Ahead Log, WAL).</li>
+            </ul>
+            <p><strong>Подходы Kimball vs Inmon:</strong> Ральф Кимбалл предложил строить DWH вокруг витрин (Звезда, "Снизу вверх"). Билл Инмон предложил строго нормализованное огромное Enterprise хранилище в центре (3NF), а витрины данных строить уже по краям поверх него ("Сверху вниз"). Сегодня в Big Data доминигует гибрид — Data Vault или Lakehouse со слоями ODS/DDS.</p>
+            <div class="resource-block" style="margin-top: 16px; background: rgba(255,255,255,0.05); padding: 16px; border-radius: 8px;">
+                <h4 style="margin-top: 0">Что посмотреть/почитать:</h4>
+                <ul>
+<li>📖 <strong>Книга:</strong> "The Data Warehouse Toolkit" (Ralph Kimball) - глава 1.</li><li>📝 <strong>Статья:</strong> Транзакции ACID и уровни изоляции.</li>
                 </ul>
             </div>
         </div>
     </div>
 
-    <!-- Module 2 -->
-    <div class="card theory-block" style="margin-bottom: 32px;">
-        <h3 class="card-title">🐘 Модуль 2: Реляционные БД и SQL (PostgreSQL)</h3>
-        <div class="card-text" style="margin-top: 16px;">
-            <p>Дата-инженер проводит половину жизни за написанием SQL. База данных — это программа, которая умеет эффективно хранить таблицы на диске и быстро отвечать на запросы.</p>
-            
-            <h4>Уровни владения SQL:</h4>
-            <p><strong>1. Базовый DML/DQL:</strong></p>
-            <ul>
-                <li><strong>SELECT, WHERE, LIMIT:</strong> Выборка и фильтрация строк.</li>
-                <li><strong>GROUP BY, HAVING:</strong> Агрегации (SUM, COUNT).</li>
-                <li><strong>JOIN:</strong> Разница между <code>INNER JOIN</code>, <code>LEFT JOIN</code> и <code>FULL OUTER JOIN</code>.</li>
-            </ul>
-
-            <p><strong>2. Продвинутый (Инженерный) уровень:</strong></p>
-            <ul>
-                <li><strong>Оконные функции:</strong> <code>ROW_NUMBER()</code>, <code>RANK()</code>, <code>LAG()</code>, <code>LEAD()</code>. В отличие от GROUP BY, окно считает агрегаты, <em>сохраняя оригинальные строки</em>.</li>
-                <li><strong>CTE (WITH):</strong> Структурирование сложных запросов для читаемости.</li>
-                <li><strong>DDL:</strong> Создание таблиц (<code>CREATE TABLE</code>), связей (Primary Key, Foreign Key) и типов (Integer, Varchar).</li>
-            </ul>
-
-            <div class="resource-block" style="margin-top: 16px; background: rgba(255,255,255,0.05); padding: 16px; border-radius: 8px;">
-                <h4 style="margin-top: 0">Что посмотреть/почитать:</h4>
-                <ul>
-                    <li>💻 <strong>Курс Stepik:</strong> Интерактивный тренажер по SQL (В. Овечкин).</li>
-                    <li>💻 <strong>SQL-ex.ru:</strong> Раздел SELECT (задачи 1-50).</li>
-                    <li>▶️ <strong>YouTube:</strong> Оконные функции простым языком (канал Карпов Курсы).</li>
-                    <li>📖 <strong>Документация:</strong> Postgres Pro (отличная официальная документация на русском).</li>
-                </ul>
-            </div>
-        </div>
-    </div>
-
-    <!-- Module 3 -->
-    <div class="card theory-block" style="margin-bottom: 32px;">
-        <h3 class="card-title">🏛️ Модуль 3: Архитектура DWH (Kimball & Stars)</h3>
-        <div class="card-text" style="margin-top: 16px;">
-            <p>Классическое хранилище данных (DWH) проектируется по методологии Ральфа Кимбалла.</p>
-
-            <h4>Слои хранилища</h4>
-            <ul>
-                <li><strong>STG (Staging Layer) — Сырой слой:</strong> Сюда мы просто переносим 1:1 данные из внешних источников (API). Данные не чистятся. Типы колонок часто тексты (Varchar), чтобы вставка не падала с ошибкой.</li>
-                <li><strong>DDS (Dimensional Data Store) — Слой витрин:</strong> Ядро DWH. Данные очищены, типизированы и лежат по методологии "Звезда" (Star Schema).</li>
-            </ul>
-
-            <h4>Методология "Звезды" (Star Schema)</h4>
-            <p>В центре "звезды" всегда лежит <strong>Таблица Фактов (Fact Table)</strong>, а вокруг неё "лучами" присоединяются <strong>Таблицы-Измерения (Dimensions)</strong>.</p>
-            <ul>
-                <li><strong>Факт:</strong> Действие (транзакция, клик). Содержит миллионы строк, состоит из внешних ключей (user_id, product_id) и метрик (сумма).</li>
-                <li><strong>Измерение (Справочник):</strong> Описание. Отвечает на вопросы КТО, ГДЕ, КОГДА (Например: Пользователь, Товар, Дата). В ней содержатся текстовые атрибуты для фильтрации.</li>
-            </ul>
-
-            <div class="resource-block" style="margin-top: 16px; background: rgba(255,255,255,0.05); padding: 16px; border-radius: 8px;">
-                <h4 style="margin-top: 0">Что посмотреть/почитать:</h4>
-                <ul>
-                    <li>📖 <strong>Книга:</strong> Ральф Кимбалл - "The Data Warehouse Toolkit" (базовая библия инженера).</li>
-                    <li>▶️ <strong>YouTube:</strong> Лекции Яндекса или Карпова по архитектуре хранилищ данных.</li>
-                    <li>📝 <strong>Статья:</strong> Схемы "Звезда" и "Снежинка" на Хабре.</li>
-                </ul>
-            </div>
-        </div>
-    </div>
 </div>

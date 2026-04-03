@@ -1,68 +1,63 @@
 <div class="page-content">
     <div class="page-header">
-        <h1 class="page-title">Этап 3: <span>Spark & Обработка Big Data</span></h1>
-        <p class="page-desc">Главный инструмент платформы. Учимся писать Spark-джобы, парсить большие файлы, очищать данные и работать с партициями. Все практические задания перенесены в раздел "Лайв-кодинг".</p>
+        <h1 class="page-title">Этап 3: <span>Spark, Catalyst & Оптимизация Big Data</span></h1>
+        <p class="page-desc">Разбираем внутренности Spark Ecosystem. Структура памяти Executor'ов, как Catalyst Optimizer режет план запроса и методы "засолки" Data Skew.</p>
     </div>
 
     <h2 style="font-size: 26px; font-weight: 600; margin-bottom: 24px; margin-top: 32px; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px;">Теоретические модули</h2>
 
     <!-- Модуль 1 -->
     <div class="card theory-block" style="margin-bottom: 32px;">
-        <h3 class="card-title">🚀 Модуль 1: Архитектура Apache Spark</h3>
+        <h3 class="card-title">🚀 Модуль 1: Архитектура Spark и Управление Памятью</h3>
         <div class="card-text" style="margin-top: 16px;">
-            <p><strong>Apache Spark</strong> — это фреймворк для распределенных вычислений. Если данные не лезут на 1 сервер, мы делим их на части (партиции) и процессим на 10 серверах параллельно.</p>
+            <p><strong>Spark</strong> — движок распределенных in-memory вычислений (Hadoop MapReduce 2.0).</p>
             <ul>
-                <li><strong>Driver vs Executor:</strong> Driver пишет план (DAG) и раздает задачи (Tasks), а Executors (Воркеры) их выполняют на конкретных партициях данных.</li>
-                <li><strong>Lazy Evaluation:</strong> Трансформации (<code>filter</code>, <code>withColumn</code>) не выполняются сразу. Spark просто строит граф обработки (DAG). Реальное вычисление стартует только при вызове Action (<code>show()</code>, <code>count()</code>, <code>write</code>).</li>
+                <li><strong>Driver vs Executor:</strong> Мозг (Driver) управляет SparkSession, строит логический Execution план (DAG) и раздаёт подзадачи (Tasks) Воркерам (Executors) на удаленных серверах кластера.</li>
+                <li><strong>Управление памятью Executor'a (Unified Memory Management):</strong> Память делится на <code>Execution Memory</code> (рабочая зона для математики, джоинов, хэш-таблиц для Shuffle) и <code>Storage Memory</code> (память под резерв данных <code>df.cache()</code>, Broadcast переменные). Если места мало кластер не падает сразу, часть данных агрессивно сбрасывается на диск сервера (Spill to Disk), что убивает производительность до нуля.</li>
+                <li><strong>Lazy Evaluation:</strong> Все трансформации ленивы (<code>select, groupBy</code>). Они записывают историю, генерируя Lineage граф, и вообще НЕ начинают считывать ваш терабайт данных с S3, пока вы не вызовете Action (например, <code>.count()</code>, <code>.write.parquet()</code>).</li>
             </ul>
-
             <div class="resource-block" style="margin-top: 16px; background: rgba(255,255,255,0.05); padding: 16px; border-radius: 8px;">
                 <h4 style="margin-top: 0">Что посмотреть/почитать:</h4>
                 <ul>
-                    <li>📖 <strong>Книга:</strong> "Spark: The Definitive Guide" (Bill Chambers, Matei Zaharia).</li>
-                    <li>▶️ <strong>YouTube:</strong> Лекции "Архитектура Apache Spark" (найти базовые объяснения Driver, Executor, Memory).</li>
-                    <li>📝 <strong>Документация:</strong> Cluster Mode Overview в официальной доке Spark.</li>
+<li>📖 <strong>Книга:</strong> Spark: The Definitive Guide (Bill Chambers, Matei Zaharia).</li><li>📝 <strong>Документация:</strong> Tuning Apache Spark (Memory Management Framework).</li>
                 </ul>
             </div>
         </div>
     </div>
-
     <!-- Модуль 2 -->
     <div class="card theory-block" style="margin-bottom: 32px;">
-        <h3 class="card-title">📊 Модуль 2: DataFrame API и Трансформации</h3>
+        <h3 class="card-title">🧠 Модуль 2: Catalyst Optimizer и Планы Выполнения</h3>
         <div class="card-text" style="margin-top: 16px;">
-            <p>В основе PySpark лежат <strong>DataFrames</strong>, которые визуально напоминают Pandas, но принципиально отличаются ленивой природой и распределенностью.</p>
-            <p><strong>Базовые операции:</strong> <code>select</code>, <code>filter</code>, <code>groupBy</code>, <code>agg</code>, <code>join</code>, <code>withColumn</code> (создание новой/замена колонки), <code>drop</code>.</p>
-            <p><strong>Чтение/Запись:</strong> Spark умеет читать и писать множество форматов из коробки. Наиболее популярный и эффективный для Big Data — <strong>Parquet</strong> (колоночный формат), а также <strong>JSON</strong>/<strong>CSV</strong> во время прототипирования.</p>
-
+            <p>Как PySpark DataFrame преобразуется в JVM-байткод и магическим образом ускоряется:</p>
+            <ul>
+                <li><strong>Catalyst Optimizer:</strong> Встроенный движок Spark SQL. 1) Берет ваш Python-код -> 2) Строит <em>Unresolved Logical Plan</em> -> 3) Резолвит/проверяет к метаданным (а существует ли реально колонка <code>A</code>?) -> 4) Анализирует план (Rule-based optimization) -> 5) Генерирует физический план <em>Physical Plan</em>.</li>
+                <li><strong>Predicate Pushdown:</strong> Вы читаете 1 ТБ Parquet-файлов за 3 года, но написали <code>df.filter("year = 2024")</code>. Spark вообще не будет качать файлы за 2022 и 2023 год по сети из S3! Фильтр 'спустится' прямо на источник хранения.</li>
+                <li><strong>Column Pruning:</strong> Spark загрузит с диска только те 2 колонки из Parquet, которые мы явно запросили в <code>.select()</code>, игнорируя остальные сотни полей файла, что радикально ускорит I/O.</li>
+            </ul>
             <div class="resource-block" style="margin-top: 16px; background: rgba(255,255,255,0.05); padding: 16px; border-radius: 8px;">
                 <h4 style="margin-top: 0">Что посмотреть/почитать:</h4>
                 <ul>
-                    <li>💻 <strong>Практика:</strong> Примеры из официальной доки Spark DataFrame API (PySpark).</li>
-                    <li>▶️ <strong>YouTube:</strong> Руководства "PySpark DataFrames Tutorial".</li>
-                    <li>📝 <strong>Статья:</strong> Отличия Parquet, ORC, Avro форматы (колоночное хранение).</li>
+<li>▶️ <strong>Видео:</strong> A Deep Dive into Spark SQL's Catalyst Optimizer (DataBricks Presentation).</li><li>📝 <strong>Документация:</strong> Spark Web UI Metrics (как читать вкладку SQL).</li>
                 </ul>
             </div>
         </div>
     </div>
-
     <!-- Модуль 3 -->
     <div class="card theory-block" style="margin-bottom: 32px;">
-        <h3 class="card-title">🛠️ Модуль 3: Оптимизация (Партиции, Shuffle)</h3>
+        <h3 class="card-title">🔧 Модуль 3: Data Skew, Shuffle и Salting (Засолка)</h3>
         <div class="card-text" style="margin-top: 16px;">
-            <p>Боль, с которой сталкивается каждый ДЕ:</p>
+            <p><strong>Проблема перекоса данных (Data Skew):</strong> Допустим, мы делаем <code>GROUP BY city</code>. Пользователи из 'Москвы' - это 80% данных (800GB), а из других городов - 20% (по 100MB). При операции Shuffle все строки с Москвой полетят в 1 единственную партицию! Один Экзекьютор зависнет намертво с OutOfMemory (OOM), а остальные 99 серверов будут простаивать с нагрузкой 0% CPU.</p>
             <ul>
-                <li><strong>Shuffle (Перетасовка):</strong> Когда после <code>groupBy</code> или <code>join</code> данные должны физически перелететь по сети между экзекьюторами на другие ноды. Это самая дорогая операция!</li>
-                <li><strong>Partitioning:</strong> Правильное разделение данных (<code>repartition</code> vs <code>coalesce</code>). Coalesce уменьшает число партиций без полного шаффла, repartition делает полный шаффл но равномерно балансирует.</li>
+                <li><strong>Лекарство - Соль (Salting):</strong> Искусственное добавление случайного числа от 1 до 100 к ключу (например, создаем колонку <code>'Москва_42'</code>, <code>'Москва_88'</code>). Это равномерно разбросает миллионы строк Москвы по сотням партиций (равномерный Shuffle), кластер сверхбыстро посчитает микро-агрегаты для кусков Москвы параллельно, а потом мы сделаем второй <code>GROUP BY</code> уже по очищенной начальной строке 'Москве', суммируя микро-агрегаты!</li>
+                <li><strong>Broadcast Hash Join:</strong> Если к огромной триллионной таблице <code>F_SALES</code> джоинится крохотный справочник из 10 000 строк из Postgres (справочник валют) -> просто вызываем <code>F_SALES.join(broadcast(df_small))</code>. Справочник целиком копируется в память КАЖДОГО экзекьютора, и дорогого Shuffle огромной таблицы по ключам по сети вообще не происходит!</li>
             </ul>
-
             <div class="resource-block" style="margin-top: 16px; background: rgba(255,255,255,0.05); padding: 16px; border-radius: 8px;">
                 <h4 style="margin-top: 0">Что посмотреть/почитать:</h4>
                 <ul>
-                    <li>▶️ <strong>YouTube:</strong> Spark Shuffle Optimization (как избегать shuffle и как работает BroadCast join).</li>
-                    <li>📝 <strong>Статья:</strong> "Coalesce vs Repartition в Apache Spark".</li>
+<li>📝 <strong>Статьи:</strong> 'How to handle Data Skew in Databricks / Spark'.</li><li>▶️ <strong>YouTube:</strong> The mechanics of Salting in Big Data Architecture.</li>
                 </ul>
             </div>
         </div>
     </div>
+
 </div>
