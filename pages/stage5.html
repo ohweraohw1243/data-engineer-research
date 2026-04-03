@@ -1,23 +1,71 @@
 <div class="page-content">
-<div class="page-header">
-    <h1 class="page-title">Этап 5: <span>Системный дизайн (System Design)</span></h1>
-    <p class="page-desc">Проектирование Batch/Streaming платформ (от S3 до BI витрин). (Лето)</p>
-</div>
+    <div class="page-header">
+        <h1 class="page-title">Этап 5: <span>Системный дизайн (System Design)</span></h1>
+        <p class="page-desc">Проектирование и архитектура платформ данных. Как выбрать между Batch и Streaming, проектирование DWH и Data Lake. Все практические задания перенесены в раздел "Лайв-кодинг".</p>
+    </div>
 
-<div class="card-grid">
-    <div class="card">
-        <h3 class="card-title">🏗️ Системный дизайн (System Design) (В разработке)</h3>
+    <h2 style="font-size: 26px; font-weight: 600; margin-bottom: 24px; margin-top: 32px; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px;">Теоретические модули</h2>
+
+    <!-- Модуль 1 -->
+    <div class="card theory-block" style="margin-bottom: 32px;">
+        <h3 class="card-title">🧩 Модуль 1: Архитектура DWH, Data Lake и Lakehouse</h3>
         <div class="card-text" style="margin-top: 16px;">
-            <p>Теория и задания для этого этапа в данный момент структурируются куратором. Загляните сюда чуть позже! (Следите за дорожной картой).</p>
-            <p style="margin-top: 8px; color: var(--text-dim);"><em>Этот раздел разблокируется ближе к началу соответствующего месяца.</em></p>
+            <p>Эволюция систем хранения аналитических данных:</p>
+            <ul>
+                <li><strong>Data Warehouse (DWH):</strong> Структурированные данные (SQL), жесткая схема (Schema-on-Write). Примеры: ClickHouse, Greenplum, Snowflake. Отлично для готовой отчетности.</li>
+                <li><strong>Data Lake:</strong> Хранение сырых данных любых форматов (JSON, Parquet, картинки) в дешевом облаке (S3/HDFS). Гибкость на старте, но есть риск превратить хранилище в "болото данных" (Data Swamp).</li>
+                <li><strong>Data Lakehouse:</strong> Гибрид. Данные лежат дешево в S3, но поверх них используются ACID-транзакции и SQL-движки (как в DWH). Популярные форматы: Apache Iceberg, Delta Lake, Apache Hudi.</li>
+            </ul>
 
             <div class="resource-block" style="margin-top: 16px; background: rgba(255,255,255,0.05); padding: 16px; border-radius: 8px;">
                 <h4 style="margin-top: 0">Что посмотреть/почитать:</h4>
                 <ul>
-                    <li>⏳ <em>Материалы готовятся к публикации... (Ожидайте разборы System Design интервью)</em></li>
+                    <li>📖 <strong>Книга:</strong> "Designing Data-Intensive Applications" (Martin Kleppmann) — Библия архитектуры (Глава 3 про Storage Engine).</li>
+                    <li>▶️ <strong>YouTube:</strong> Data Lake vs Data Warehouse vs Data Lakehouse (концептуальные основы).</li>
+                    <li>📝 <strong>Статья:</strong> Введение в Apache Iceberg для Data Engineer (как устроено версионирование).</li>
                 </ul>
             </div>
         </div>
     </div>
-</div>
+
+    <!-- Модуль 2 -->
+    <div class="card theory-block" style="margin-bottom: 32px;">
+        <h3 class="card-title">⚖️ Модуль 2: Lambda и Kappa Архитектуры</h3>
+        <div class="card-text" style="margin-top: 16px;">
+            <p>Две классические парадигмы проектирования пайплайнов для обработки потоковых и исторических данных:</p>
+            <ul>
+                <li><strong>Lambda Architecture:</strong> Данные делятся на 2 пути: <em>Batch Layer</em> (считает все точно по большим массивам, но раз в сутки) и <em>Speed Layer</em> (считает быстро в рантайме онлайн). <em>Serving Layer</em> объединяет результаты для пользователя (точность + скорость).</li>
+                <li><strong>Kappa Architecture:</strong> Упрощение лямбды. Разделения на Batch нет! Все данные обрабатываются только как потоковые <em>(Speed Layer)</em>, даже исторические данные, если нужно пересчитать (например Kafka + Flink).</li>
+            </ul>
+
+            <div class="resource-block" style="margin-top: 16px; background: rgba(255,255,255,0.05); padding: 16px; border-radius: 8px;">
+                <h4 style="margin-top: 0">Что посмотреть/почитать:</h4>
+                <ul>
+                    <li>📝 <strong>Статья:</strong> Лямбда- и каппа-архитектуры: понятия, плюсы и отличия на практике.</li>
+                    <li>▶️ <strong>YouTube:</strong> Паттерны проектирования потоковой обработки данных на масштабах.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модуль 3 -->
+    <div class="card theory-block" style="margin-bottom: 32px;">
+        <h3 class="card-title">🗂️ Модуль 3: Моделирование данных (Data Modeling)</h3>
+        <div class="card-text" style="margin-top: 16px;">
+            <p>Как физически и логически располагать таблицы в DWH, чтобы BI-дашборды крутились быстро, а аналитикам было удобно:</p>
+            <ul>
+                <li><strong>Нормализация (3NF):</strong> Минимизация дублирования данных (Inmon). Идеально для транзакционных баз (OLTP), но тяжело для аналитики (много JOIN).</li>
+                <li><strong>Star Schema (Звезда) / Snowflake:</strong> Подход Kimball (Dimensional Modeling). Одна центральная таблица фактов, окруженная маленькими таблицами измерений (справочниками). Оптимально для аналитики (OLAP).</li>
+                <li><strong>Data Vault:</strong> Архитектура под agile-хранилища (Хабы, Линки, Сателлиты). Позволяет легко расширять исторические модели баз.</li>
+            </ul>
+
+            <div class="resource-block" style="margin-top: 16px; background: rgba(255,255,255,0.05); padding: 16px; border-radius: 8px;">
+                <h4 style="margin-top: 0">Что посмотреть/почитать:</h4>
+                <ul>
+                    <li>📖 <strong>Книга:</strong> "The Data Warehouse Toolkit" (Ralph Kimball).</li>
+                    <li>▶️ <strong>YouTube:</strong> Разбор Data Modeling (Star Schema, Snowflake, Data Vault 2.0).</li>
+                </ul>
+            </div>
+        </div>
+    </div>
 </div>
