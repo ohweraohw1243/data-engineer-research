@@ -151,99 +151,186 @@
                 </div>
 
         <h2 style="font-size: 26px; font-weight: 600; margin-top: 48px; margin-bottom: 24px; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px;">Практические Задачи (Этап 1)</h2>
-    
-    <div class="space-y-6">
-        <!-- Задача 1 -->
-        <div class="task-box" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid var(--accent1);">
-            <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">💻 Задача 1: PostgreSQL в Docker</h4>
-            <p style="margin-bottom: 16px;">Напишите минимальный <code>docker-compose.yml</code> для поднятия локальной базы данных PostgreSQL. Задайте имя базы <code>dwh_db</code>, пользователя <code>admin</code> и пароль <code>1234</code>. Пробросьте порт 5432.</p>
-            
-            <div style="margin-bottom: 16px;">
-                <label style="display:block; color:#94a3b8; margin-bottom: 8px; font-size:14px; font-weight:600;">Ваш ответ (docker-compose):</label>
-                <textarea rows="6" class="task-input" style="width: 100%; background: #0f172a; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: #e2e8f0; padding: 12px; font-family: monospace; font-size: 14px; resize: vertical;" placeholder="# Ваш yaml..."></textarea>
-            </div>
-            
-            <details style="margin-bottom: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(255,255,255,0.1);">
-                <summary style="font-weight: 600; color: #94a3b8; outline:none;">💡 Показать подсказку</summary>
-                <p style="margin-top: 8px; font-size: 14px; color: #cbd5e1; margin-bottom: 0;">Вам понадобятся переменные окружения <code>POSTGRES_DB</code>, <code>POSTGRES_USER</code>, <code>POSTGRES_PASSWORD</code>, а также проброс портов <code>-"5432:5432"</code>.</p>
-            </details>
-            
-            <details style="padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
-                <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать правильный ответ</summary>
-<pre style="background:#1e293b; padding:12px; border-radius:6px; margin-top: 12px; margin-bottom: 0; color:#e2e8f0; overflow-x: auto;"><code>version: '3.8'
+        <p style="margin-bottom: 20px; color:#cbd5e1;">Задачи ниже собраны строго по теории Этапа 1: Docker, SQL (GROUP BY/JOIN/оконные функции) и архитектура DWH (STG/DDS + Star Schema).</p>
+
+        <div class="space-y-6">
+            <div class="task-box" data-task-id="stage1-docker" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid var(--accent1);">
+                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">🐳 Задача 1: Docker Compose + Image vs Container</h4>
+                <p style="margin-bottom: 16px;">Составьте минимальный <code>docker-compose.yml</code> для PostgreSQL с параметрами: база <code>dwh_db</code>, пользователь <code>admin</code>, пароль <code>1234</code>, порт <code>5432</code>. Ниже добавьте 1-2 предложения: чем <strong>Image</strong> отличается от <strong>Container</strong>.</p>
+
+                <div class="answer-input-area">
+                    <label>Ваш ответ:</label>
+                    <textarea rows="9" class="answer-textarea" placeholder="# docker-compose.yml&#10;...&#10;&#10;# Объяснение&#10;Image ... Container ..."></textarea>
+                    <button class="check-answer-btn" onclick="checkAnswer(this)">Проверить мое решение</button>
+                    <div class="check-result"></div>
+                </div>
+
+                <pre class="solution-code">version: "3.8"
 services:
-  db:
+  postgres:
     image: postgres:15-alpine
     environment:
       POSTGRES_DB: dwh_db
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: 1234
     ports:
-      - "5432:5432"</code></pre>
-            </details>
+      - "5432:5432"
+
+Image - это неизменяемый шаблон.
+Container - это запущенный экземпляр image в изоляции.</pre>
+
+                <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
+                    <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
+<pre style="background:#1e293b; padding:12px; border-radius:6px; margin-top: 12px; margin-bottom: 0; color:#e2e8f0; overflow-x: auto;"><code>version: "3.8"
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: dwh_db
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: 1234
+    ports:
+      - "5432:5432"
+
+Image - это шаблон (чертеж).
+Container - это запущенный экземпляр image.</code></pre>
+                </details>
+            </div>
+
+            <div class="task-box" data-task-id="stage1-sql-agg" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid var(--accent1);">
+                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">🐘 Задача 2: JOIN + GROUP BY + HAVING</h4>
+                <p style="margin-bottom: 16px;">Есть таблицы <code>orders(id, user_id, amount)</code> и <code>users(id, country)</code>. Напишите запрос, который считает по каждой стране: количество заказов и суммарный объем продаж. Оставьте только страны, где сумма продаж больше 5000. Отсортируйте по сумме продаж по убыванию.</p>
+
+                <div class="answer-input-area">
+                    <label>Ваш SQL:</label>
+                    <textarea rows="8" class="answer-textarea" placeholder="SELECT ..."></textarea>
+                    <button class="check-answer-btn" onclick="checkAnswer(this)">Проверить мое решение</button>
+                    <div class="check-result"></div>
+                </div>
+
+                <pre class="solution-code">SELECT
+  u.country,
+  COUNT(*) AS orders_cnt,
+  SUM(o.amount) AS total_amount
+FROM orders o
+JOIN users u ON u.id = o.user_id
+GROUP BY u.country
+HAVING SUM(o.amount) &gt; 5000
+ORDER BY total_amount DESC;</pre>
+
+                <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
+                    <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
+<pre style="background:#1e293b; padding:12px; border-radius:6px; margin-top: 12px; margin-bottom: 0; color:#e2e8f0; overflow-x: auto;"><code>SELECT
+  u.country,
+  COUNT(*) AS orders_cnt,
+  SUM(o.amount) AS total_amount
+FROM orders o
+JOIN users u ON u.id = o.user_id
+GROUP BY u.country
+HAVING SUM(o.amount) > 5000
+ORDER BY total_amount DESC;</code></pre>
+                </details>
+            </div>
+
+            <div class="task-box" data-task-id="stage1-sql-window" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid var(--accent1);">
+                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">📊 Задача 3: Оконная функция (ROW_NUMBER)</h4>
+                <p style="margin-bottom: 16px;">Напишите запрос, который вернет <strong>последний заказ каждого пользователя</strong> из таблицы <code>orders(id, user_id, amount, created_at)</code> через оконную функцию <code>ROW_NUMBER()</code>.</p>
+
+                <div class="answer-input-area">
+                    <label>Ваш SQL:</label>
+                    <textarea rows="9" class="answer-textarea" placeholder="WITH ranked AS (...) SELECT ..."></textarea>
+                    <button class="check-answer-btn" onclick="checkAnswer(this)">Проверить мое решение</button>
+                    <div class="check-result"></div>
+                </div>
+
+                <pre class="solution-code">WITH ranked AS (
+  SELECT
+    o.*,
+    ROW_NUMBER() OVER (
+      PARTITION BY o.user_id
+      ORDER BY o.created_at DESC
+    ) AS rn
+  FROM orders o
+)
+SELECT id, user_id, amount, created_at
+FROM ranked
+WHERE rn = 1;</pre>
+
+                <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
+                    <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
+<pre style="background:#1e293b; padding:12px; border-radius:6px; margin-top: 12px; margin-bottom: 0; color:#e2e8f0; overflow-x: auto;"><code>WITH ranked AS (
+  SELECT
+    o.*,
+    ROW_NUMBER() OVER (
+      PARTITION BY o.user_id
+      ORDER BY o.created_at DESC
+    ) AS rn
+  FROM orders o
+)
+SELECT id, user_id, amount, created_at
+FROM ranked
+WHERE rn = 1;</code></pre>
+                </details>
+            </div>
+
+            <div class="task-box" data-task-id="stage1-dwh" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid var(--accent1);">
+                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">🏛️ Задача 4: STG / DDS / Fact / Dimension</h4>
+                <p style="margin-bottom: 16px;">Представьте поток заказов из API. Опишите, что положите в <code>STG</code>, какие таблицы будут в <code>DDS</code> (минимум 1 факт и 2 измерения), и какие поля должны лежать в факте, а какие в измерениях.</p>
+
+                <div class="answer-input-area">
+                    <label>Ваш ответ:</label>
+                    <textarea rows="8" class="answer-textarea" placeholder="STG: ...&#10;DDS: ...&#10;Fact: ...&#10;Dimension: ..."></textarea>
+                    <button class="check-answer-btn" onclick="checkAnswer(this)">Проверить мое решение</button>
+                    <div class="check-result"></div>
+                </div>
+
+                <pre class="solution-code">STG:
+- сырой слой, данные из API без бизнес-трансформаций.
+
+DDS:
+- fact: fct_orders(order_id, user_id, product_id, amount, order_dt)
+- dim_user(user_id, country)
+- dim_product(product_id, category_name)
+
+В факт кладем метрики и внешние ключи.
+В измерения кладем описательные атрибуты (кто/что/где).</pre>
+
+                <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
+                    <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
+                    <p style="margin-top: 8px; font-size: 14px; color: #cbd5e1; margin-bottom: 0;">
+                        <strong>STG:</strong> сырой слой 1:1 из API без сложной очистки.<br>
+                        <strong>DDS:</strong> <code>fct_orders(order_id, user_id, product_id, amount, order_dt)</code>, <code>dim_user(user_id, country)</code>, <code>dim_product(product_id, category_name)</code>.<br>
+                        В факт кладем метрики и ключи, в измерения - описательные атрибуты.
+                    </p>
+                </details>
+            </div>
         </div>
 
-        <!-- Задача 2 -->
-        <div class="task-box" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid var(--accent1);">
-            <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">💻 Задача 2: Оконная или Агрегатная функция?</h4>
-            <p style="margin-bottom: 16px;">Вам дана таблица <code>orders</code>. Напишите SQL запрос, который сгруппирует данные по <code>user_id</code> и найдет сумму покупок (<code>SUM(amount)</code>) для каждого пользователя.</p>
-            
-            <div style="margin-bottom: 16px;">
-                <label style="display:block; color:#94a3b8; margin-bottom: 8px; font-size:14px; font-weight:600;">Ваш ответ (SQL):</label>
-                <textarea rows="4" class="task-input" style="width: 100%; background: #0f172a; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: #e2e8f0; padding: 12px; font-family: monospace; font-size: 14px; resize: vertical;" placeholder="-- Ваш запрос..."></textarea>
-            </div>
-            
-            <details style="margin-bottom: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(255,255,255,0.1);">
-                <summary style="font-weight: 600; color: #94a3b8; outline:none;">💡 Показать подсказку</summary>
-                <p style="margin-top: 8px; font-size: 14px; color: #cbd5e1; margin-bottom: 0;">Вам понадобится оператор <code>GROUP BY</code> по колонке <code>user_id</code>. Использовать <code>OVER()</code> здесь избыточно.</p>
-            </details>
-            
-            <details style="padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
-                <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать правильный ответ</summary>
-<pre style="background:#1e293b; padding:12px; border-radius:6px; margin-top: 12px; margin-bottom: 0; color:#e2e8f0; overflow-x: auto;"><code>SELECT 
-    user_id,
-    SUM(amount) AS total_spent
-FROM orders
-GROUP BY user_id;</code></pre>
-            </details>
-        </div>
+        <h2 style="font-size: 26px; font-weight: 600; margin-top: 48px; margin-bottom: 24px; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px;">Практические Задачи (Этап 2)</h2>
 
-        <!-- Задача 3 -->
-        <div class="task-box" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid var(--accent1);">
-            <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">💻 Задача 3: Проектирование Хранилища</h4>
-            <p style="margin-bottom: 16px;">По методологии Кимбола ("Звезда"), куда (в Факт или в Измерение) вы положите эти атрибуты? <br>1. Имя категории товара<br>2. Сумма скидки в корзине<br>3. Дата окончания подписки</p>
-            
-            <div style="margin-bottom: 16px;">
-                <textarea rows="3" class="task-input" style="width: 100%; background: #0f172a; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: #e2e8f0; padding: 12px; font-family: monospace; font-size: 14px; resize: vertical;" placeholder="1. ...&#10;2. ...&#10;3. ..."></textarea>
-            </div>
-            
-            <details style="padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
-                <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать правильный ответ</summary>
-                <p style="margin-top: 8px; font-size: 14px; color: #cbd5e1; margin-bottom: 0;">1. <strong>Измерение</strong> (Справочник категорий). Это атрибут классификации товара.<br>2. <strong>Факт</strong> (Транзакция/Корзина). Это количественная метрика, которая может суммироваться.<br>3. <strong>Измерение</strong> (Пользователь/Подписка). Это дата/атрибут сущности, которая характеризует покупателя или товар.</p>
-            </details>
-        </div>
-    </div>
+        <div class="space-y-6">
+            <div class="task-box" data-task-id="stage2-api" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid var(--accent1);">
+                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">💻 Задача 1: Получение данных по API</h4>
+                <p style="margin-bottom: 16px;">Напишите скрипт на Python с библиотекой <code>requests</code>, который обращается к API CoinCap (<code>https://api.coincap.io/v2/assets/bitcoin</code>) и выводит <code>priceUsd</code>.</p>
 
-    <h2 style="font-size: 26px; font-weight: 600; margin-top: 48px; margin-bottom: 24px; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px;">Практические Задачи (Этап 2)</h2>
-    
-    <div class="space-y-6">
-        <!-- Задача 1 -->
-        <div class="task-box" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid var(--accent1);">
-            <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">💻 Задача 1: Получение данных по API</h4>
-            <p style="margin-bottom: 16px;">Напишите скрипт на Python с использованием библиотеки <code>requests</code>, который обращается к открытому API CoinCap (<code>https://api.coincap.io/v2/assets/bitcoin</code>), получает JSON и выводит на экран текущую цену Биткоина (поле <code>priceUsd</code>).</p>
-            
-            <div style="margin-bottom: 16px;">
-                <label style="display:block; color:#94a3b8; margin-bottom: 8px; font-size:14px; font-weight:600;">Ваш ответ (код):</label>
-                <textarea rows="4" class="task-input" style="width: 100%; background: #0f172a; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: #e2e8f0; padding: 12px; font-family: monospace; font-size: 14px; resize: vertical;" placeholder="# Ваш код на Python"></textarea>
-            </div>
-            
-            <details style="margin-bottom: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(255,255,255,0.1);">
-                <summary style="font-weight: 600; color: #94a3b8; outline:none;">💡 Показать подсказку</summary>
-                <p style="margin-top: 8px; font-size: 14px; color: #cbd5e1; margin-bottom: 0;">Не забудьте сделать <code>import requests</code>. Ответ от сервера нужно перевести в словарь методом <code>.json()</code>. Ключ с ценой лежит по скрытому пути: <code>data["data"]["priceUsd"]</code>.</p>
-            </details>
-            
-            <details style="padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
-                <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать правильный ответ</summary>
+                <div class="answer-input-area">
+                    <label>Ваш код:</label>
+                    <textarea rows="7" class="answer-textarea" placeholder="import requests\n..."></textarea>
+                    <button class="check-answer-btn" onclick="checkAnswer(this)">Проверить мое решение</button>
+                    <div class="check-result"></div>
+                </div>
+
+                <pre class="solution-code">import requests
+
+url = "https://api.coincap.io/v2/assets/bitcoin"
+response = requests.get(url)
+data = response.json()
+
+price = data["data"]["priceUsd"]
+print(f"Текущая цена Bitcoin: {price} $")</pre>
+
+                <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
+                    <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
 <pre style="background:#1e293b; padding:12px; border-radius:6px; margin-top: 12px; margin-bottom: 0; color:#e2e8f0; overflow-x: auto;"><code>import requests
 
 url = "https://api.coincap.io/v2/assets/bitcoin"
@@ -252,69 +339,88 @@ data = response.json()
 
 price = data["data"]["priceUsd"]
 print(f"Текущая цена Bitcoin: {price} $")</code></pre>
-            </details>
-        </div>
-
-        <!-- Задача 2 -->
-        <div class="task-box" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid var(--accent1);">
-            <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">💻 Задача 2: Массовый INSERT (psycopg2)</h4>
-            <p style="margin-bottom: 16px;">Представьте, что у вас есть список: <code>[ (1, 'Alice'), (2, 'Bob') ]</code>. Напишите код подключения к БД "my_dwh" (user=<code>dev</code>, pass=<code>123</code>) на localhost, и вставьте эти данные в таблицу <code>dim_users (id, username)</code>.</p>
-            
-            <div style="margin-bottom: 16px;">
-                <label style="display:block; color:#94a3b8; margin-bottom: 8px; font-size:14px; font-weight:600;">Ваш ответ (код):</label>
-                <textarea rows="5" class="task-input" style="width: 100%; background: #0f172a; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: #e2e8f0; padding: 12px; font-family: monospace; font-size: 14px; resize: vertical;" placeholder="# Ваш код (psycopg2)"></textarea>
+                </details>
             </div>
-            
-            <details style="margin-bottom: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(255,255,255,0.1);">
-                <summary style="font-weight: 600; color: #94a3b8; outline:none;">💡 Показать подсказку</summary>
-                <p style="margin-top: 8px; font-size: 14px; color: #cbd5e1; margin-bottom: 0;">Используйте <code>executemany("INSERT INTO ... VALUES (%s, %s)", data)</code> и не забудьте <code>conn.commit()</code>.</p>
-            </details>
-            
-            <details style="padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
-                <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать правильный ответ</summary>
-<pre style="background:#1e293b; padding:12px; border-radius:6px; margin-top: 12px; margin-bottom: 0; color:#e2e8f0; overflow-x: auto;"><code>import psycopg2
+
+            <div class="task-box" data-task-id="stage2-psycopg" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid var(--accent1);">
+                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">💻 Задача 2: Массовый INSERT (psycopg2)</h4>
+                <p style="margin-bottom: 16px;">Есть список <code>[(1, 'Alice'), (2, 'Bob')]</code>. Подключитесь к БД <code>my_dwh</code> (user=<code>dev</code>, pass=<code>123</code>) и вставьте данные в <code>dim_users (id, username)</code>.</p>
+
+                <div class="answer-input-area">
+                    <label>Ваш код:</label>
+                    <textarea rows="11" class="answer-textarea" placeholder="import psycopg2\n..."></textarea>
+                    <button class="check-answer-btn" onclick="checkAnswer(this)">Проверить мое решение</button>
+                    <div class="check-result"></div>
+                </div>
+
+                <pre class="solution-code">import psycopg2
 
 users_data = [(1, 'Alice'), (2, 'Bob')]
 
-# Подключение к БД
 conn = psycopg2.connect(
-    dbname="my_dwh", 
-    user="dev", 
-    password="123", 
-    host="127.0.0.1", 
+    dbname="my_dwh",
+    user="dev",
+    password="123",
+    host="127.0.0.1",
     port="5432"
 )
 cursor = conn.cursor()
 
-# Массовая вставка (executemany)
 insert_query = "INSERT INTO dim_users (id, username) VALUES (%s, %s);"
 cursor.executemany(insert_query, users_data)
 
-# Сохранение изменений
 conn.commit()
+cursor.close()
+conn.close()</pre>
 
+                <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
+                    <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
+<pre style="background:#1e293b; padding:12px; border-radius:6px; margin-top: 12px; margin-bottom: 0; color:#e2e8f0; overflow-x: auto;"><code>import psycopg2
+
+users_data = [(1, 'Alice'), (2, 'Bob')]
+
+conn = psycopg2.connect(
+    dbname="my_dwh",
+    user="dev",
+    password="123",
+    host="127.0.0.1",
+    port="5432"
+)
+cursor = conn.cursor()
+
+insert_query = "INSERT INTO dim_users (id, username) VALUES (%s, %s);"
+cursor.executemany(insert_query, users_data)
+
+conn.commit()
 cursor.close()
 conn.close()</code></pre>
-            </details>
-        </div>
-
-        <!-- Задача 3 -->
-        <div class="task-box" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid var(--accent1);">
-            <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">💻 Задача 3: Docker-изация Python скрипта</h4>
-            <p style="margin-bottom: 16px;">Напишите минимальный <code>Dockerfile</code>, который возьмет образ <code>python:3.10-slim</code>, скопирует и установит <code>requirements.txt</code>, а при старте выполнит <code>etl.py</code>.</p>
-            
-            <div style="margin-bottom: 16px;">
-                <label style="display:block; color:#94a3b8; margin-bottom: 8px; font-size:14px; font-weight:600;">Ваш ответ (код Dockerfile):</label>
-                <textarea rows="5" class="task-input" style="width: 100%; background: #0f172a; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: #e2e8f0; padding: 12px; font-family: monospace; font-size: 14px; resize: vertical;" placeholder="# Ваш Dockerfile"></textarea>
+                </details>
             </div>
-            
-            <details style="margin-bottom: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(255,255,255,0.1);">
-                <summary style="font-weight: 600; color: #94a3b8; outline:none;">💡 Показать подсказку</summary>
-                <p style="margin-top: 8px; font-size: 14px; color: #cbd5e1; margin-bottom: 0;">Вам понадобятся: <code>FROM ...</code>, <code>WORKDIR /app</code>, <code>COPY ...</code>, <code>RUN pip install ...</code>, <code>CMD ["python", "etl.py"]</code>.</p>
-            </details>
-            
-            <details style="padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
-                <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать правильный ответ</summary>
+
+            <div class="task-box" data-task-id="stage2-dockerfile" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid var(--accent1);">
+                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">💻 Задача 3: Dockerfile для ETL</h4>
+                <p style="margin-bottom: 16px;">Напишите минимальный <code>Dockerfile</code>: базовый образ <code>python:3.10-slim</code>, установка зависимостей из <code>requirements.txt</code>, запуск <code>etl.py</code>.</p>
+
+                <div class="answer-input-area">
+                    <label>Ваш Dockerfile:</label>
+                    <textarea rows="8" class="answer-textarea" placeholder="FROM ..."></textarea>
+                    <button class="check-answer-btn" onclick="checkAnswer(this)">Проверить мое решение</button>
+                    <div class="check-result"></div>
+                </div>
+
+                <pre class="solution-code">FROM python:3.10-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY etl.py .
+
+CMD ["python", "etl.py"]</pre>
+
+                <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
+                    <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
 <pre style="background:#1e293b; padding:12px; border-radius:6px; margin-top: 12px; margin-bottom: 0; color:#e2e8f0; overflow-x: auto;"><code>FROM python:3.10-slim
 
 WORKDIR /app
@@ -325,7 +431,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY etl.py .
 
 CMD ["python", "etl.py"]</code></pre>
-            </details>
+                </details>
+            </div>
         </div>
-    </div>
 </div>

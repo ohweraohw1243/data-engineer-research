@@ -181,8 +181,10 @@
                 });
                 
                 if (typeof setupAnswerField !== 'undefined') {
-                    document.querySelectorAll('.answer-textarea').forEach(setupAnswerField);
+                    document.querySelectorAll('[data-task-id]').forEach(setupAnswerField);
                 }
+                if (typeof loadSavedAnswers !== 'undefined') loadSavedAnswers();
+                if (typeof updateAnswerProgress !== 'undefined') updateAnswerProgress();
                 saveProgress();
                 
             } catch (error) {
@@ -205,7 +207,8 @@
 
         // ===== ПОДСКАЗКИ И РЕШЕНИЯ =====
         function showHint(btn, level) {
-            const container = btn.closest('.card');
+            const container = btn.closest('.card, .task-box');
+            if (!container) return;
             const hint = container.querySelector(`.hint-level:nth-of-type(${level})`);
             if (hint) {
                 hint.classList.add('active');
@@ -213,7 +216,8 @@
         }
 
         function showSQLSolution(btn) {
-            const container = btn.closest('.card');
+            const container = btn.closest('.card, .task-box');
+            if (!container) return;
             const solution = container.querySelector('.solution-code');
             if (solution) {
                 solution.style.display = solution.style.display === 'none' ? 'block' : 'none';
@@ -222,7 +226,8 @@
 
         // ===== ПРОВЕРКА ОТВЕТОВ =====
         function checkAnswer(btn) {
-            const container = btn.closest('.card');
+            const container = btn.closest('.card, .task-box');
+            if (!container) return;
             const textarea = container.querySelector('.answer-textarea');
             const resultDiv = container.querySelector('.check-result');
             const expectedAnswer = container.querySelector('.solution-code')?.textContent?.trim().toLowerCase() || '';
@@ -330,31 +335,39 @@
         }
 
         // Оснащение поля ввода функциями
-        function setupAnswerField(container) {
-            const textarea = container.querySelector('.answer-textarea');
-            if (textarea) {
-                // Поддержка Tab для отступов в textarea
-                textarea.addEventListener('keydown', (e) => {
-                    if (e.key === 'Tab') {
-                        e.preventDefault();
-                        const start = textarea.selectionStart;
-                        const end = textarea.selectionEnd;
-                        textarea.value = textarea.value.substring(0, start) + '\t' + textarea.value.substring(end);
-                        textarea.selectionStart = textarea.selectionEnd = start + 1;
-                    }
-                });
+        function setupAnswerField(target) {
+            const container = target?.matches?.('.answer-textarea')
+                ? target.closest('[data-task-id], .card, .task-box')
+                : target;
+            const textarea = target?.matches?.('.answer-textarea')
+                ? target
+                : container?.querySelector('.answer-textarea');
 
-                // Автосохранение ответа в localStorage
-                textarea.addEventListener('change', () => {
-                    const taskId = container.getAttribute('data-task-id');
-                    if (taskId) {
-                        const answers = JSON.parse(localStorage.getItem('userAnswers') || '{}');
-                        answers[taskId] = textarea.value;
-                        localStorage.setItem('userAnswers', JSON.stringify(answers));
-                        updateAnswerProgress();
-                    }
-                });
-            }
+            if (!container || !textarea) return;
+            if (textarea.dataset.enhanced === 'true') return;
+            textarea.dataset.enhanced = 'true';
+
+            // Поддержка Tab для отступов в textarea
+            textarea.addEventListener('keydown', (e) => {
+                if (e.key === 'Tab') {
+                    e.preventDefault();
+                    const start = textarea.selectionStart;
+                    const end = textarea.selectionEnd;
+                    textarea.value = textarea.value.substring(0, start) + '\t' + textarea.value.substring(end);
+                    textarea.selectionStart = textarea.selectionEnd = start + 1;
+                }
+            });
+
+            // Автосохранение ответа в localStorage
+            textarea.addEventListener('change', () => {
+                const taskId = container.getAttribute('data-task-id');
+                if (taskId) {
+                    const answers = JSON.parse(localStorage.getItem('userAnswers') || '{}');
+                    answers[taskId] = textarea.value;
+                    localStorage.setItem('userAnswers', JSON.stringify(answers));
+                    updateAnswerProgress();
+                }
+            });
         }
 
         // Восстановление сохраненных ответов
