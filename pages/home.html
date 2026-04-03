@@ -1,106 +1,53 @@
 <div class="page-content">
     <div class="page-header">
-        <h1 class="page-title">Middle Data Engineer <span>— Roadmap 2026</span></h1>
-        <p class="page-desc">Структурированный план подготовки к позиции Middle Data Engineer. Старт: <strong style="color: var(--accent2)">3 апреля 2026 года</strong>. <br>
-        🎯 <strong style="color: var(--accent1)">Best Case:</strong> Конец весны (к 1 июня — 8 недель интенсивной работы). <br>
-        🛡 <strong style="color: var(--accent3)">Worst Case:</strong> Конец лета (к 1 сентября — 21 неделя с запасом на пропуски, отпуска и глубокие проекты).</p>
+        <h1 class="page-title">Цель: <span>Middle Data Engineer в команду SMT</span></h1>
+        <p class="page-desc">Мы строим новую корпоративную дата-платформу с нуля: переходим от легаси (Hadoop/HDFS) к современному отказоустойчивому стеку на базе S3, Kafka, Spark и ClickHouse. 🚀</p>
     </div>
 
     <div class="card-grid mb-12">
         <div class="card" style="border-left: 4px solid var(--accent1);">
-            <div class="card-title">🚀 Best Case (Спринт до 1 июня)</div>
+            <div class="card-title">⚙️ Что предстоит делать</div>
             <div class="card-text">
-                <p>Еженедельное выполнение 100% плана. До 28.5 часов в нечетные недели и до 23 часов в четные (согласно вашему расписанию).</p>
-                <p style="margin-top: 8px;"><strong>Как это работает:</strong> Фокус на жесткое соблюдение дедлайнов, теория читается "под капотом", задачи решаются сразу. Выход на Mock-собеседования в конце мая.</p>
+                <ul style="margin-left: 20px; margin-top: 8px; list-style-type: disc; color: var(--text-dim);">
+                    <li>Разработка MVP новой платформы и инфраструктуры (ingest/transform).</li>
+                    <li>Миграция существующих пайплайнов c <strong>Hadoop/HDFS</strong> на <strong>S3, Kafka, Spark 3+, ClickHouse</strong>.</li>
+                    <li>Работа с высоконагруженными Kafka-топиками (сотни тысяч RPS).</li>
+                    <li>Построение отказоустойчивых пайплайнов обработки данных.</li>
+                    <li>Проектирование OLAP витрин под аналитику и миграция отчетов в <strong>DataLens / Power BI</strong>.</li>
+                </ul>
             </div>
         </div>
 
-        <div class="card" style="border-left: 4px solid var(--accent3);">
-            <div class="card-title">🛡 Worst Case (Марафон до 1 сентября)</div>
+        <div class="card" style="border-left: 4px solid var(--accent2);">
+            <div class="card-title">🎯 Ключевой Стек & Навыки</div>
             <div class="card-text">
-                <p>Если универ накладывает нагрузку, или темы "не идут", мы растягиваем таймлайн.</p>
-                <p style="margin-top: 8px;"><strong>Как это работает:</strong> Лето (июнь-август) используется как мощный буфер. Летом мы закрываем долги, пишем 2-3 pet-проекта уровня pre-middle, и плотно решаем задачи на System Design и LeetCode (SQL/Python).</p>
+                <ul style="margin-left: 20px; margin-top: 8px; list-style-type: disc; color: var(--text-dim);">
+                    <li><strong>Spark 3+</strong>: глубокое понимание, оптимизации, Spark Streaming.</li>
+                    <li><strong>ClickHouse</strong>: выживать максимум из аналитической СУБД.</li>
+                    <li><strong>Data Architecture</strong>: DWH, Data Lake, OLAP, ETL/ELT.</li>
+                    <li><strong>Python / Scala</strong>: ООП, конкурентность, профилирование кода.</li>
+                    <li><strong>Quality & Governance</strong>: Data Quality (DQ), Data Contracts, Lineage.</li>
+                    <li><strong>Infra</strong>: Docker, Kubernetes, CI/CD.</li>
+                </ul>
             </div>
         </div>
     </div>
 
     <div class="mb-12">
-        <h2 style="font-size: 20px; font-weight: 600; color: white; margin-bottom: 16px;">Общий прогресс (Весна)</h2>
+        <h2 style="font-size: 20px; font-weight: 600; color: white; margin-bottom: 16px;">Общий прогресс подготовки</h2>
         <div class="card">
             <div style="margin-bottom: 16px;">
                 <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <span style="color: var(--text-dim); font-size: 12px;">Выполнение плана Roadmap</span>
+                    <span style="color: var(--text-dim); font-size: 12px;">Освоение Roadmap</span>
                     <span id="overall-progress" style="color: var(--accent1); font-weight: 600;">0%</span>
                 </div>
                 <div class="progress-bar">
                     <div class="progress-fill" id="overall-progress-bar" style="width: 0%;"></div>
                 </div>
+                <p style="margin-top: 12px; font-size: 14px; color: var(--text-dim);">
+                    👉 Подробный план подготовки разбит по спринтам. Перейдите во вкладку <strong style="color: white;">"Роадмапа"</strong> в левом меню профиля.
+                </p>
             </div>
         </div>
-    </div>
-
-    <div>
-        <h2 style="font-size: 20px; font-weight: 600; color: white; margin-bottom: 16px;">Глобальная Roadmap по темам</h2>
-        
-        <div class="card" style="margin-bottom: 16px;">
-            <h3 style="color: white; font-weight: 600; font-size: 16px;">📌 Этап 1: SQL & Database Internals (Апрель, Недели 1-2)</h3>
-            <div class="card-text" style="margin-top: 8px;">
-                <p><strong>Цель:</strong> Идеальное владение SQL. Не просто писать запросы, а понимать, как движок их выполняет.</p>
-                <ul style="margin-left: 20px; margin-top: 8px; list-style-type: disc; color: var(--text-dim);">
-                    <li>Оконные функции (Window functions, frame boundaries) и CTE (Recursive).</li>
-                    <li>Под капотом PostgreSQL: MVCC, VACUUM, WAL, блокировки, Isolation Levels.</li>
-                    <li>Оптимизация: План запроса (EXPLAIN ANALYZE), B-tree индексы, Index-Only Scan.</li>
-                </ul>
-            </div>
-        </div>
-
-        <div class="card" style="margin-bottom: 16px;">
-            <h3 style="color: white; font-weight: 600; font-size: 16px;">📌 Этап 2: Python для Data Engineering (Апрель, Недели 3-4)</h3>
-            <div class="card-text" style="margin-top: 8px;">
-                <p><strong>Цель:</strong> Писать надежный, конкурентный и экономный по памяти код для обработки данных.</p>
-                <ul style="margin-left: 20px; margin-top: 8px; list-style-type: disc; color: var(--text-dim);">
-                    <li>Управление памятью: Generator, Lazy evaluation, Chunking для потоковой обработки.</li>
-                    <li>Конкурентность: Async/Await (asyncpg), Global Interpreter Lock (GIL), Threading vs Multiprocessing.</li>
-                    <li>Production-ready код: ООП в конвейерах, Retry/Backoff стратегии, логирование (ELK/Sentry база).</li>
-                </ul>
-            </div>
-        </div>
-
-        <div class="card" style="margin-bottom: 16px;">
-            <h3 style="color: white; font-weight: 600; font-size: 16px;">📌 Этап 3: Data Warehousing, Modeling & OLAP (Май, Недели 5-6)</h3>
-            <div class="card-text" style="margin-top: 8px;">
-                <p><strong>Цель:</strong> Понимать архитектуру DWH и уметь проектировать схемы данных под аналитику.</p>
-                <ul style="margin-left: 20px; margin-top: 8px; list-style-type: disc; color: var(--text-dim);">
-                    <li>Data Modeling: Звезда (Star Schema), Снежинка. Разница между Kimball, Inmon и Data Vault.</li>
-                    <li>Колоночные СУБД: ClickHouse, семейство движков MergeTree, Primary Key vs Order By.</li>
-                    <li>Распределенные базы на примере Greenplum/Hadoop (Концепт: Шардирование, Дистрибьюшн ключи - Distribution keys).</li>
-                </ul>
-            </div>
-        </div>
-
-        <div class="card" style="margin-bottom: 16px;">
-            <h3 style="color: white; font-weight: 600; font-size: 16px;">📌 Этап 4: Orchestration & Streaming (Май, Недели 7-8)</h3>
-            <div class="card-text" style="margin-top: 8px;">
-                <p><strong>Цель:</strong> Промышленная транспортировка данных от источника к витринам. Streaming и Batching.</p>
-                <ul style="margin-left: 20px; margin-top: 8px; list-style-type: disc; color: var(--text-dim);">
-                    <li>Apache Airflow: Основные концепции (DAGs, Operators, Sensors, XCom, Catchup/Backfill), идемпотентность пайплайнов.</li>
-                    <li>Message Brokers: Apache Kafka. Топики, Партиции, Consumer Groups, Офсеты. Семантика Exactly-once / At-least-once.</li>
-                    <li>Инфраструктура DevOps: Контейнеризация (Docker, Docker Compose), CI/CD основы.</li>
-                </ul>
-            </div>
-        </div>
-
-        <div class="card" style="border-left: 4px solid var(--accent2); background: rgba(108, 142, 247, 0.05);">
-            <h3 style="color: white; font-weight: 600; font-size: 16px;">⏳ Этап 5: Летний резерв & Финализация (Июнь - Август)</h3>
-            <div class="card-text" style="margin-top: 8px;">
-                <p><strong>Цель:</strong> Полировка знаний, закрытие хвостов весеннего этапа (худший сценарий) или углубление до уровня крепкого мидла (лучший сценарий).</p>
-                <ul style="margin-left: 20px; margin-top: 8px; list-style-type: disc; color: var(--text-dim);">
-                    <li><strong>Портфолио:</strong> Сборка комплексного Pet-Project от "А до Я" (Например: Забор API -> Kafka -> ClickHouse -> Airflow ELT -> dbt -> Superset).</li>
-                    <li><strong>Алгоритмы и Структуры:</strong> LeetCode Medium (SQL & Python). Хеш-таблицы, окна, два указателя — то, что спасет на секции кодинга в БигТехе.</li>
-                    <li><strong>System Design:</strong> Проектирование Batch/Streaming систем под нагрузкой на Mock-интервью. Подготовка самопрезентации (опыт и проекты).</li>
-                </ul>
-            </div>
-        </div>
-
     </div>
 </div>

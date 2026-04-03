@@ -1,0 +1,70 @@
+<div class="page-content">
+    <div class="page-header">
+        <h1 class="page-title">Roadmap <span>— SMT Middle Data Engineer</span></h1>
+        <p class="page-desc">Детальный план подготовки к вакансии в команду SMT. Стек: Spark, ClickHouse, Kafka, S3, Python. Старт: <strong style="color: var(--accent2)">3 апреля 2026 года</strong>.</p>
+    </div>
+
+    <div>
+        <h2 style="font-size: 20px; font-weight: 600; color: white; margin-bottom: 16px;">План подготовки (Весна - Лето)</h2>
+        
+        <div class="card" style="margin-bottom: 16px;">
+            <h3 style="color: white; font-weight: 600; font-size: 16px;">📌 Этап 1: Продвинутый SQL & Архитектура БД (Апрель)</h3>
+            <div class="card-text" style="margin-top: 8px;">
+                <p><strong>Цель:</strong> Идеальное владение SQL, оптимизация запросов и принципы DWH/OLAP.</p>
+                <ul style="margin-left: 20px; margin-top: 8px; list-style-type: disc; color: var(--text-dim);">
+                    <li><strong>DWH, Lake, OLAP:</strong> Проектирование схемы (Звезда, Снежинка), Kimball vs Data Vault. Хранение: S3.</li>
+                    <li><strong>ClickHouse:</strong> Движки семейства MergeTree. Как выжать максимум (Шардирование, партиционирование, Primary Key vs Order By).</li>
+                    <li><strong>SQL:</strong> Оконные функции, CTE, оптимизация планов запросов (EXPLAIN), индексы.</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="card" style="margin-bottom: 16px;">
+            <h3 style="color: white; font-weight: 600; font-size: 16px;">📌 Этап 2: Промышленный Python & Инженерия (Апрель - Май)</h3>
+            <div class="card-text" style="margin-top: 8px;">
+                <p><strong>Цель:</strong> Писать надежный, конкурентный код под отказоустойчивые пайплайны.</p>
+                <ul style="margin-left: 20px; margin-top: 8px; list-style-type: disc; color: var(--text-dim);">
+                    <li><strong>Python:</strong> Генераторы, асинхронность (asyncio), многопоточность/процессность, ООП в пайплайнах.</li>
+                    <li><strong>Отказоустойчивость:</strong> Retry/Backoff стратегии, идемпотентность, обработка сбоев.</li>
+                    <li><strong>Инфраструктура:</strong> Docker, Kubernetes (основы деплоя), CI/CD пайплайны.</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="card" style="margin-bottom: 16px;">
+            <h3 style="color: white; font-weight: 600; font-size: 16px;">📌 Этап 3: Spark & Обработка Big Data (Май)</h3>
+            <div class="card-text" style="margin-top: 8px;">
+                <p><strong>Цель:</strong> Главный инструмент платформы. Уметь "готовить" Spark 3+ на больших объемах.</p>
+                <ul style="margin-left: 20px; margin-top: 8px; list-style-type: disc; color: var(--text-dim);">
+                    <li><strong>Архитектура:</strong> Driver, Executor, DAG, RDD vs DataFrame vs Dataset.</li>
+                    <li><strong>Оптимизация:</strong> Partitioning, Shuffle, Broadcasting, Skewed data handling, кэширование (persist/cache).</li>
+                    <li><strong>Spark 3+ Фичи:</strong> Adaptive Query Execution (AQE), Dynamic Partition Pruning. Управление памятью.</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="card" style="margin-bottom: 16px;">
+            <h3 style="color: white; font-weight: 600; font-size: 16px;">📌 Этап 4: Streaming, Kafka & Data Quality (Июнь)</h3>
+            <div class="card-text" style="margin-top: 8px;">
+                <p><strong>Цель:</strong> Высоконагруженная передача данных и контроль их качества.</p>
+                <ul style="margin-left: 20px; margin-top: 8px; list-style-type: disc; color: var(--text-dim);">
+                    <li><strong>Apache Kafka:</strong> Архитектура топиков, партиций, гарантии доставки (At-least-once, Exactly-once), сотни тысяч RPS.</li>
+                    <li><strong>Data Governance:</strong> Data Catalog, Data Lineage (происхождение данных).</li>
+                    <li><strong>Data Quality:</strong> Data Contracts, инструменты мониторинга качества данных.</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="card" style="border-left: 4px solid var(--accent2); background: rgba(108, 142, 247, 0.05);">
+            <h3 style="color: white; font-weight: 600; font-size: 16px;">⏳ Этап 5: Алгоритмы, System Design и Проекты (Лето)</h3>
+            <div class="card-text" style="margin-top: 8px;">
+                <p><strong>Цель:</strong> Подготовка к секциям в BigTech, упаковка знаний.</p>
+                <ul style="margin-left: 20px; margin-top: 8px; list-style-type: disc; color: var(--text-dim);">
+                    <li><strong>System Design:</strong> Проектирование Batch/Streaming платформ (от S3 до BI витрин: DataLens, Power BI).</li>
+                    <li><strong>Алгоритмы и Математика:</strong> <em>LeetCode, оценка сложности, базовый тервер. Вынесены во вкладку "Математика / Лайв-кодинг" для регулярной тренировки.</em></li>
+                    <li><strong>Pet-Project:</strong> MVP платформы данных "S3 -> Kafka -> Spark -> ClickHouse" с мониторингом.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
