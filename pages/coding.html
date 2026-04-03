@@ -528,5 +528,53 @@ CREATE TABLE fact_sales (
             </div>
         </div>
 
+        <h2 style="font-size: 26px; font-weight: 600; margin-top: 48px; margin-bottom: 24px; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px;">Практические Задачи (Математика и Статистика)</h2>
+
+        <!-- Project 1 (Math) -->
+        <div class="space-y-6">
+            <div class="task-box" data-task-id="math-outlier-detection" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid #facc15;">
+                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">💻 Проект 1: Поиск математических аномалий (DQ Check)</h4>
+                <p style="margin-bottom: 16px;"><strong>Цель:</strong> Написать Python функцию <code>detect_outliers(data)</code>, которая принимает список чисел и возвращает список подозрительных значений. Будем использовать межквартильный размах (IQR): аномалия — число, находящееся за пределами `Q1 - 1.5 * IQR` и `Q3 + 1.5 * IQR`.</p>
+                <div style="background: rgba(0,0,0,0.3); padding: 12px; border-radius: 6px; margin-bottom: 16px; font-family: monospace; font-size: 13px; color: #cbd5e1;">
+                    Пример вызова:<br>
+                    data = [10, 12, 12, 13, 12, 11, 14, 13, 15, 102, 12, 14]<br>
+                    # В этом массиве число 102 явно отклоняется от среднего.<br>
+                    detect_outliers(data) -> [102]
+                </div>
+
+                <div class="answer-input-area">
+                    <label>Ваш Python код (Поиск выбросов через IQR):</label>
+                    <textarea rows="12" class="answer-textarea" placeholder="import numpy as np&#10;&#10;def detect_outliers(data):&#10;..."></textarea>
+                    <button class="check-answer-btn" onclick="checkAnswer(this)">Проверить мое решение</button>
+                    <div class="check-result"></div>
+                </div>
+
+                <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
+                    <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
+<pre style="background:#1e293b; padding:12px; border-radius:6px; margin-top: 12px; margin-bottom: 0; color:#e2e8f0; overflow-x: auto;"><code>import numpy as np
+
+def detect_outliers(data):
+    # 1. Считаем 1-й и 3-й квартили (25й и 75й процентили)
+    q1, q3 = np.percentile(data, [25, 75])
+    
+    # 2. Вычисляем IQR (межквартильный размах)
+    iqr = q3 - q1
+    
+    # 3. Высчитываем границы (lower_bound и upper_bound)
+    lower_bound = q1 - (1.5 * iqr)
+    upper_bound = q3 + (1.5 * iqr)
+    
+    # 4. Собираем список выбросов
+    outliers = [x for x in data if x < lower_bound or x > upper_bound]
+    
+    return outliers
+
+# Проверка:
+print(detect_outliers([10, 12, 12, 13, 12, 11, 14, 13, 15, 102, 12, 14]))
+# Вывод: [102]</code></pre>
+                </details>
+            </div>
+        </div>
+
     </div>
 </div>
