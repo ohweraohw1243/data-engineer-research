@@ -15,6 +15,15 @@
                 <li><strong>Библиотека Requests:</strong> Стандарт для HTTP-запросов. Вы делаете <code style="background: rgba(0,0,0,0.3); padding: 2px 4px; border-radius: 4px;">requests.get('https://api.example.com/data')</code> и получаете ответ.</li>
                 <li><strong>JSON (JavaScript Object Notation):</strong> Главный формат обмена данными. Для Python формат JSON — это просто вложенные <strong>Словари (Dicts)</strong> и <strong>Списки (Lists)</strong>.</li>
             </ul>
+
+            <div class="resource-block" style="margin-top: 16px; background: rgba(255,255,255,0.05); padding: 16px; border-radius: 8px;">
+                <h4 style="margin-top: 0">Что посмотреть/почитать:</h4>
+                <ul>
+                    <li>▶️ <strong>YouTube:</strong> Лекции про REST API для начинающих, Postman tutorial.</li>
+                    <li>📖 <strong>Документация:</strong> Официальная документация библиотеки <code>requests</code> в Python (Quickstart).</li>
+                    <li>💻 <strong>Практика:</strong> Потренироваться дергать открытые API (например reqres.in или pokeapi.co).</li>
+                </ul>
+            </div>
         </div>
     </div>
 
@@ -25,6 +34,15 @@
             <p>Выступать связующим мостом будет "драйвер базы данных".</p>
             <p><strong>Низкоуровневый — psycopg2:</strong> Вы открываете соединение и пишете SQL: <code>cursor.execute("INSERT ...")</code>. Важно: для массивов данных используйте <code>executemany()</code>.</p>
             <p><strong>Высокоуровневый — SQLAlchemy / Pandas:</strong> Просто кидаем DataFrame в БД через <code>df.to_sql('table_name')</code>.</p>
+
+            <div class="resource-block" style="margin-top: 16px; background: rgba(255,255,255,0.05); padding: 16px; border-radius: 8px;">
+                <h4 style="margin-top: 0">Что посмотреть/почитать:</h4>
+                <ul>
+                    <li>▶️ <strong>YouTube:</strong> Работа с базой данных в Python через psycopg2 (Основы).</li>
+                    <li>▶️ <strong>YouTube:</strong> SQLAlchemy Core tutorial (базовое подключение и engine).</li>
+                    <li>📝 <strong>Статья:</strong> Как правильно и быстро делать массовый INSERT (executemany vs execute_values) на Хабре.</li>
+                </ul>
+            </div>
         </div>
     </div>
 
@@ -34,6 +52,15 @@
         <div class="card-text" style="margin-top: 16px;">
             <p>Код нужно контейнеризировать, чтобы среда исполнения была изолирована.</p>
             <p><strong>Сети в Docker Compose:</strong> Внутри контейнера "localhost" — это он сам. Обращайтесь по <strong>имени сервиса</strong> из <code>docker-compose.yml</code> (например, <code>host="postgres"</code>).</p>
+
+            <div class="resource-block" style="margin-top: 16px; background: rgba(255,255,255,0.05); padding: 16px; border-radius: 8px;">
+                <h4 style="margin-top: 0">Что посмотреть/почитать:</h4>
+                <ul>
+                    <li>▶️ <strong>YouTube:</strong> Docker для Python: Как упаковать свой скрипт (Python Dockerfile).</li>
+                    <li>▶️ <strong>YouTube:</strong> Связывание нескольких контейнеров в Docker Compose (Python + БД).</li>
+                    <li>📖 <strong>Практика:</strong> Официальный туториал Docker: "Containerize a Python application".</li>
+                </ul>
+            </div>
         </div>
     </div>
 </div>
