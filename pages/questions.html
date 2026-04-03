@@ -1,152 +1,493 @@
 <div class="page-content">
-<div class="page-header">
-                    <h1 class="page-title">Вопросы для <span>собеседований</span></h1>
-                    <p class="page-desc">15+ вопросов уровня Senior с развернутыми ответами.</p>
-                </div>
+    <div class="page-header">
+        <h1 class="page-title">Вопросы для <span>собеседований</span></h1>
+        <p class="page-desc">50+ вопросов от уровня Junior до Senior с развернутыми ответами по всем ключевым модулям Data Engineering.</p>
+    </div>
 
-                <div style="margin-bottom: 20px;">
-                    <button class="btn" onclick="randomQuestion()">🎲 Случайный вопрос</button>
-                </div>
+    <div style="margin-bottom: 20px;">
+        <button class="btn" style="background:var(--accent1);color:#0a0a0a;font-weight:600;padding:12px 24px;border-radius:12px;border:none;cursor:pointer;" onclick="randomQuestion()">🎲 Случайный вопрос</button>
+    </div>
 
-                <div class="space-y-4">
-                    <div class="accordion-item">
-                        <div class="accordion-header" onclick="toggleAccordion(this)">
-                            <span style="font-weight: 600;">Чем Hash Join отличается от Merge Join?</span>
-                            <span class="accordion-toggle">▼</span>
-                        </div>
-                        <div class="accordion-content">
-                            <strong style="color: var(--accent1);">Ответ:</strong><br><br>
-                            <strong>Hash Join O(n+m):</strong> Строит хеш-таблицу по образцу (наименьший набор), затем сканирует дорожный набор. Требует O(n) памяти, но очень быстро.<br><br>
-                            <strong>Merge Join O(n log n + m log m):</strong> Требует отсортированные наборы. Работает как zipper — идет по обоим потокам одновременно.<br><br>
-                            <strong>Выбор:</strong> Hash для маленьких inner tables, Merge для sorted input, Nested Loop для маленьких наборов с индексом.
-                        </div>
-                    </div>
+    <h2 style="font-size: 24px; font-weight: 600; margin-bottom: 16px; margin-top: 32px; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">SQL и Базы Данных</h2>
+    <div class="space-y-4">
+        <div class="accordion-item" style="background: var(--bg-card); border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;">
+            <div class="accordion-header" style="padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleAccordion(this)">
+                <span style="font-weight: 600; font-size: 15px;">В чем разница между WHERE и HAVING?</span>
+                <span class="accordion-toggle" style="transition: transform 0.3s; color: var(--text-muted);">▼</span>
+            </div>
+            <div class="accordion-content" style="display: none; padding: 0 16px 16px 16px; color: var(--text-muted); line-height: 1.6; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px;">
+                <strong style="color: var(--accent1);">Ответ:</strong><br>WHERE фильтрует данные до агрегации (GROUP BY), а HAVING — после.
+            </div>
+        </div>
+        <div class="accordion-item" style="background: var(--bg-card); border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;">
+            <div class="accordion-header" style="padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleAccordion(this)">
+                <span style="font-weight: 600; font-size: 15px;">Что такое нормализация и денормализация?</span>
+                <span class="accordion-toggle" style="transition: transform 0.3s; color: var(--text-muted);">▼</span>
+            </div>
+            <div class="accordion-content" style="display: none; padding: 0 16px 16px 16px; color: var(--text-muted); line-height: 1.6; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px;">
+                <strong style="color: var(--accent1);">Ответ:</strong><br>Нормализация — процесс устранения избыточности и аномалий обновления путем разделения таблиц (до 3NF). Денормализация — намеренное дублирование данных для ускорения SELECT-запросов (добавление избыточных колонок).
+            </div>
+        </div>
+        <div class="accordion-item" style="background: var(--bg-card); border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;">
+            <div class="accordion-header" style="padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleAccordion(this)">
+                <span style="font-weight: 600; font-size: 15px;">Объясните разницу между INNER, LEFT, RIGHT и FULL JOIN.</span>
+                <span class="accordion-toggle" style="transition: transform 0.3s; color: var(--text-muted);">▼</span>
+            </div>
+            <div class="accordion-content" style="display: none; padding: 0 16px 16px 16px; color: var(--text-muted); line-height: 1.6; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px;">
+                <strong style="color: var(--accent1);">Ответ:</strong><br>INNER оставляет только совпадения в обеих таблицах. LEFT возвращает все строки левой и совпадения из правой. RIGHT — все из правой. FULL — объединяет все строки из обеих таблиц, подставляя NULL при отсутствии совпадений.
+            </div>
+        </div>
+        <div class="accordion-item" style="background: var(--bg-card); border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;">
+            <div class="accordion-header" style="padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleAccordion(this)">
+                <span style="font-weight: 600; font-size: 15px;">Как работают оконные функции (Window Functions)?</span>
+                <span class="accordion-toggle" style="transition: transform 0.3s; color: var(--text-muted);">▼</span>
+            </div>
+            <div class="accordion-content" style="display: none; padding: 0 16px 16px 16px; color: var(--text-muted); line-height: 1.6; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px;">
+                <strong style="color: var(--accent1);">Ответ:</strong><br>Оконные функции вычисляют агрегаты или ранги для набора строк, не группируя их в одну строку. Они используют конструкцию OVER (PARTITION BY ... ORDER BY ...).
+            </div>
+        </div>
+        <div class="accordion-item" style="background: var(--bg-card); border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;">
+            <div class="accordion-header" style="padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleAccordion(this)">
+                <span style="font-weight: 600; font-size: 15px;">В чем отличие RANK() от DENSE_RANK()?</span>
+                <span class="accordion-toggle" style="transition: transform 0.3s; color: var(--text-muted);">▼</span>
+            </div>
+            <div class="accordion-content" style="display: none; padding: 0 16px 16px 16px; color: var(--text-muted); line-height: 1.6; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px;">
+                <strong style="color: var(--accent1);">Ответ:</strong><br>При одинаковых значениях оба дадут одинаковый ранг, но RANK() пропустит следующие номера (1, 1, 3), а DENSE_RANK() пойдет по порядку (1, 1, 2).
+            </div>
+        </div>
+        <div class="accordion-item" style="background: var(--bg-card); border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;">
+            <div class="accordion-header" style="padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleAccordion(this)">
+                <span style="font-weight: 600; font-size: 15px;">Как работает индекс B-Tree?</span>
+                <span class="accordion-toggle" style="transition: transform 0.3s; color: var(--text-muted);">▼</span>
+            </div>
+            <div class="accordion-content" style="display: none; padding: 0 16px 16px 16px; color: var(--text-muted); line-height: 1.6; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px;">
+                <strong style="color: var(--accent1);">Ответ:</strong><br>B-Tree (сбалансированное дерево) — структура данных, которая сохраняет отсортированные ключи в узлах, позволяя искать, вставлять и удалять записи за O(log N).
+            </div>
+        </div>
+        <div class="accordion-item" style="background: var(--bg-card); border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;">
+            <div class="accordion-header" style="padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleAccordion(this)">
+                <span style="font-weight: 600; font-size: 15px;">Что такое транзакция и свойства ACID?</span>
+                <span class="accordion-toggle" style="transition: transform 0.3s; color: var(--text-muted);">▼</span>
+            </div>
+            <div class="accordion-content" style="display: none; padding: 0 16px 16px 16px; color: var(--text-muted); line-height: 1.6; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px;">
+                <strong style="color: var(--accent1);">Ответ:</strong><br>Транзакция — логическая единица работы с БД. ACID: Atomicity, Consistency, Isolation, Durability.
+            </div>
+        </div>
+        <div class="accordion-item" style="background: var(--bg-card); border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;">
+            <div class="accordion-header" style="padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleAccordion(this)">
+                <span style="font-weight: 600; font-size: 15px;">Что такое CTE?</span>
+                <span class="accordion-toggle" style="transition: transform 0.3s; color: var(--text-muted);">▼</span>
+            </div>
+            <div class="accordion-content" style="display: none; padding: 0 16px 16px 16px; color: var(--text-muted); line-height: 1.6; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px;">
+                <strong style="color: var(--accent1);">Ответ:</strong><br>CTE (Common Table Expression) — временный именованный набор данных в рамках одного запроса (WITH CTE AS ...).
+            </div>
+        </div>
+        <div class="accordion-item" style="background: var(--bg-card); border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;">
+            <div class="accordion-header" style="padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleAccordion(this)">
+                <span style="font-weight: 600; font-size: 15px;">Что такое Materialized View?</span>
+                <span class="accordion-toggle" style="transition: transform 0.3s; color: var(--text-muted);">▼</span>
+            </div>
+            <div class="accordion-content" style="display: none; padding: 0 16px 16px 16px; color: var(--text-muted); line-height: 1.6; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px;">
+                <strong style="color: var(--accent1);">Ответ:</strong><br>Физически сохраненный на диске результат запроса, в отличие от обычного View (виртуального). Требует обновления (refresh).
+            </div>
+        </div>
+        <div class="accordion-item" style="background: var(--bg-card); border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;">
+            <div class="accordion-header" style="padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleAccordion(this)">
+                <span style="font-weight: 600; font-size: 15px;">Разница между Clustered и Non-Clustered индексом?</span>
+                <span class="accordion-toggle" style="transition: transform 0.3s; color: var(--text-muted);">▼</span>
+            </div>
+            <div class="accordion-content" style="display: none; padding: 0 16px 16px 16px; color: var(--text-muted); line-height: 1.6; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px;">
+                <strong style="color: var(--accent1);">Ответ:</strong><br>Кластерный индекс определяет физический порядок хранения данных (может быть только один). Некластерный создает отдельную структуру указателей (их может быть много).
+            </div>
+        </div>
+        <div class="accordion-item" style="background: var(--bg-card); border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;">
+            <div class="accordion-header" style="padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleAccordion(this)">
+                <span style="font-weight: 600; font-size: 15px;">Как работает UNION и UNION ALL?</span>
+                <span class="accordion-toggle" style="transition: transform 0.3s; color: var(--text-muted);">▼</span>
+            </div>
+            <div class="accordion-content" style="display: none; padding: 0 16px 16px 16px; color: var(--text-muted); line-height: 1.6; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px;">
+                <strong style="color: var(--accent1);">Ответ:</strong><br>Оба объединяют результаты двух SELECT. UNION ALL просто склеивает, а UNION удаляет дубликаты (работает медленнее).
+            </div>
+        </div>
+    </div>
 
-                    <div class="accordion-item">
-                        <div class="accordion-header" onclick="toggleAccordion(this)">
-                            <span style="font-weight: 600;">Как работает MVCC в PostgreSQL? xmin/xmax?</span>
-                            <span class="accordion-toggle">▼</span>
-                        </div>
-                        <div class="accordion-content">
-                            <strong style="color: var(--accent1);">Ответ:</strong><br><br>
-                            <strong>MVCC:</strong> Каждая строка имеет версии. Читатели берут snapshot транзакций на момент начала.<br><br>
-                            <strong>xmin/xmax:</strong><br>
-                            • xmin — ID транзакции, создавшей версию<br>
-                            • xmax — ID транзакции, удалившей версию<br><br>
-                            SELECT проверяет видимость: если xmin видна и xmax не видна, строка живая. VACUUM очищает версии когда все xmax < active xids.
-                        </div>
-                    </div>
+    <h2 style="font-size: 24px; font-weight: 600; margin-bottom: 16px; margin-top: 32px; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">Python и PySpark</h2>
+    <div class="space-y-4">
+        <div class="accordion-item" style="background: var(--bg-card); border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;">
+            <div class="accordion-header" style="padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleAccordion(this)">
+                <span style="font-weight: 600; font-size: 15px;">В чем разница между списками (list) и кортежами (tuple)?</span>
+                <span class="accordion-toggle" style="transition: transform 0.3s; color: var(--text-muted);">▼</span>
+            </div>
+            <div class="accordion-content" style="display: none; padding: 0 16px 16px 16px; color: var(--text-muted); line-height: 1.6; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px;">
+                <strong style="color: var(--accent1);">Ответ:</strong><br>Списки изменяемые, кортежи неизменяемые. Кортежи быстрее и могут быть ключами словаря.
+            </div>
+        </div>
+        <div class="accordion-item" style="background: var(--bg-card); border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;">
+            <div class="accordion-header" style="padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleAccordion(this)">
+                <span style="font-weight: 600; font-size: 15px;">Что такое декоратор в Python?</span>
+                <span class="accordion-toggle" style="transition: transform 0.3s; color: var(--text-muted);">▼</span>
+            </div>
+            <div class="accordion-content" style="display: none; padding: 0 16px 16px 16px; color: var(--text-muted); line-height: 1.6; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px;">
+                <strong style="color: var(--accent1);">Ответ:</strong><br>Функция-обертка, изменяющая поведение другой функции без изменения ее кода.
+            </div>
+        </div>
+        <div class="accordion-item" style="background: var(--bg-card); border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;">
+            <div class="accordion-header" style="padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleAccordion(this)">
+                <span style="font-weight: 600; font-size: 15px;">Как работает yield?</span>
+                <span class="accordion-toggle" style="transition: transform 0.3s; color: var(--text-muted);">▼</span>
+            </div>
+            <div class="accordion-content" style="display: none; padding: 0 16px 16px 16px; color: var(--text-muted); line-height: 1.6; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px;">
+                <strong style="color: var(--accent1);">Ответ:</strong><br>Делает функцию генератором, возвращая значение и «замораживая» состояние до следующего вызова.
+            </div>
+        </div>
+        <div class="accordion-item" style="background: var(--bg-card); border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;">
+            <div class="accordion-header" style="padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleAccordion(this)">
+                <span style="font-weight: 600; font-size: 15px;">Что такое GIL?</span>
+                <span class="accordion-toggle" style="transition: transform 0.3s; color: var(--text-muted);">▼</span>
+            </div>
+            <div class="accordion-content" style="display: none; padding: 0 16px 16px 16px; color: var(--text-muted); line-height: 1.6; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px;">
+                <strong style="color: var(--accent1);">Ответ:</strong><br>Мьютекс, блокирующий потоки в CPython. Из-за GIL многопоточность не ускоряет CPU-bound задачи.
+            </div>
+        </div>
+        <div class="accordion-item" style="background: var(--bg-card); border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;">
+            <div class="accordion-header" style="padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleAccordion(this)">
+                <span style="font-weight: 600; font-size: 15px;">Разница между DataFrame и RDD в PySpark?</span>
+                <span class="accordion-toggle" style="transition: transform 0.3s; color: var(--text-muted);">▼</span>
+            </div>
+            <div class="accordion-content" style="display: none; padding: 0 16px 16px 16px; color: var(--text-muted); line-height: 1.6; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px;">
+                <strong style="color: var(--accent1);">Ответ:</strong><br>RDD — базовая неизменяемая коллекция объектов. DataFrame — табличная структура, поддерживающая оптимизатор Catalyst.
+            </div>
+        </div>
+        <div class="accordion-item" style="background: var(--bg-card); border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;">
+            <div class="accordion-header" style="padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleAccordion(this)">
+                <span style="font-weight: 600; font-size: 15px;">Transformation vs Action в PySpark?</span>
+                <span class="accordion-toggle" style="transition: transform 0.3s; color: var(--text-muted);">▼</span>
+            </div>
+            <div class="accordion-content" style="display: none; padding: 0 16px 16px 16px; color: var(--text-muted); line-height: 1.6; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px;">
+                <strong style="color: var(--accent1);">Ответ:</strong><br>Трансформации «ленивы» и только строят план (DAG). Экшены запускают физическое вычисление (show, write, count).
+            </div>
+        </div>
+        <div class="accordion-item" style="background: var(--bg-card); border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;">
+            <div class="accordion-header" style="padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleAccordion(this)">
+                <span style="font-weight: 600; font-size: 15px;">Что такое Partitioning?</span>
+                <span class="accordion-toggle" style="transition: transform 0.3s; color: var(--text-muted);">▼</span>
+            </div>
+            <div class="accordion-content" style="display: none; padding: 0 16px 16px 16px; color: var(--text-muted); line-height: 1.6; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px;">
+                <strong style="color: var(--accent1);">Ответ:</strong><br>Разделение данных на части для параллельной обработки. Идеально по 128 MB.
+            </div>
+        </div>
+        <div class="accordion-item" style="background: var(--bg-card); border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;">
+            <div class="accordion-header" style="padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleAccordion(this)">
+                <span style="font-weight: 600; font-size: 15px;">Что такое Shuffle?</span>
+                <span class="accordion-toggle" style="transition: transform 0.3s; color: var(--text-muted);">▼</span>
+            </div>
+            <div class="accordion-content" style="display: none; padding: 0 16px 16px 16px; color: var(--text-muted); line-height: 1.6; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px;">
+                <strong style="color: var(--accent1);">Ответ:</strong><br>Процесс перетасовки данных по сети между узлами. Возникает при join или groupBy.
+            </div>
+        </div>
+        <div class="accordion-item" style="background: var(--bg-card); border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;">
+            <div class="accordion-header" style="padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleAccordion(this)">
+                <span style="font-weight: 600; font-size: 15px;">coalesce vs repartition?</span>
+                <span class="accordion-toggle" style="transition: transform 0.3s; color: var(--text-muted);">▼</span>
+            </div>
+            <div class="accordion-content" style="display: none; padding: 0 16px 16px 16px; color: var(--text-muted); line-height: 1.6; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px;">
+                <strong style="color: var(--accent1);">Ответ:</strong><br>coalesce уменьшает партиции без полного шаффла, repartition делает полный шаффл и балансирует данные.
+            </div>
+        </div>
+        <div class="accordion-item" style="background: var(--bg-card); border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;">
+            <div class="accordion-header" style="padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleAccordion(this)">
+                <span style="font-weight: 600; font-size: 15px;">Broadcast Join?</span>
+                <span class="accordion-toggle" style="transition: transform 0.3s; color: var(--text-muted);">▼</span>
+            </div>
+            <div class="accordion-content" style="display: none; padding: 0 16px 16px 16px; color: var(--text-muted); line-height: 1.6; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px;">
+                <strong style="color: var(--accent1);">Ответ:</strong><br>Маленькая таблица целиком рассылается на все воркеры, чтобы избежать шаффла большой таблицы.
+            </div>
+        </div>
+        <div class="accordion-item" style="background: var(--bg-card); border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;">
+            <div class="accordion-header" style="padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleAccordion(this)">
+                <span style="font-weight: 600; font-size: 15px;">Как избежать OutOfMemory при группировке?</span>
+                <span class="accordion-toggle" style="transition: transform 0.3s; color: var(--text-muted);">▼</span>
+            </div>
+            <div class="accordion-content" style="display: none; padding: 0 16px 16px 16px; color: var(--text-muted); line-height: 1.6; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px;">
+                <strong style="color: var(--accent1);">Ответ:</strong><br>Использовать ключи с высокой кардинальностью, включать skew-join (соль/salting keys) и избегать collect() огромных массивов.
+            </div>
+        </div>
+        <div class="accordion-item" style="background: var(--bg-card); border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;">
+            <div class="accordion-header" style="padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleAccordion(this)">
+                <span style="font-weight: 600; font-size: 15px;">Что такое UDF?</span>
+                <span class="accordion-toggle" style="transition: transform 0.3s; color: var(--text-muted);">▼</span>
+            </div>
+            <div class="accordion-content" style="display: none; padding: 0 16px 16px 16px; color: var(--text-muted); line-height: 1.6; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px;">
+                <strong style="color: var(--accent1);">Ответ:</strong><br>User Defined Function. Позволяет применять Python-функции к колонкам DataFrame (медленно, так как вызывает сериализацию).
+            </div>
+        </div>
+        <div class="accordion-item" style="background: var(--bg-card); border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;">
+            <div class="accordion-header" style="padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleAccordion(this)">
+                <span style="font-weight: 600; font-size: 15px;">Что делает cache() и persist()?</span>
+                <span class="accordion-toggle" style="transition: transform 0.3s; color: var(--text-muted);">▼</span>
+            </div>
+            <div class="accordion-content" style="display: none; padding: 0 16px 16px 16px; color: var(--text-muted); line-height: 1.6; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px;">
+                <strong style="color: var(--accent1);">Ответ:</strong><br>Сохраняют промежуточный DataFrame в памяти для переиспользования. persist() позволяет выбрать уровень хранения (MEMORY_ONLY, DISK_ONLY).
+            </div>
+        </div>
+    </div>
 
-                    <div class="accordion-item">
-                        <div class="accordion-header" onclick="toggleAccordion(this)">
-                            <span style="font-weight: 600;">B-tree vs Hash индексы</span>
-                            <span class="accordion-toggle">▼</span>
-                        </div>
-                        <div class="accordion-content">
-                            <strong style="color: var(--accent1);">Ответ:</strong><br><br>
-                            <strong>B-tree:</strong> Диапазонные запросы, сортировка, height = log_fanout(N).<br><br>
-                            <strong>Hash:</strong> Только точное совпадение O(1), не поддерживает диапазоны и NULL.<br><br>
-                            <strong>Практика:</strong> В 99% B-tree лучше. Hash редко используется.
-                        </div>
-                    </div>
+    <h2 style="font-size: 24px; font-weight: 600; margin-bottom: 16px; margin-top: 32px; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">Архитектура Хранилищ (DWH & Data Lake)</h2>
+    <div class="space-y-4">
+        <div class="accordion-item" style="background: var(--bg-card); border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;">
+            <div class="accordion-header" style="padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleAccordion(this)">
+                <span style="font-weight: 600; font-size: 15px;">В чем разница между DWH и Data Lake?</span>
+                <span class="accordion-toggle" style="transition: transform 0.3s; color: var(--text-muted);">▼</span>
+            </div>
+            <div class="accordion-content" style="display: none; padding: 0 16px 16px 16px; color: var(--text-muted); line-height: 1.6; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px;">
+                <strong style="color: var(--accent1);">Ответ:</strong><br>DWH хранит строго структурированные (Schema-on-Write) данные для BI. Data Lake хранит полуструктурированные и сырые данные (Schema-on-Read).
+            </div>
+        </div>
+        <div class="accordion-item" style="background: var(--bg-card); border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;">
+            <div class="accordion-header" style="padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleAccordion(this)">
+                <span style="font-weight: 600; font-size: 15px;">Что такое Data Lakehouse?</span>
+                <span class="accordion-toggle" style="transition: transform 0.3s; color: var(--text-muted);">▼</span>
+            </div>
+            <div class="accordion-content" style="display: none; padding: 0 16px 16px 16px; color: var(--text-muted); line-height: 1.6; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px;">
+                <strong style="color: var(--accent1);">Ответ:</strong><br>Слияние DWH и Data Lake. Позволяет работать поверх S3-бакетов с поддержкой транзакций благодаря открытым форматам (Iceberg, Delta Lake).
+            </div>
+        </div>
+        <div class="accordion-item" style="background: var(--bg-card); border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;">
+            <div class="accordion-header" style="padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleAccordion(this)">
+                <span style="font-weight: 600; font-size: 15px;">Особенности формата Parquet?</span>
+                <span class="accordion-toggle" style="transition: transform 0.3s; color: var(--text-muted);">▼</span>
+            </div>
+            <div class="accordion-content" style="display: none; padding: 0 16px 16px 16px; color: var(--text-muted); line-height: 1.6; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px;">
+                <strong style="color: var(--accent1);">Ответ:</strong><br>Колоночный, бинарный формат с поддержкой сжатия. Идеален для аналитики с агрегациями (пропускает ненужные колонки).
+            </div>
+        </div>
+        <div class="accordion-item" style="background: var(--bg-card); border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;">
+            <div class="accordion-header" style="padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleAccordion(this)">
+                <span style="font-weight: 600; font-size: 15px;">Lambda vs Kappa архитектура?</span>
+                <span class="accordion-toggle" style="transition: transform 0.3s; color: var(--text-muted);">▼</span>
+            </div>
+            <div class="accordion-content" style="display: none; padding: 0 16px 16px 16px; color: var(--text-muted); line-height: 1.6; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px;">
+                <strong style="color: var(--accent1);">Ответ:</strong><br>Lambda разделяет потоки на Batch (медленный) и Speed (быстрый). Kappa обрабатывает всё единым потоком (Unified Stream).
+            </div>
+        </div>
+        <div class="accordion-item" style="background: var(--bg-card); border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;">
+            <div class="accordion-header" style="padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleAccordion(this)">
+                <span style="font-weight: 600; font-size: 15px;">Слои DWH: STG, ODS, DDS, CDM?</span>
+                <span class="accordion-toggle" style="transition: transform 0.3s; color: var(--text-muted);">▼</span>
+            </div>
+            <div class="accordion-content" style="display: none; padding: 0 16px 16px 16px; color: var(--text-muted); line-height: 1.6; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px;">
+                <strong style="color: var(--accent1);">Ответ:</strong><br>STG - сырые копии таблиц. ODS - очищенные. DDS - хранилище в Data Vault или Звезде. CDM - витрины для BI (Data Marts).
+            </div>
+        </div>
+        <div class="accordion-item" style="background: var(--bg-card); border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;">
+            <div class="accordion-header" style="padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleAccordion(this)">
+                <span style="font-weight: 600; font-size: 15px;">Что такое OLTP и OLAP?</span>
+                <span class="accordion-toggle" style="transition: transform 0.3s; color: var(--text-muted);">▼</span>
+            </div>
+            <div class="accordion-content" style="display: none; padding: 0 16px 16px 16px; color: var(--text-muted); line-height: 1.6; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px;">
+                <strong style="color: var(--accent1);">Ответ:</strong><br>OLTP - быстрые вставки/обновления для 1 записи. OLAP - тяжелые запросы по миллионам строк для аналитики.
+            </div>
+        </div>
+        <div class="accordion-item" style="background: var(--bg-card); border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;">
+            <div class="accordion-header" style="padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleAccordion(this)">
+                <span style="font-weight: 600; font-size: 15px;">ETL vs ELT?</span>
+                <span class="accordion-toggle" style="transition: transform 0.3s; color: var(--text-muted);">▼</span>
+            </div>
+            <div class="accordion-content" style="display: none; padding: 0 16px 16px 16px; color: var(--text-muted); line-height: 1.6; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px;">
+                <strong style="color: var(--accent1);">Ответ:</strong><br>В ETL трансформация идет на выделенном сервере Spark. В ELT сырые данные сперва грузятся в DWH (ClickHouse), а затем трансформируются SQL-запросами самой БД.
+            </div>
+        </div>
+        <div class="accordion-item" style="background: var(--bg-card); border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;">
+            <div class="accordion-header" style="padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleAccordion(this)">
+                <span style="font-weight: 600; font-size: 15px;">Чем колоночная БД лучше строковой?</span>
+                <span class="accordion-toggle" style="transition: transform 0.3s; color: var(--text-muted);">▼</span>
+            </div>
+            <div class="accordion-content" style="display: none; padding: 0 16px 16px 16px; color: var(--text-muted); line-height: 1.6; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px;">
+                <strong style="color: var(--accent1);">Ответ:</strong><br>Она хранит колонки изолированно. Запрос SELECT SUM(cost) читает только одну колонку, экономя IO-операции на диске.
+            </div>
+        </div>
+    </div>
 
-                    <div class="accordion-item">
-                        <div class="accordion-header" onclick="toggleAccordion(this)">
-                            <span style="font-weight: 600;">Isolation levels и trade-offs</span>
-                            <span class="accordion-toggle">▼</span>
-                        </div>
-                        <div class="accordion-content">
-                            <strong style="color: var(--accent1);">Ответ:</strong><br><br>
-                            <strong>Read Committed (default):</strong> Видит committed данные. Быстро, но некоторые anomalies.<br><br>
-                            <strong>Repeatable Read:</strong> Snapshot на BEGIN. Защищает от lost updates.<br><br>
-                            <strong>Serializable:</strong> Полная изоляция. PostgreSQL использует SSI. Может быть slow и требует retries.
-                        </div>
-                    </div>
+    <h2 style="font-size: 24px; font-weight: 600; margin-bottom: 16px; margin-top: 32px; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">Streaming и Оркестрация</h2>
+    <div class="space-y-4">
+        <div class="accordion-item" style="background: var(--bg-card); border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;">
+            <div class="accordion-header" style="padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleAccordion(this)">
+                <span style="font-weight: 600; font-size: 15px;">Как устроена Kafka (Topic, Partition)?</span>
+                <span class="accordion-toggle" style="transition: transform 0.3s; color: var(--text-muted);">▼</span>
+            </div>
+            <div class="accordion-content" style="display: none; padding: 0 16px 16px 16px; color: var(--text-muted); line-height: 1.6; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px;">
+                <strong style="color: var(--accent1);">Ответ:</strong><br>Topic делится на Partitions. Запись идет в Partition линейно (Append-only). Порядок сообщений гарантирован только внутри одной партиции.
+            </div>
+        </div>
+        <div class="accordion-item" style="background: var(--bg-card); border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;">
+            <div class="accordion-header" style="padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleAccordion(this)">
+                <span style="font-weight: 600; font-size: 15px;">Зачем в Kafka нужен ZooKeeper / KRaft?</span>
+                <span class="accordion-toggle" style="transition: transform 0.3s; color: var(--text-muted);">▼</span>
+            </div>
+            <div class="accordion-content" style="display: none; padding: 0 16px 16px 16px; color: var(--text-muted); line-height: 1.6; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px;">
+                <strong style="color: var(--accent1);">Ответ:</strong><br>Для координации работы брокеров, выборов лидера партиции и хранения метаданных.
+            </div>
+        </div>
+        <div class="accordion-item" style="background: var(--bg-card); border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;">
+            <div class="accordion-header" style="padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleAccordion(this)">
+                <span style="font-weight: 600; font-size: 15px;">Как работает Consumer Group?</span>
+                <span class="accordion-toggle" style="transition: transform 0.3s; color: var(--text-muted);">▼</span>
+            </div>
+            <div class="accordion-content" style="display: none; padding: 0 16px 16px 16px; color: var(--text-muted); line-height: 1.6; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px;">
+                <strong style="color: var(--accent1);">Ответ:</strong><br>Каждая партиция читается только одним Consumer-ом из группы. Обеспечивает параллельное масштабирование.
+            </div>
+        </div>
+        <div class="accordion-item" style="background: var(--bg-card); border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;">
+            <div class="accordion-header" style="padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleAccordion(this)">
+                <span style="font-weight: 600; font-size: 15px;">Семантики доставки (At-least-once...)?</span>
+                <span class="accordion-toggle" style="transition: transform 0.3s; color: var(--text-muted);">▼</span>
+            </div>
+            <div class="accordion-content" style="display: none; padding: 0 16px 16px 16px; color: var(--text-muted); line-height: 1.6; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px;">
+                <strong style="color: var(--accent1);">Ответ:</strong><br>At-most-once (с потерями), At-least-once (с дублями), Exactly-once (строго 1 раз).
+            </div>
+        </div>
+        <div class="accordion-item" style="background: var(--bg-card); border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;">
+            <div class="accordion-header" style="padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleAccordion(this)">
+                <span style="font-weight: 600; font-size: 15px;">Apache Airflow: Основные компоненты?</span>
+                <span class="accordion-toggle" style="transition: transform 0.3s; color: var(--text-muted);">▼</span>
+            </div>
+            <div class="accordion-content" style="display: none; padding: 0 16px 16px 16px; color: var(--text-muted); line-height: 1.6; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px;">
+                <strong style="color: var(--accent1);">Ответ:</strong><br>Scheduler (планирует таски), Webserver (UI), Executor (выполняет задачи Celery) и MetaDb (хранит состояния).
+            </div>
+        </div>
+        <div class="accordion-item" style="background: var(--bg-card); border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;">
+            <div class="accordion-header" style="padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleAccordion(this)">
+                <span style="font-weight: 600; font-size: 15px;">Что такое DAG в Airflow?</span>
+                <span class="accordion-toggle" style="transition: transform 0.3s; color: var(--text-muted);">▼</span>
+            </div>
+            <div class="accordion-content" style="display: none; padding: 0 16px 16px 16px; color: var(--text-muted); line-height: 1.6; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px;">
+                <strong style="color: var(--accent1);">Ответ:</strong><br>Directed Acyclic Graph. Граф задач, описывающий пайплайн с направленными зависимостями без циклов.
+            </div>
+        </div>
+        <div class="accordion-item" style="background: var(--bg-card); border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;">
+            <div class="accordion-header" style="padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleAccordion(this)">
+                <span style="font-weight: 600; font-size: 15px;">Разница между Task, Operator и Sensor?</span>
+                <span class="accordion-toggle" style="transition: transform 0.3s; color: var(--text-muted);">▼</span>
+            </div>
+            <div class="accordion-content" style="display: none; padding: 0 16px 16px 16px; color: var(--text-muted); line-height: 1.6; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px;">
+                <strong style="color: var(--accent1);">Ответ:</strong><br>Operator - код одной задачи. Task - инстанс оператора в графе. Sensor - оператор, ожидающий внешнее условие/событие.
+            </div>
+        </div>
+        <div class="accordion-item" style="background: var(--bg-card); border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;">
+            <div class="accordion-header" style="padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleAccordion(this)">
+                <span style="font-weight: 600; font-size: 15px;">Что такое Идемпотентность (Idempotency)?</span>
+                <span class="accordion-toggle" style="transition: transform 0.3s; color: var(--text-muted);">▼</span>
+            </div>
+            <div class="accordion-content" style="display: none; padding: 0 16px 16px 16px; color: var(--text-muted); line-height: 1.6; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px;">
+                <strong style="color: var(--accent1);">Ответ:</strong><br>Гарантия того, что повторный запуск задачи поверх тех же или частично старых данных даст корректный, не задублированный результат.
+            </div>
+        </div>
+        <div class="accordion-item" style="background: var(--bg-card); border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;">
+            <div class="accordion-header" style="padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleAccordion(this)">
+                <span style="font-weight: 600; font-size: 15px;">Что такое Backfilling?</span>
+                <span class="accordion-toggle" style="transition: transform 0.3s; color: var(--text-muted);">▼</span>
+            </div>
+            <div class="accordion-content" style="display: none; padding: 0 16px 16px 16px; color: var(--text-muted); line-height: 1.6; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px;">
+                <strong style="color: var(--accent1);">Ответ:</strong><br>Процесс перезапуска DAG-ов для исторических дат (пересчет данных из-за сбоя или новой логики).
+            </div>
+        </div>
+    </div>
 
-                    <div class="accordion-item">
-                        <div class="accordion-header" onclick="toggleAccordion(this)">
-                            <span style="font-weight: 600;">multiprocessing vs threading в Python</span>
-                            <span class="accordion-toggle">▼</span>
-                        </div>
-                        <div class="accordion-content">
-                            <strong style="color: var(--accent1);">Ответ:</strong><br><br>
-                            <strong>Threading:</strong> Один процесс, несколько потоков. GIL — только один bytecode выполняется. I/O-bound OK, CPU-bound slow.<br><br>
-                            <strong>Multiprocessing:</strong> Отдельные процессы, истинный параллелизм. Overhead: pickle, memory duplication. CPU-bound OK.<br><br>
-                            <strong>Правило:</strong> I/O → threading, CPU → multiprocessing, I/O+compute → asyncio.
-                        </div>
-                    </div>
-
-                    <div class="accordion-item">
-                        <div class="accordion-header" onclick="toggleAccordion(this)">
-                            <span style="font-weight: 600;">Как работает GIL и почему он существует?</span>
-                            <span class="accordion-toggle">▼</span>
-                        </div>
-                        <div class="accordion-content">
-                            <strong style="color: var(--accent1);">Ответ:</strong><br><br>
-                            <strong>GIL:</strong> Мьютекс, защищающий Python объекты. Один потокзащитает bytecode одновременно.<br><br>
-                            <strong>Зачем:</strong> Reference counting (rc) рискует race conditions. Вместо fine-grained locking всех объектов используется один глобальный lock.<br><br>
-                            <strong>Последствия:</strong> CPU-bound threading не ускоряет. I/O-bound работает (GIL отпускается при I/O).
-                        </div>
-                    </div>
-
-                    <div class="accordion-item">
-                        <div class="accordion-header" onclick="toggleAccordion(this)">
-                            <span style="font-weight: 600;">async/await на низком уровне</span>
-                            <span class="accordion-toggle">▼</span>
-                        </div>
-                        <div class="accordion-content">
-                            <strong style="color: var(--accent1);">Ответ:</strong><br><br>
-                            <strong>async def:</strong> Возвращает coroutine object. Не выполняется сразу.<br><br>
-                            <strong>await:</strong> Выдает управление event loop. Если operation не готова, loop переходит к другой coroutine. Когда готова — resumes.<br><br>
-                            <strong>Event loop:</strong> Кооперативная многозадачность. Много coroutines могут быть pending I/O одновременно. CPU-bound блокирует весь loop.
-                        </div>
-                    </div>
-
-                    <div class="accordion-item">
-                        <div class="accordion-header" onclick="toggleAccordion(this)">
-                            <span style="font-weight: 600;">Backpressure и как с ним справляться</span>
-                            <span class="accordion-toggle">▼</span>
-                        </div>
-                        <div class="accordion-content">
-                            <strong style="color: var(--accent1);">Ответ:</strong><br><br>
-                            Producer быстрее consumer → queue переполняется, memory растет.<br><br>
-                            <strong>Решения:</strong><br>
-                            1. Buffer с лимитом: producer блокируется когда полнка<br>
-                            2. Semaphore: ограничивает одновременные задачи<br>
-                            3. Rate limiting: замедляет producer<br>
-                            4. Sampling: берет только часть элементов
-                        </div>
-                    </div>
-
-                    <div class="accordion-item">
-                        <div class="accordion-header" onclick="toggleAccordion(this)">
-                            <span style="font-weight: 600;">SCD Type 1 vs Type 2</span>
-                            <span class="accordion-toggle">▼</span>
-                        </div>
-                        <div class="accordion-content">
-                            <strong style="color: var(--accent1);">Ответ:</strong><br><br>
-                            <strong>Type 1 — Overwrite:</strong> Просто обновить старую запись. Быстро, теряется история.<br><br>
-                            <strong>Type 2 — History:</strong> Новая строка с is_current флагом и valid_from/valid_to. История сохраняется. Медленнее и сложнее.
-                        </div>
-                    </div>
-
-                    <div class="accordion-item">
-                        <div class="accordion-header" onclick="toggleAccordion(this)">
-                            <span style="font-weight: 600;">Exactly-once семантика в ETL</span>
-                            <span class="accordion-toggle">▼</span>
-                        </div>
-                        <div class="accordion-content">
-                            <strong style="color: var(--accent1);">Ответ:</strong><br><br>
-                            <strong>Семантики:</strong><br>
-                            • At-most-once: потеря возможна<br>
-                            • At-least-once: дубли возможны<br>
-                            • Exactly-once: каждое событие обрабатывается один раз<br><br>
-                            <strong>Техники:</strong><br>
-                            1. Idempotency keys: UUID для каждого события<br>
-                            2. Deduplication: кешировать processed_keys<br>
-                            3. Idempotent ops: SET vs UPDATE +=<br>
-                            4. exactly-once source + idempotent sink + duplicate detection
-                        </div>
-                    </div>
-                </div>
+    <h2 style="font-size: 24px; font-weight: 600; margin-bottom: 16px; margin-top: 32px; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">Моделирование и Качество данных</h2>
+    <div class="space-y-4">
+        <div class="accordion-item" style="background: var(--bg-card); border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;">
+            <div class="accordion-header" style="padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleAccordion(this)">
+                <span style="font-weight: 600; font-size: 15px;">Звезда (Star Schema) vs Снежинка?</span>
+                <span class="accordion-toggle" style="transition: transform 0.3s; color: var(--text-muted);">▼</span>
+            </div>
+            <div class="accordion-content" style="display: none; padding: 0 16px 16px 16px; color: var(--text-muted); line-height: 1.6; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px;">
+                <strong style="color: var(--accent1);">Ответ:</strong><br>Звезда = таблица фактов в центре + денормализованные измерения. Снежинка = Звезда с нормализованными измерениями.
+            </div>
+        </div>
+        <div class="accordion-item" style="background: var(--bg-card); border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;">
+            <div class="accordion-header" style="padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleAccordion(this)">
+                <span style="font-weight: 600; font-size: 15px;">Таблица Фактов vs Измерений?</span>
+                <span class="accordion-toggle" style="transition: transform 0.3s; color: var(--text-muted);">▼</span>
+            </div>
+            <div class="accordion-content" style="display: none; padding: 0 16px 16px 16px; color: var(--text-muted); line-height: 1.6; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px;">
+                <strong style="color: var(--accent1);">Ответ:</strong><br>Факты — метрики и численные события. Измерения — контекст (клиент, время, город).
+            </div>
+        </div>
+        <div class="accordion-item" style="background: var(--bg-card); border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;">
+            <div class="accordion-header" style="padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleAccordion(this)">
+                <span style="font-weight: 600; font-size: 15px;">Что такое Data Vault?</span>
+                <span class="accordion-toggle" style="transition: transform 0.3s; color: var(--text-muted);">▼</span>
+            </div>
+            <div class="accordion-content" style="display: none; padding: 0 16px 16px 16px; color: var(--text-muted); line-height: 1.6; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px;">
+                <strong style="color: var(--accent1);">Ответ:</strong><br>Архитектура из Hub, Link и Satellite. Сильно нормализована, идеальна для добавления систем и хранения истории изменений.
+            </div>
+        </div>
+        <div class="accordion-item" style="background: var(--bg-card); border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;">
+            <div class="accordion-header" style="padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleAccordion(this)">
+                <span style="font-weight: 600; font-size: 15px;">SCD Type 1 и Type 2?</span>
+                <span class="accordion-toggle" style="transition: transform 0.3s; color: var(--text-muted);">▼</span>
+            </div>
+            <div class="accordion-content" style="display: none; padding: 0 16px 16px 16px; color: var(--text-muted); line-height: 1.6; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px;">
+                <strong style="color: var(--accent1);">Ответ:</strong><br>Type 1 — перезапись старого значения. Type 2 — добавление строки с флагом is_current, valid_from, valid_to (сохраняет историю).
+            </div>
+        </div>
+        <div class="accordion-item" style="background: var(--bg-card); border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;">
+            <div class="accordion-header" style="padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleAccordion(this)">
+                <span style="font-weight: 600; font-size: 15px;">Что такое Data Governance?</span>
+                <span class="accordion-toggle" style="transition: transform 0.3s; color: var(--text-muted);">▼</span>
+            </div>
+            <div class="accordion-content" style="display: none; padding: 0 16px 16px 16px; color: var(--text-muted); line-height: 1.6; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px;">
+                <strong style="color: var(--accent1);">Ответ:</strong><br>Свод политик для управления данными: безопасность, доступность и структура.
+            </div>
+        </div>
+        <div class="accordion-item" style="background: var(--bg-card); border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;">
+            <div class="accordion-header" style="padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleAccordion(this)">
+                <span style="font-weight: 600; font-size: 15px;">Каталог Данных (Data Catalog) и Lineage?</span>
+                <span class="accordion-toggle" style="transition: transform 0.3s; color: var(--text-muted);">▼</span>
+            </div>
+            <div class="accordion-content" style="display: none; padding: 0 16px 16px 16px; color: var(--text-muted); line-height: 1.6; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px;">
+                <strong style="color: var(--accent1);">Ответ:</strong><br>Catalog — словарь (таблицы, владельцы). Lineage — граф потока данных (откуда и куда текут данные).
+            </div>
+        </div>
+        <div class="accordion-item" style="background: var(--bg-card); border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;">
+            <div class="accordion-header" style="padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleAccordion(this)">
+                <span style="font-weight: 600; font-size: 15px;">Data Contracts?</span>
+                <span class="accordion-toggle" style="transition: transform 0.3s; color: var(--text-muted);">▼</span>
+            </div>
+            <div class="accordion-content" style="display: none; padding: 0 16px 16px 16px; color: var(--text-muted); line-height: 1.6; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px;">
+                <strong style="color: var(--accent1);">Ответ:</strong><br>Соглашение о схеме между сервисом-отправителем и DWH, чтобы бэкенд не ломал пайплайны DE-команды.
+            </div>
+        </div>
+    </div>
 </div>
+<script>
+function toggleAccordion(header) {
+    const item = header.parentElement;
+    const content = item.querySelector('.accordion-content');
+    const toggle = item.querySelector('.accordion-toggle');
+    const isVisible = content.style.display === 'block';
+
+    document.querySelectorAll('.accordion-content').forEach(c => c.style.display = 'none');
+    document.querySelectorAll('.accordion-toggle').forEach(t => t.style.transform = 'rotate(0deg)');
+
+    if (!isVisible) {
+        content.style.display = 'block';
+        toggle.style.transform = 'rotate(180deg)';
+    }
+}
+
+function randomQuestion() {
+    const items = document.querySelectorAll('.accordion-item');
+    if (items.length === 0) return;
+    
+    document.querySelectorAll('.accordion-content').forEach(c => c.style.display = 'none');
+    document.querySelectorAll('.accordion-toggle').forEach(t => t.style.transform = 'rotate(0deg)');
+    
+    const randomIndex = Math.floor(Math.random() * items.length);
+    const selected = items[randomIndex];
+    const header = selected.querySelector('.accordion-header');
+    
+    header.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(() => { toggleAccordion(header); }, 300);
+}
+</script>
