@@ -40,6 +40,199 @@
             sessionsCompleted: 0
         };
 
+        const STAGE_TASKS = {
+            stage1: [
+                { id: 'stage1-docker', label: 'Docker Compose и различие Image/Container' },
+                { id: 'stage1-sql-agg', label: 'JOIN + GROUP BY + HAVING' },
+                { id: 'stage1-sql-window', label: 'Оконная функция ROW_NUMBER' },
+                { id: 'stage1-dwh', label: 'Модель STG / DDS / Fact / Dimension' }
+            ],
+            stage2: [
+                { id: 'stage2-api', label: 'Python API коннектор' },
+                { id: 'stage2-psycopg', label: 'Массовый INSERT через psycopg2' },
+                { id: 'stage2-dockerfile', label: 'Dockerfile для ETL' }
+            ],
+            stage3: [
+                { id: 'stage3-pyspark-etl', label: 'PySpark ETL mini-проект' }
+            ],
+            stage4: [
+                { id: 'stage4-kafka-streaming', label: 'Kafka producer + DQ check' }
+            ],
+            stage5: [
+                { id: 'stage5-data-modeling', label: 'Star Schema DDL mini-проект' }
+            ]
+        };
+
+        const STAGE_READY_THRESHOLD = {
+            stage1: 75,
+            stage2: 67,
+            stage3: 100,
+            stage4: 100,
+            stage5: 100
+        };
+
+        function isStageTab(tabId) {
+            return Object.prototype.hasOwnProperty.call(STAGE_TASKS, tabId);
+        }
+
+        function getStageNumber(tabId) {
+            return Number((tabId || '').replace('stage', '')) || 0;
+        }
+
+        function getAdjacentStageTab(tabId, offset) {
+            const stageNumber = getStageNumber(tabId);
+            if (!stageNumber) return null;
+            const adjacent = stageNumber + offset;
+            if (adjacent < 1 || adjacent > 5) return null;
+            return `stage${adjacent}`;
+        }
+
+        function getSavedAnswersMap() {
+            try {
+                const raw = JSON.parse(localStorage.getItem('userAnswers') || '{}');
+                return raw && typeof raw === 'object' ? raw : {};
+            } catch (error) {
+                console.warn('Не удалось прочитать сохраненные ответы:', error);
+                return {};
+            }
+        }
+
+        function getStageProgress(stageTab) {
+            const tasks = STAGE_TASKS[stageTab] || [];
+            const answers = getSavedAnswersMap();
+            const answeredIds = new Set(
+                tasks
+                    .filter(task => {
+                        const value = answers[task.id];
+                        return typeof value === 'string' && value.trim().length > 0;
+                    })
+                    .map(task => task.id)
+            );
+
+            const total = tasks.length;
+            const answered = answeredIds.size;
+            const percent = total === 0 ? 0 : Math.round((answered / total) * 100);
+            const requiredPercent = STAGE_READY_THRESHOLD[stageTab] || 100;
+
+            return {
+                total,
+                answered,
+                percent,
+                requiredPercent,
+                ready: total > 0 && percent >= requiredPercent,
+                missingTasks: tasks.filter(task => !answeredIds.has(task.id))
+            };
+        }
+
+        function updateStageReadinessIndicators() {
+            Object.keys(STAGE_TASKS).forEach(stageTab => {
+                const navItem = document.querySelector(`.nav-item[data-tab="${stageTab}"]`);
+                if (!navItem) return;
+
+                const titleSpan = navItem.querySelector('span:last-child');
+                if (!titleSpan) return;
+
+                const progress = getStageProgress(stageTab);
+                let badge = navItem.querySelector('.stage-mini-badge');
+
+                if (!badge) {
+                    badge = document.createElement('span');
+                    badge.className = 'stage-mini-badge';
+                    navItem.appendChild(badge);
+                }
+
+                badge.textContent = `${progress.answered}/${progress.total}`;
+                badge.classList.toggle('is-ready', progress.ready);
+                badge.classList.toggle('is-not-ready', !progress.ready);
+                badge.title = progress.ready
+                    ? `Этап закрыт: ${progress.answered}/${progress.total}`
+                    : `Этап в работе: ${progress.answered}/${progress.total}`;
+
+                titleSpan.classList.toggle('stage-label-ready', progress.ready);
+                titleSpan.classList.toggle('stage-label-not-ready', !progress.ready);
+            });
+        }
+
+        function renderStageReadinessCard(tabId, container) {
+            if (!isStageTab(tabId) || !container) return;
+
+            const pageContent = container.querySelector('.page-content');
+            const pageHeader = pageContent?.querySelector('.page-header');
+            if (!pageContent || !pageHeader) return;
+
+            const stageProgress = getStageProgress(tabId);
+            const previousStage = getAdjacentStageTab(tabId, -1);
+            const previousProgress = previousStage ? getStageProgress(previousStage) : null;
+            const nextStage = getAdjacentStageTab(tabId, 1);
+            const statusClass = stageProgress.ready ? 'is-ready' : 'is-not-ready';
+
+            const missingText = stageProgress.missingTasks.length > 0
+                ? stageProgress.missingTasks.map(task => task.label).join(', ')
+                : 'Все практические задачи этапа закрыты.';
+
+            const recommendationText = stageProgress.ready
+                ? (nextStage
+                    ? `Критерии перехода выполнены. Можно уверенно идти к этапу ${getStageNumber(nextStage)}.`
+                    : 'Финальный этап закрыт. Можно переходить к проектам и собеседованиям.')
+                : `Пока рано переходить: сейчас ${stageProgress.percent}% при пороге ${stageProgress.requiredPercent}%.`;
+
+            const previousWarning = previousProgress && !previousProgress.ready
+                ? `Перед этим этапом стоит закрыть этап ${getStageNumber(previousStage)}: сейчас ${previousProgress.answered}/${previousProgress.total}.`
+                : '';
+
+            const existingCard = pageContent.querySelector('.stage-readiness-card');
+            if (existingCard) {
+                existingCard.remove();
+            }
+
+            const card = document.createElement('section');
+            card.className = `card stage-readiness-card ${statusClass}`;
+            card.innerHTML = `
+                <div class="stage-readiness-head">
+                    <h3 class="card-title">Проверка готовности к следующей главе</h3>
+                    <span class="stage-readiness-badge ${statusClass}">${stageProgress.ready ? 'Можно идти дальше' : 'Пока рано переходить'}</span>
+                </div>
+                <p class="stage-readiness-text">
+                    Практика этапа: <strong>${stageProgress.answered}/${stageProgress.total}</strong>.
+                    Порог перехода: <strong>${stageProgress.requiredPercent}%</strong>.
+                </p>
+                <div class="progress-bar stage-readiness-progress">
+                    <div class="progress-fill" style="width: ${Math.min(stageProgress.percent, 100)}%;"></div>
+                </div>
+                <p class="stage-readiness-text">${recommendationText}</p>
+                ${stageProgress.ready ? '' : `<p class="stage-readiness-text">Что осталось закрыть: ${missingText}</p>`}
+                ${previousWarning ? `<p class="stage-readiness-warning">${previousWarning}</p>` : ''}
+                <div class="stage-readiness-actions">
+                    <button class="btn btn-secondary" onclick="switchTab('coding')">Открыть практику</button>
+                    ${nextStage
+                        ? `<button class="btn" ${stageProgress.ready ? '' : 'disabled'} onclick="switchTab('${nextStage}')">Перейти к этапу ${getStageNumber(nextStage)}</button>`
+                        : '<button class="btn" onclick="switchTab(\'projects\')">Перейти к проектам</button>'}
+                </div>
+            `;
+
+            pageHeader.insertAdjacentElement('afterend', card);
+        }
+
+        function confirmStageTransition(tabId, options = {}) {
+            if (options.skipStageCheck || !isStageTab(tabId)) {
+                return true;
+            }
+
+            const previousStage = getAdjacentStageTab(tabId, -1);
+            if (!previousStage) {
+                return true;
+            }
+
+            const previousProgress = getStageProgress(previousStage);
+            if (previousProgress.ready) {
+                return true;
+            }
+
+            return window.confirm(
+                `Этап ${getStageNumber(previousStage)} пока не закрыт (${previousProgress.answered}/${previousProgress.total}). Все равно открыть этап ${getStageNumber(tabId)}?`
+            );
+        }
+
         // ===== ЛОКАЛЬНОЕ ХРАНИЛИЩЕ =====
         function saveProgress() {
             try {
@@ -121,9 +314,9 @@
                         return;
                     }
 
-                    // Восстановление активной вкладки
-                    if (progress.currentTab && document.getElementById(progress.currentTab)) {
-                        switchTab(progress.currentTab);
+                    // Запоминаем последнюю вкладку, фактическая загрузка будет в DOMContentLoaded
+                    if (progress.currentTab && document.querySelector(`.nav-item[data-tab="${progress.currentTab}"]`)) {
+                        localStorage.setItem('streamflow_current_tab', progress.currentTab);
                     }
 
                     // Восстановление выполненных задач
@@ -159,9 +352,13 @@
         }
 
         // ===== НАВИГАЦИЯ ПО ВКЛАДКАМ =====
-        async function switchTab(tabId) {
+        async function switchTab(tabId, options = {}) {
             const container = document.getElementById('page-container');
             if (!container) return;
+
+            if (!confirmStageTransition(tabId, options)) {
+                return;
+            }
             
             try {
                 let basePath = '';
@@ -180,6 +377,10 @@
                 document.querySelectorAll('.nav-item').forEach(item => {
                     item.classList.toggle('active', item.getAttribute('data-tab') === tabId);
                 });
+
+                localStorage.setItem('streamflow_current_tab', tabId);
+                updateStageReadinessIndicators();
+                renderStageReadinessCard(tabId, container);
                 
                 if (typeof setupAnswerField !== 'undefined') {
                     document.querySelectorAll('[data-task-id]').forEach(setupAnswerField);
@@ -457,39 +658,15 @@
 
         // Обновление индикатора прогресса ответов
         function updateAnswerProgress() {
-            const sections = {
-                'stage1': '.page-content [data-task-id^="stage1"]',
-                'stage2': '.page-content [data-task-id^="stage2"]',
-                'stage3': '.page-content [data-task-id^="stage3"]',
-                'stage4': '.page-content [data-task-id^="stage4"]',
-                'stage5': '.page-content [data-task-id^="stage5"]'
-            };
-
             const activeTab = document.querySelector('.nav-item.active');
             if (!activeTab) return;
             const tabId = activeTab.getAttribute('data-tab');
 
-            if (sections[tabId]) {
-                const containers = document.querySelectorAll(sections[tabId]);
-                const total = containers.length;
-                if (total === 0) return;
-                
-                const answered = Array.from(containers).filter(c => {
-                    const textarea = c.querySelector('.answer-textarea');
-                    return textarea && textarea.value.trim().length > 0;
-                }).length;
-                
-                const navItem = document.querySelector(`.nav-item[data-tab="${tabId}"] span:last-child`);
-                if (navItem) {
-                    const percent = Math.round((answered / total) * 100);
-                    navItem.setAttribute('data-progress', `${answered}/${total}`);
-                    
-                    if (percent === 100) {
-                        navItem.style.color = 'var(--accent1)';
-                    } else if (percent >= 50) {
-                        navItem.style.color = 'var(--accent3)';
-                    }
-                }
+            updateStageReadinessIndicators();
+
+            if (isStageTab(tabId)) {
+                const container = document.getElementById('page-container');
+                renderStageReadinessCard(tabId, container);
             }
         }
 
@@ -650,6 +827,7 @@
                 updateChecklist();
                 updateTimerDisplay();
                 updateAnswerProgress();
+                updateStageReadinessIndicators();
                 
                 // Подготовка всех полей ввода ответов
                 document.querySelectorAll('[data-task-id]').forEach(container => {
@@ -657,7 +835,7 @@
                 });
                 
                 const currTab = localStorage.getItem('streamflow_current_tab') || 'home';
-                switchTab(currTab);
+                switchTab(currTab, { skipStageCheck: true });
             } catch (error) {
                 console.error('Ошибка при инициализации:', error);
                 showErrorMessage('Ошибка при загрузке данных. Некоторые функции могут работать неправильно.');
