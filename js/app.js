@@ -129,6 +129,9 @@
         const LIVE_CODING_GENERATED_TITLES_STORAGE_KEY = 'streamflow_generated_task_titles_v1';
         const LIVE_CODING_GITHUB_TOKEN_STORAGE_KEY = 'streamflow_github_token';
         const LIVE_CODING_SECTION_SELECTION_STORAGE_KEY = 'streamflow_coding_section_selection_v2';
+        const LIVE_CODING_AI_MODE_STORAGE_KEY = 'streamflow_coding_ai_mode_v1';
+        const LIVE_CODING_AI_MODE_DEFAULT = true;
+        const LIVE_CODING_STARTER_TASKS_PER_STAGE = 1;
         const LIVE_CODING_STAGE_MODEL_LABELS = {
             1: 'SQL',
             2: 'Python',
@@ -400,6 +403,60 @@
             return String(rawTitle || '')
                 .replace(/\s+/g, ' ')
                 .trim();
+        }
+
+        function getStoredCodingAiMode() {
+            try {
+                const rawValue = localStorage.getItem(LIVE_CODING_AI_MODE_STORAGE_KEY);
+                if (rawValue === null) return LIVE_CODING_AI_MODE_DEFAULT;
+                return rawValue === '1';
+            } catch (error) {
+                return LIVE_CODING_AI_MODE_DEFAULT;
+            }
+        }
+
+        function saveStoredCodingAiMode(enabled) {
+            try {
+                localStorage.setItem(LIVE_CODING_AI_MODE_STORAGE_KEY, enabled ? '1' : '0');
+            } catch (error) {
+                // noop
+            }
+        }
+
+        function hasGeneratedCodingTasks(root) {
+            return Boolean(root?.querySelector('.generated-task-box'));
+        }
+
+        function applyCodingAiModeVisibility(root, aiModeEnabled) {
+            if (!root) return;
+
+            const canUseAiTasks = hasGeneratedCodingTasks(root) || Boolean(getGitHubModelsToken());
+            const hideStaticTasks = aiModeEnabled && canUseAiTasks;
+            const taskBoxes = root.querySelectorAll('.task-box[data-task-id]');
+            taskBoxes.forEach(taskBox => {
+                const isGenerated = taskBox.classList.contains('generated-task-box');
+                taskBox.style.display = hideStaticTasks && !isGenerated ? 'none' : '';
+            });
+
+            const note = root.querySelector('.coding-ai-mode-note');
+            if (!note) return;
+
+            if (!aiModeEnabled) {
+                note.textContent = 'Показываются исходные и сгенерированные задачи.';
+                return;
+            }
+
+            if (hasGeneratedCodingTasks(root)) {
+                note.textContent = 'AI-режим активен: показаны только сгенерированные задачи.';
+                return;
+            }
+
+            if (!getGitHubModelsToken()) {
+                note.textContent = 'AI-режим включен, но токен не задан. Пока показываются исходные задачи.';
+                return;
+            }
+
+            note.textContent = 'AI-режим активен: нажмите «Сгенерировать стартовый набор», чтобы получить новые задачи.';
         }
 
         function getStoredGeneratedTaskTitles() {
@@ -1168,7 +1225,7 @@
             return card;
         }
 
-        function appendGeneratedTaskToStage(root, stageHeading, task, moduleName) {
+        function appendGeneratedTaskToStage(root, stageHeading, task, moduleName, options = {}) {
             const stageScope = getStageSectionScope(stageHeading);
             const card = createGeneratedTaskCard(task, stageScope.stageNumber, moduleName);
 
@@ -1187,11 +1244,13 @@
                 ensureTaskHints(card);
             }
 
-            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            if (options.scrollIntoView !== false) {
+                card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
             return card;
         }
 
-        async function handleStageTaskGeneration(root, stageHeading, moduleSelect, triggerButton) {
+        async function handleStageTaskGeneration(root, stageHeading, moduleSelect, triggerButton, options = {}) {
             const stageScope = getStageSectionScope(stageHeading);
             if (!stageScope.stageNumber) {
                 showErrorMessage('Не удалось определить этап для генерации задачи.');
@@ -1243,14 +1302,144 @@
                     throw new Error('Модель вернула повторяющиеся названия задач для выбранного этапа.');
                 }
 
-                appendGeneratedTaskToStage(root, stageHeading, task, moduleName);
+                appendGeneratedTaskToStage(root, stageHeading, task, moduleName, {
+                    scrollIntoView: options.disableAutoScroll ? false : true
+                });
                 rememberGeneratedTaskTitle(task.title);
-                showSuccessMessage('Новая задача добавлена.');
+
+                if (getStoredCodingAiMode()) {
+                    applyCodingAiModeVisibility(root, true);
+                }
+
+                if (!options.silentSuccess) {
+                    showSuccessMessage('Новая задача добавлена.');
+                }
+
+                return true;
             } catch (error) {
                 console.error('Ошибка генерации задачи:', error);
                 showErrorMessage('Не удалось сгенерировать задачу, попробуй ещё раз');
+                return false;
             } finally {
                 setGenerateTaskButtonLoading(triggerButton, false);
+            }
+        }
+
+        async function generateStarterTasksForVisibleStages(root, triggerButton = null) {
+            if (!root) return;
+
+            const stageHeadings = getVisibleCodingStageHeadings(root);
+            if (stageHeadings.length === 0) {
+                showErrorMessage('Нет выбранных этапов для генерации стартового набора.');
+                return;
+            }
+
+            let token = getGitHubModelsToken();
+            if (!token) {
+                token = openGitHubTokenSettings();
+                if (!token) {
+                    showErrorMessage('Генерация отменена: токен не указан.');
+                    return;
+                }
+            }
+
+            setGenerateTaskButtonLoading(triggerButton, true);
+
+            let generatedCount = 0;
+            try {
+                for (const stageHeading of stageHeadings) {
+                    const controls = stageHeading.nextElementSibling?.classList?.contains('coding-stage-actions')
+                        ? stageHeading.nextElementSibling
+                        : null;
+
+                    const moduleSelect = controls?.querySelector('.coding-module-select') || {
+                        value: getStageSectionScope(stageHeading).moduleNames[0] || 'Общий модуль'
+                    };
+
+                    for (let i = 0; i < LIVE_CODING_STARTER_TASKS_PER_STAGE; i += 1) {
+                        const created = await handleStageTaskGeneration(root, stageHeading, moduleSelect, null, {
+                            silentSuccess: true,
+                            disableAutoScroll: true
+                        });
+                        if (created) {
+                            generatedCount += 1;
+                        }
+                    }
+                }
+
+                if (getStoredCodingAiMode()) {
+                    applyCodingAiModeVisibility(root, true);
+                }
+
+                if (generatedCount > 0) {
+                    showSuccessMessage(`Стартовый AI-набор готов: ${generatedCount} задач.`);
+                }
+            } catch (error) {
+                console.error('Ошибка генерации стартового AI-набора:', error);
+                showErrorMessage('Не удалось сгенерировать стартовый набор задач.');
+            } finally {
+                setGenerateTaskButtonLoading(triggerButton, false);
+            }
+        }
+
+        function ensureCodingAiModeControls(root) {
+            if (!root) return;
+
+            const contentContainer = root.querySelector('.page-content') || root;
+            const pageHeader = contentContainer.querySelector('.page-header');
+            if (!pageHeader) return;
+
+            let panel = contentContainer.querySelector('.coding-ai-mode-controls');
+            if (!panel) {
+                panel = document.createElement('div');
+                panel.className = 'coding-ai-mode-controls';
+
+                panel.innerHTML = `
+                    <label class="coding-ai-mode-toggle">
+                        <input type="checkbox" class="coding-ai-mode-checkbox" />
+                        <span>AI-режим: показывать только сгенерированные задачи</span>
+                    </label>
+                    <button type="button" class="btn btn-secondary coding-ai-starter-btn">Сгенерировать стартовый набор</button>
+                    <p class="coding-ai-mode-note"></p>
+                `;
+
+                const anchor = contentContainer.querySelector('.coding-practice-switcher') || pageHeader;
+                anchor.insertAdjacentElement('afterend', panel);
+            }
+
+            const modeCheckbox = panel.querySelector('.coding-ai-mode-checkbox');
+            const starterButton = panel.querySelector('.coding-ai-starter-btn');
+
+            if (!modeCheckbox || !starterButton) return;
+
+            if (panel.dataset.bound !== 'true') {
+                modeCheckbox.addEventListener('change', () => {
+                    saveStoredCodingAiMode(modeCheckbox.checked);
+                    applyCodingAiModeVisibility(root, modeCheckbox.checked);
+
+                    if (modeCheckbox.checked && !hasGeneratedCodingTasks(root) && getGitHubModelsToken()) {
+                        generateStarterTasksForVisibleStages(root, starterButton);
+                    }
+                });
+
+                starterButton.addEventListener('click', () => {
+                    generateStarterTasksForVisibleStages(root, starterButton);
+                });
+
+                panel.dataset.bound = 'true';
+            }
+
+            modeCheckbox.checked = getStoredCodingAiMode();
+            applyCodingAiModeVisibility(root, modeCheckbox.checked);
+
+            if (
+                modeCheckbox.checked
+                && getGitHubModelsToken()
+                && !hasGeneratedCodingTasks(root)
+                && panel.dataset.autostarted !== 'true'
+            ) {
+                panel.dataset.autostarted = 'true';
+                generateStarterTasksForVisibleStages(root, starterButton);
             }
         }
 
@@ -1964,6 +2153,12 @@
                     attachCodingStageGenerationControls(root);
                 } catch (error) {
                     console.error('Ошибка инициализации контролов генерации лайв-кодинга:', error);
+                }
+
+                try {
+                    ensureCodingAiModeControls(root);
+                } catch (error) {
+                    console.error('Ошибка инициализации AI-режима лайв-кодинга:', error);
                 }
 
                 try {
