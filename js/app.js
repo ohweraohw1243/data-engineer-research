@@ -127,8 +127,7 @@
         const INTERVIEW_MIN_BANK_SIZE = 25;
         const INTERVIEW_STAGE_ORDER = ['stage1', 'stage2', 'stage3', 'stage4', 'stage5'];
         const LIVE_CODING_GENERATED_TITLES_STORAGE_KEY = 'streamflow_generated_task_titles_v1';
-        const LIVE_CODING_SECTION_FILTER_STORAGE_KEY = 'streamflow_coding_section_filter_v1';
-        const LIVE_CODING_SECTION_FILTER_ALL = 'all';
+        const LIVE_CODING_SECTION_SELECTION_STORAGE_KEY = 'streamflow_coding_section_selection_v2';
         const LIVE_CODING_STAGE_MODEL_LABELS = {
             1: 'SQL',
             2: 'Python',
@@ -397,10 +396,31 @@
         function collectCodingSections(root) {
             if (!root) return [];
 
+            const wrappedSections = Array.from(root.querySelectorAll('.coding-section-group[data-section-key]'));
+            if (wrappedSections.length > 0) {
+                return wrappedSections.map((container, index) => {
+                    const heading = container.querySelector('h2');
+                    const key = String(container.dataset.sectionKey || getCodingSectionKeyFromHeading(heading?.textContent, index))
+                        .trim()
+                        .toLowerCase();
+                    const label = String(container.dataset.sectionLabel || getCodingSectionLabelFromHeading(heading?.textContent, index)).trim();
+
+                    return {
+                        key,
+                        label,
+                        heading,
+                        nodes: [container],
+                        container
+                    };
+                });
+            }
+
             const headings = Array.from(root.querySelectorAll('h2'))
                 .filter(isCodingSectionHeadingElement);
 
-            return headings.map((heading, index) => {
+            const usedKeys = new Set();
+
+            const sections = headings.map((heading, index) => {
                 const nodes = [heading];
 
                 let pointer = heading.nextElementSibling;
@@ -409,52 +429,189 @@
                     pointer = pointer.nextElementSibling;
                 }
 
+                const baseKey = String(getCodingSectionKeyFromHeading(heading.textContent, index))
+                    .trim()
+                    .toLowerCase() || `section-${index + 1}`;
+
+                let uniqueKey = baseKey;
+                let duplicateSuffix = 2;
+                while (usedKeys.has(uniqueKey)) {
+                    uniqueKey = `${baseKey}-${duplicateSuffix}`;
+                    duplicateSuffix += 1;
+                }
+                usedKeys.add(uniqueKey);
+
                 return {
-                    key: getCodingSectionKeyFromHeading(heading.textContent, index),
+                    key: uniqueKey,
                     label: getCodingSectionLabelFromHeading(heading.textContent, index),
                     heading,
-                    nodes
+                    nodes,
+                    container: null
                 };
             });
+
+            sections.forEach(section => {
+                const parent = section.heading?.parentElement;
+                if (!parent) return;
+
+                const wrapper = document.createElement('section');
+                wrapper.className = 'coding-section-group';
+                wrapper.dataset.sectionKey = section.key;
+                wrapper.dataset.sectionLabel = section.label;
+
+                parent.insertBefore(wrapper, section.heading);
+                section.nodes.forEach(node => wrapper.appendChild(node));
+
+                section.container = wrapper;
+                section.nodes = [wrapper];
+            });
+
+            return sections;
         }
 
-        function getStoredCodingSectionFilter() {
+        function normalizeCodingSectionSelectionOrder(selection, sections) {
+            const allowedKeys = new Set((sections || []).map(section => section.key));
+            const normalized = [];
+
+            (Array.isArray(selection) ? selection : []).forEach(rawKey => {
+                const key = String(rawKey || '').trim().toLowerCase();
+                if (!key || !allowedKeys.has(key) || normalized.includes(key)) return;
+                normalized.push(key);
+            });
+
+            return normalized;
+        }
+
+        function getStoredCodingSectionSelectionOrder() {
             try {
-                return String(localStorage.getItem(LIVE_CODING_SECTION_FILTER_STORAGE_KEY) || LIVE_CODING_SECTION_FILTER_ALL)
-                    .trim()
-                    .toLowerCase() || LIVE_CODING_SECTION_FILTER_ALL;
+                const raw = localStorage.getItem(LIVE_CODING_SECTION_SELECTION_STORAGE_KEY);
+                if (raw === null) return null;
+
+                const parsed = JSON.parse(raw);
+                if (!Array.isArray(parsed)) return [];
+
+                return parsed
+                    .map(item => String(item || '').trim().toLowerCase())
+                    .filter(Boolean);
             } catch (error) {
-                return LIVE_CODING_SECTION_FILTER_ALL;
+                return null;
             }
         }
 
-        function saveStoredCodingSectionFilter(filterKey) {
+        function saveStoredCodingSectionSelectionOrder(selection) {
             try {
+                const normalized = Array.from(new Set((Array.isArray(selection) ? selection : [])
+                    .map(item => String(item || '').trim().toLowerCase())
+                    .filter(Boolean)));
+
                 localStorage.setItem(
-                    LIVE_CODING_SECTION_FILTER_STORAGE_KEY,
-                    String(filterKey || LIVE_CODING_SECTION_FILTER_ALL).trim().toLowerCase()
+                    LIVE_CODING_SECTION_SELECTION_STORAGE_KEY,
+                    JSON.stringify(normalized)
                 );
             } catch (error) {
                 // noop
             }
         }
 
-        function applyCodingSectionFilter(root, sectionKey) {
+        function getCodingPracticeSwitcher(root) {
+            const contentContainer = root?.querySelector('.page-content') || root;
+            return contentContainer?.querySelector('.coding-practice-switcher') || null;
+        }
+
+        function readCodingSelectionFromSwitcher(switcher) {
+            if (!switcher) return [];
+
+            try {
+                const parsed = JSON.parse(switcher.dataset.selection || '[]');
+                return Array.isArray(parsed) ? parsed : [];
+            } catch (error) {
+                return [];
+            }
+        }
+
+        function refreshCodingPracticeSelectorState(root, selectedOrder, sections = null) {
+            const switcher = getCodingPracticeSwitcher(root);
+            if (!switcher) return;
+
+            const activeSections = Array.isArray(sections) && sections.length > 0
+                ? sections
+                : collectCodingSections(root);
+
+            const normalized = normalizeCodingSectionSelectionOrder(selectedOrder, activeSections);
+            const activeOrderMap = new Map(normalized.map((key, index) => [key, index + 1]));
+
+            switcher.dataset.selection = JSON.stringify(normalized);
+
+            switcher.querySelectorAll('.coding-practice-chip').forEach(button => {
+                const key = String(button.dataset.sectionKey || '').trim().toLowerCase();
+                const orderNumber = activeOrderMap.get(key) || 0;
+                const isActive = orderNumber > 0;
+
+                button.classList.toggle('is-active', isActive);
+                button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+
+                const orderBadge = button.querySelector('.coding-practice-chip-order');
+                if (orderBadge) {
+                    orderBadge.textContent = isActive ? String(orderNumber) : '';
+                }
+            });
+
+            const hint = switcher.querySelector('.coding-practice-hint');
+            if (!hint) return;
+
+            if (normalized.length === 0) {
+                hint.textContent = 'Выберите один или несколько этапов, чтобы показать их задачи.';
+                return;
+            }
+
+            hint.textContent = `Выбрано этапов: ${normalized.length}. Задачи идут в порядке ваших нажатий.`;
+        }
+
+        function applyCodingSectionSelection(root, selectionOrder) {
             const sections = collectCodingSections(root);
             if (sections.length === 0) return;
 
-            const normalized = String(sectionKey || LIVE_CODING_SECTION_FILTER_ALL)
-                .trim()
-                .toLowerCase() || LIVE_CODING_SECTION_FILTER_ALL;
+            const normalized = normalizeCodingSectionSelectionOrder(selectionOrder, sections);
+            const selectedSet = new Set(normalized);
+            const sectionByKey = new Map(sections.map(section => [section.key, section]));
+
+            const parent = sections[0]?.container?.parentElement
+                || sections[0]?.nodes?.[0]?.parentElement
+                || null;
+
+            if (parent) {
+                normalized.forEach(key => {
+                    const section = sectionByKey.get(key);
+                    if (section?.container && section.container.parentElement === parent) {
+                        parent.appendChild(section.container);
+                    }
+                });
+
+                sections.forEach(section => {
+                    const container = section.container || section.nodes[0];
+                    if (!container || container.parentElement !== parent) return;
+                    if (!selectedSet.has(section.key)) {
+                        parent.appendChild(container);
+                    }
+                });
+            }
 
             sections.forEach(section => {
-                const visible = normalized === LIVE_CODING_SECTION_FILTER_ALL || section.key === normalized;
+                const visible = selectedSet.has(section.key);
+                const container = section.container || section.nodes[0];
+
+                if (container) {
+                    container.style.display = visible ? '' : 'none';
+                    return;
+                }
+
                 section.nodes.forEach(node => {
                     node.style.display = visible ? '' : 'none';
                 });
             });
 
-            saveStoredCodingSectionFilter(normalized);
+            saveStoredCodingSectionSelectionOrder(normalized);
+            refreshCodingPracticeSelectorState(root, normalized, sections);
         }
 
         function ensureCodingPracticeSelector(root) {
@@ -467,54 +624,69 @@
             const pageHeader = contentContainer.querySelector('.page-header');
             if (!pageHeader) return;
 
-            const existing = contentContainer.querySelector('.coding-practice-switcher');
-            if (existing) {
-                const existingSelect = existing.querySelector('.coding-practice-select');
-                if (existingSelect) {
-                    const selected = getStoredCodingSectionFilter();
-                    const hasOption = Array.from(existingSelect.options).some(option => option.value === selected);
-                    existingSelect.value = hasOption ? selected : LIVE_CODING_SECTION_FILTER_ALL;
-                    applyCodingSectionFilter(root, existingSelect.value);
-                }
-                return;
+            let switcher = contentContainer.querySelector('.coding-practice-switcher');
+            if (!switcher) {
+                switcher = document.createElement('div');
+                switcher.className = 'coding-practice-switcher';
+
+                const label = document.createElement('p');
+                label.className = 'coding-practice-label';
+                label.textContent = 'Выберите этапы:';
+
+                const chips = document.createElement('div');
+                chips.className = 'coding-practice-chips';
+
+                sections.forEach(section => {
+                    const chip = document.createElement('button');
+                    chip.type = 'button';
+                    chip.className = 'coding-practice-chip';
+                    chip.dataset.sectionKey = section.key;
+                    chip.setAttribute('aria-pressed', 'false');
+
+                    const chipLabel = document.createElement('span');
+                    chipLabel.className = 'coding-practice-chip-label';
+                    chipLabel.textContent = section.label;
+
+                    const chipOrder = document.createElement('span');
+                    chipOrder.className = 'coding-practice-chip-order';
+                    chipOrder.textContent = '';
+
+                    chip.appendChild(chipLabel);
+                    chip.appendChild(chipOrder);
+
+                    chip.addEventListener('click', () => {
+                        const currentSelection = readCodingSelectionFromSwitcher(switcher);
+                        const normalizedCurrent = normalizeCodingSectionSelectionOrder(currentSelection, collectCodingSections(root));
+
+                        let nextSelection = [];
+                        if (normalizedCurrent.includes(section.key)) {
+                            nextSelection = normalizedCurrent.filter(key => key !== section.key);
+                        } else {
+                            nextSelection = normalizedCurrent.concat(section.key);
+                        }
+
+                        applyCodingSectionSelection(root, nextSelection);
+                    });
+
+                    chips.appendChild(chip);
+                });
+
+                const hint = document.createElement('p');
+                hint.className = 'coding-practice-hint';
+                hint.textContent = '';
+
+                switcher.appendChild(label);
+                switcher.appendChild(chips);
+                switcher.appendChild(hint);
+                pageHeader.insertAdjacentElement('afterend', switcher);
             }
 
-            const switcher = document.createElement('div');
-            switcher.className = 'coding-practice-switcher';
+            const storedSelection = getStoredCodingSectionSelectionOrder();
+            const initialSelection = storedSelection === null
+                ? sections.map(section => section.key)
+                : normalizeCodingSectionSelectionOrder(storedSelection, sections);
 
-            const label = document.createElement('label');
-            label.className = 'coding-practice-label';
-            label.textContent = 'Показать практику:';
-
-            const select = document.createElement('select');
-            select.className = 'coding-practice-select';
-            select.setAttribute('aria-label', 'Выбор раздела практики');
-
-            const allOption = document.createElement('option');
-            allOption.value = LIVE_CODING_SECTION_FILTER_ALL;
-            allOption.textContent = 'Все разделы';
-            select.appendChild(allOption);
-
-            sections.forEach(section => {
-                const option = document.createElement('option');
-                option.value = section.key;
-                option.textContent = section.label;
-                select.appendChild(option);
-            });
-
-            select.addEventListener('change', () => {
-                applyCodingSectionFilter(root, select.value);
-            });
-
-            const stored = getStoredCodingSectionFilter();
-            const hasStoredOption = Array.from(select.options).some(option => option.value === stored);
-            select.value = hasStoredOption ? stored : LIVE_CODING_SECTION_FILTER_ALL;
-
-            switcher.appendChild(label);
-            switcher.appendChild(select);
-            pageHeader.insertAdjacentElement('afterend', switcher);
-
-            applyCodingSectionFilter(root, select.value);
+            applyCodingSectionSelection(root, initialSelection);
         }
 
         function extractStageNumberFromHeading(headingText) {

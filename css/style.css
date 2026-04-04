@@ -384,9 +384,9 @@
 
         .coding-practice-switcher {
             display: flex;
-            align-items: center;
+            flex-direction: column;
+            align-items: stretch;
             gap: 10px;
-            flex-wrap: wrap;
             margin: -12px 0 22px;
             padding: 12px;
             border: 1px solid var(--border);
@@ -398,22 +398,64 @@
             font-size: 12px;
             font-weight: 600;
             color: #d7e2f8;
+            margin: 0;
         }
 
-        .coding-practice-select {
-            background: var(--bg2);
+        .coding-practice-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .coding-practice-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.03);
             border: 1px solid var(--border2);
-            color: #d7e2f8;
-            border-radius: 6px;
-            padding: 8px 10px;
+            border-radius: 999px;
+            color: #cfd8f0;
             font-size: 12px;
-            min-width: 220px;
+            font-weight: 600;
+            padding: 8px 12px;
+            transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+            cursor: pointer;
         }
 
-        .coding-practice-select:focus {
-            outline: none;
+        .coding-practice-chip:hover {
+            border-color: var(--accent2);
+            transform: translateY(-1px);
+        }
+
+        .coding-practice-chip.is-active {
             border-color: var(--accent1);
-            box-shadow: 0 0 0 2px rgba(74, 240, 196, 0.15);
+            background: rgba(74, 240, 196, 0.12);
+            color: #e9fff8;
+            box-shadow: 0 0 0 1px rgba(74, 240, 196, 0.15) inset;
+        }
+
+        .coding-practice-chip-order {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 18px;
+            height: 18px;
+            border-radius: 999px;
+            background: rgba(108, 142, 247, 0.22);
+            color: #e8edff;
+            font-size: 10px;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        .coding-practice-chip:not(.is-active) .coding-practice-chip-order {
+            visibility: hidden;
+        }
+
+        .coding-practice-hint {
+            margin: 0;
+            font-size: 11px;
+            color: #9aa8c4;
         }
 
         .coding-module-select {
@@ -1003,10 +1045,14 @@
                 align-items: stretch;
             }
 
-            .coding-practice-select,
             .coding-module-select {
                 width: 100%;
                 min-width: 0;
+            }
+
+            .coding-practice-chip {
+                width: 100%;
+                justify-content: space-between;
             }
 
             .card-title {
