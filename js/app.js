@@ -119,9 +119,13 @@
             { id: 'int-fb-s5-5', stage: 'stage5', prompt: 'SQL: Создайте индекс idx_orders_user_created_at для orders(user_id, created_at).', answer: 'CREATE INDEX idx_orders_user_created_at ON orders (user_id, created_at);' }
         ];
 
+        const TASK_BANK_MANIFEST_SOURCE = 'data/tasks-manifest.json';
+        const TASK_BANK_CACHE_BUST = '1';
         const INTERVIEW_QUESTION_BANK_SOURCE = 'data/interview-questions.json';
         const INTERVIEW_MIN_BANK_SIZE = 25;
         const INTERVIEW_STAGE_ORDER = ['stage1', 'stage2', 'stage3', 'stage4', 'stage5'];
+        let taskBankManifest = null;
+        let taskBankManifestPromise = null;
         let interviewQuestionBank = [...FALLBACK_INTERVIEW_QUESTION_BANK];
         let interviewQuestionBankLoaded = false;
         let interviewQuestionBankPromise = null;
@@ -169,6 +173,90 @@
             return basePath;
         }
 
+        function resolveTaskSourceUrl(sourcePath) {
+            if (!sourcePath || typeof sourcePath !== 'string') return '';
+
+            const trimmed = sourcePath.trim();
+            if (!trimmed) return '';
+
+            if (/^https?:\/\//i.test(trimmed)) {
+                return trimmed;
+            }
+
+            const normalized = trimmed.replace(/^\.\//, '').replace(/^\//, '');
+            return `${getAppBasePath()}${normalized}`;
+        }
+
+        function withCacheBust(url, bustKey = TASK_BANK_CACHE_BUST) {
+            if (!url) return '';
+            return url.includes('?') ? `${url}&v=${bustKey}` : `${url}?v=${bustKey}`;
+        }
+
+        async function loadTaskBankManifest(forceReload = false) {
+            if (taskBankManifest && !forceReload) {
+                return taskBankManifest;
+            }
+
+            if (taskBankManifestPromise && !forceReload) {
+                return taskBankManifestPromise;
+            }
+
+            const manifestUrl = withCacheBust(resolveTaskSourceUrl(TASK_BANK_MANIFEST_SOURCE));
+            taskBankManifestPromise = fetch(manifestUrl)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Не удалось загрузить манифест задач: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(payload => {
+                    if (!payload || typeof payload !== 'object') {
+                        throw new Error('Манифест задач имеет неверный формат');
+                    }
+                    taskBankManifest = payload;
+                    return taskBankManifest;
+                })
+                .catch(error => {
+                    console.warn('Не удалось загрузить манифест задач, использую локальные источники:', error);
+                    taskBankManifest = null;
+                    return null;
+                })
+                .finally(() => {
+                    taskBankManifestPromise = null;
+                });
+
+            return taskBankManifestPromise;
+        }
+
+        function getTaskBankSectionConfig(sectionName) {
+            const sections = taskBankManifest?.sections;
+            if (!sections || typeof sections !== 'object') {
+                return null;
+            }
+
+            const sectionConfig = sections[sectionName];
+            if (!sectionConfig || typeof sectionConfig !== 'object') {
+                return null;
+            }
+
+            return sectionConfig;
+        }
+
+        function getTaskBankSectionUrl(sectionName, fallbackSource) {
+            const sectionConfig = getTaskBankSectionConfig(sectionName);
+            const configuredUrl = typeof sectionConfig?.url === 'string' ? sectionConfig.url.trim() : '';
+            const resolved = configuredUrl || fallbackSource;
+            return resolveTaskSourceUrl(resolved);
+        }
+
+        function getTaskBankSectionMinItems(sectionName, fallbackMinItems) {
+            const sectionConfig = getTaskBankSectionConfig(sectionName);
+            const configuredMinItems = Number(sectionConfig?.minItems);
+            return Number.isFinite(configuredMinItems) && configuredMinItems > 0
+                ? Math.floor(configuredMinItems)
+                : fallbackMinItems;
+        }
+
         function pickRandomQuestions(items, count) {
             return shuffleList(items).slice(0, Math.max(0, count));
         }
@@ -203,17 +291,20 @@
                 return interviewQuestionBankPromise;
             }
 
-            const sourceUrl = `${getAppBasePath()}${INTERVIEW_QUESTION_BANK_SOURCE}?v=1`;
+            await loadTaskBankManifest(forceReload);
+            const sourceUrl = withCacheBust(getTaskBankSectionUrl('interview', INTERVIEW_QUESTION_BANK_SOURCE));
+            const minBankSize = getTaskBankSectionMinItems('interview', INTERVIEW_MIN_BANK_SIZE);
+
             interviewQuestionBankPromise = fetch(sourceUrl)
                 .then(response => {
                     if (!response.ok) {
-                        throw new Error(`Не удалось загрузить ${INTERVIEW_QUESTION_BANK_SOURCE}: ${response.status}`);
+                        throw new Error(`Не удалось загрузить банк интервью (${sourceUrl}): ${response.status}`);
                     }
                     return response.json();
                 })
                 .then(payload => {
                     const normalized = normalizeInterviewQuestionBank(payload);
-                    if (normalized.length < INTERVIEW_MIN_BANK_SIZE) {
+                    if (normalized.length < minBankSize) {
                         throw new Error(`Слишком маленький пул вопросов: ${normalized.length}`);
                     }
                     interviewQuestionBank = normalized;
