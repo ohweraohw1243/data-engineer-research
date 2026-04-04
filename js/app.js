@@ -136,6 +136,28 @@
             4: 'Kafka',
             5: 'Sys Design'
         };
+        const LIVE_CODING_STAGE_CONTEXT_RULES = {
+            1: {
+                focus: 'SQL аналитика, PostgreSQL, оконные функции, индексы, DWH SQL шаблоны',
+                avoid: 'Python-скрипты, Spark API, Kafka топики, системный дизайн сервисов'
+            },
+            2: {
+                focus: 'Python ETL, API интеграции, pydantic, retry/backoff, Airflow DAG',
+                avoid: 'чистые SQL-only задачи, Spark оптимизация, Kafka streaming deep dive'
+            },
+            3: {
+                focus: 'PySpark трансформации, оптимизация Spark jobs, partitioning, skew, AQE',
+                avoid: 'базовые Python CRUD скрипты, Kafka offsets, ClickHouse DDL'
+            },
+            4: {
+                focus: 'Kafka producer/consumer, schema registry, streaming windowing, exactly-once паттерны',
+                avoid: 'чистые SQL задачи, базовые requests скрипты, ClickHouse storage tuning'
+            },
+            5: {
+                focus: 'DWH/system design, modeling, ClickHouse, SLA/SLO, reliability и архитектурные trade-off',
+                avoid: 'узкие задачки уровня синтаксиса SQL/Python без архитектурного контекста'
+            }
+        };
         const LIVE_CODING_GENERATOR_CONFIG = {
             apiUrl: 'https://models.inference.ai.azure.com/chat/completions',
             model: 'gpt-4o',
@@ -770,9 +792,46 @@
             return match ? Number(match[1]) : 0;
         }
 
+        function normalizeTaskTitleList(titles) {
+            const normalized = (Array.isArray(titles) ? titles : [])
+                .map(normalizeTitleValue)
+                .filter(Boolean);
+            return Array.from(new Set(normalized));
+        }
+
+        function getTaskTitlesFromBoxes(taskBoxes) {
+            return normalizeTaskTitleList(
+                (Array.isArray(taskBoxes) ? taskBoxes : [])
+                    .map(box => normalizeTitleValue(box?.querySelector?.('h4')?.textContent || ''))
+            );
+        }
+
+        function getStageContextRule(stageNumber) {
+            return LIVE_CODING_STAGE_CONTEXT_RULES[stageNumber] || {
+                focus: 'Практическая задача для middle data engineer с реалистичным прод-контекстом',
+                avoid: 'дубли существующих задач и темы из соседних этапов'
+            };
+        }
+
+        function getModuleScopeByName(stageScope, moduleName) {
+            const normalizedTarget = normalizeTitleValue(moduleName).toLowerCase();
+            const scopes = stageScope?.moduleScopes || [];
+            return scopes.find(scope => scope.key === normalizedTarget) || scopes[0] || null;
+        }
+
+        function getStageTaskTitles(stageScope) {
+            return getTaskTitlesFromBoxes(stageScope?.taskBoxes || []);
+        }
+
+        function getModuleTaskTitles(stageScope, moduleName) {
+            const moduleScope = getModuleScopeByName(stageScope, moduleName);
+            return getTaskTitlesFromBoxes(moduleScope?.taskBoxes || []);
+        }
+
         function getStageSectionScope(stageHeading) {
             const stageNumber = extractStageNumberFromHeading(stageHeading?.textContent || '');
             const nodes = [];
+            const stageContainer = stageHeading?.closest('.coding-section-group') || stageHeading?.parentElement || null;
 
             let pointer = stageHeading?.nextElementSibling || null;
             while (pointer && !isStageHeadingElement(pointer)) {
@@ -782,6 +841,41 @@
 
             const moduleNames = [];
             const taskBoxes = [];
+            const moduleScopes = [];
+
+            if (stageContainer) {
+                const sequence = Array.from(stageContainer.querySelectorAll('h3, .task-box'));
+                let activeModule = null;
+
+                sequence.forEach(node => {
+                    if (node.tagName === 'H3') {
+                        const moduleName = normalizeTitleValue(node.textContent);
+                        if (!moduleName) {
+                            activeModule = null;
+                            return;
+                        }
+
+                        activeModule = {
+                            key: moduleName.toLowerCase(),
+                            moduleName,
+                            heading: node,
+                            taskBoxes: [],
+                            lastAnchorNode: node
+                        };
+                        moduleScopes.push(activeModule);
+                        return;
+                    }
+
+                    if (node.classList?.contains('task-box')) {
+                        taskBoxes.push(node);
+
+                        if (activeModule) {
+                            activeModule.taskBoxes.push(node);
+                            activeModule.lastAnchorNode = node;
+                        }
+                    }
+                });
+            }
 
             nodes.forEach(node => {
                 if (node.tagName === 'H3') {
@@ -793,20 +887,25 @@
                     if (title) moduleNames.push(title);
                 });
 
-                if (node.classList?.contains('task-box')) {
-                    taskBoxes.push(node);
+                if (!stageContainer) {
+                    if (node.classList?.contains('task-box')) {
+                        taskBoxes.push(node);
+                    }
+                    node.querySelectorAll?.('.task-box').forEach(box => taskBoxes.push(box));
                 }
-                node.querySelectorAll?.('.task-box').forEach(box => taskBoxes.push(box));
             });
 
             const uniqueTaskBoxes = Array.from(new Set(taskBoxes));
-            const uniqueModuleNames = Array.from(new Set(moduleNames.filter(Boolean)));
+            const scopedModuleNames = moduleScopes.map(scope => scope.moduleName);
+            const uniqueModuleNames = Array.from(new Set([...moduleNames.filter(Boolean), ...scopedModuleNames].filter(Boolean)));
 
             return {
                 stageNumber,
                 stageLabel: LIVE_CODING_STAGE_MODEL_LABELS[stageNumber] || 'SQL',
+                stageContainer,
                 nodes,
                 moduleNames: uniqueModuleNames,
+                moduleScopes,
                 taskBoxes: uniqueTaskBoxes,
                 lastTaskBox: uniqueTaskBoxes[uniqueTaskBoxes.length - 1] || null
             };
@@ -828,6 +927,17 @@
             return fallbackRoot || document.getElementById('coding-content-root');
         }
 
+        function resolveModuleInsertionAnchor(stageScope, moduleName) {
+            const moduleScope = getModuleScopeByName(stageScope, moduleName);
+            if (!moduleScope) return null;
+
+            if (moduleScope.lastAnchorNode && moduleScope.lastAnchorNode.parentElement) {
+                return moduleScope.lastAnchorNode;
+            }
+
+            return moduleScope.heading || null;
+        }
+
         function setGenerateTaskButtonLoading(button, isLoading) {
             if (!button) return;
 
@@ -847,12 +957,28 @@
             button.textContent = button.dataset.defaultLabel;
         }
 
-        function buildLiveCodingUserPrompt(stageLabel, moduleName, shownTitles) {
-            const titleList = Array.isArray(shownTitles) && shownTitles.length > 0
-                ? JSON.stringify(shownTitles.slice(-120), null, 0)
+        function buildLiveCodingUserPrompt(stageLabel, moduleName, generationContext = {}) {
+            const shownTitles = normalizeTaskTitleList(generationContext.shownTitles || []);
+            const stageTitles = normalizeTaskTitleList(generationContext.stageTitles || []);
+            const moduleTitles = normalizeTaskTitleList(generationContext.moduleTitles || []);
+
+            const titleList = shownTitles.length > 0
+                ? JSON.stringify(shownTitles.slice(-160), null, 0)
                 : '[]';
 
-            return `Сгенерируй 1 новую задачу. Этап: ${stageLabel}. Модуль: ${moduleName}.\nУже были задачи: ${titleList}. Не повторяй их.\nВерни строго этот JSON:\n{\n  "title": "string",\n  "description": "string",\n  "tables": "string",\n  "placeholder": "string",\n  "hint": "string",\n  "solution": "string",\n  "difficulty": "easy | medium | hard"\n}`;
+            const stageTitleList = stageTitles.length > 0
+                ? JSON.stringify(stageTitles.slice(-120), null, 0)
+                : '[]';
+
+            const moduleTitleList = moduleTitles.length > 0
+                ? JSON.stringify(moduleTitles.slice(-80), null, 0)
+                : '[]';
+
+            const stageRule = generationContext.stageRule || {};
+            const focusRule = String(stageRule.focus || '').trim();
+            const avoidRule = String(stageRule.avoid || '').trim();
+
+            return `Сгенерируй 1 новую практическую задачу для middle data engineer.\nЭтап: ${stageLabel}. Модуль: ${moduleName}.\n\nПравила контекста этапа:\n- Focus: ${focusRule || 'только темы выбранного этапа'}\n- Avoid: ${avoidRule || 'не использовать темы других этапов'}\n\nУже были задачи в этом этапе: ${stageTitleList}.\nУже были задачи в этом модуле: ${moduleTitleList}.\nВсе показанные задачи (глобально): ${titleList}.\n\nКритично:\n- Не повторяй ни названия, ни идею задач из списков выше.\n- Задача должна быть строго в контексте выбранного этапа и выбранного модуля.\n- solution должен быть непустой, прикладной и проверяемый (SQL/Python/псевдокод по теме), минимум 4 строки.\n- hint должен быть конкретным шагом к решению, не общая фраза.\n\nВерни строго этот JSON:\n{\n  "title": "string",\n  "description": "string",\n  "tables": "string",\n  "placeholder": "string",\n  "hint": "string",\n  "solution": "string",\n  "difficulty": "easy | medium | hard"\n}`;
         }
 
         function extractJsonObjectFromModelText(rawText) {
@@ -895,6 +1021,10 @@
                 throw new Error('JSON задачи не содержит обязательных полей');
             }
 
+            if (solution.length < 24 || description.length < 24) {
+                throw new Error('Модель вернула слишком короткий эталон или описание');
+            }
+
             return {
                 title,
                 description,
@@ -927,7 +1057,7 @@
             throw new Error('Не удалось извлечь текст из ответа модели');
         }
 
-        async function requestGeneratedLiveCodingTask(stageLabel, moduleName, shownTitles, token) {
+        async function requestGeneratedLiveCodingTask(stageLabel, moduleName, generationContext, token) {
             const controller = new AbortController();
             const timeout = setTimeout(() => controller.abort(), LIVE_CODING_GENERATOR_CONFIG.requestTimeoutMs);
 
@@ -947,7 +1077,7 @@
                         response_format: { type: 'json_object' },
                         messages: [
                             { role: 'system', content: LIVE_CODING_GENERATOR_SYSTEM_PROMPT },
-                            { role: 'user', content: buildLiveCodingUserPrompt(stageLabel, moduleName, shownTitles) }
+                            { role: 'user', content: buildLiveCodingUserPrompt(stageLabel, moduleName, generationContext) }
                         ]
                     }),
                     signal: controller.signal
@@ -980,6 +1110,9 @@
             card.className = 'task-box generated-task-box';
             card.setAttribute('data-task-id', taskId);
             card.setAttribute('data-task-hint', task.hint);
+            card.setAttribute('data-task-solution', task.solution);
+            card.setAttribute('data-task-stage', String(stageNumber || 0));
+            card.setAttribute('data-task-module', moduleName || '');
             card.style.background = 'rgba(255,255,255,0.05)';
             card.style.padding = '20px';
             card.style.borderRadius = '8px';
@@ -1016,9 +1149,15 @@
 
         function appendGeneratedTaskToStage(root, stageHeading, task, moduleName) {
             const stageScope = getStageSectionScope(stageHeading);
-            const targetContainer = resolveStageInsertionContainer(stageScope, root);
             const card = createGeneratedTaskCard(task, stageScope.stageNumber, moduleName);
-            targetContainer.appendChild(card);
+
+            const moduleAnchor = resolveModuleInsertionAnchor(stageScope, moduleName);
+            if (moduleAnchor && moduleAnchor.parentElement) {
+                moduleAnchor.insertAdjacentElement('afterend', card);
+            } else {
+                const targetContainer = resolveStageInsertionContainer(stageScope, root);
+                targetContainer.appendChild(card);
+            }
 
             if (typeof setupAnswerField !== 'undefined') {
                 setupAnswerField(card);
@@ -1051,11 +1190,38 @@
             }
 
             syncGeneratedTaskTitlesFromCodingDom(root);
-            const shownTitles = getStoredGeneratedTaskTitles();
+            const stageTitles = getStageTaskTitles(stageScope);
+            const moduleTitles = getModuleTaskTitles(stageScope, moduleName);
+            const shownTitles = normalizeTaskTitleList(
+                getStoredGeneratedTaskTitles().concat(stageTitles)
+            );
+
+            const generationContext = {
+                shownTitles,
+                stageTitles,
+                moduleTitles,
+                stageRule: getStageContextRule(stageScope.stageNumber)
+            };
+
+            const existingTitlesSet = new Set(shownTitles.map(title => title.toLowerCase()));
 
             setGenerateTaskButtonLoading(triggerButton, true);
             try {
-                const task = await requestGeneratedLiveCodingTask(stageLabel, moduleName, shownTitles, token);
+                let task = null;
+                for (let attempt = 0; attempt < 3; attempt += 1) {
+                    const candidate = await requestGeneratedLiveCodingTask(stageLabel, moduleName, generationContext, token);
+                    const normalizedTitle = normalizeTitleValue(candidate.title).toLowerCase();
+
+                    if (!existingTitlesSet.has(normalizedTitle)) {
+                        task = candidate;
+                        break;
+                    }
+                }
+
+                if (!task) {
+                    throw new Error('Модель вернула повторяющиеся названия задач для выбранного этапа.');
+                }
+
                 appendGeneratedTaskToStage(root, stageHeading, task, moduleName);
                 rememberGeneratedTaskTitle(task.title);
                 showSuccessMessage('Новая задача добавлена.');
@@ -2340,6 +2506,25 @@
             const normalizedUser = normalizeSQL(userAnswer);
             const normalizedExpected = normalizeSQL(expectedAnswer);
 
+            if (!normalizedExpected) {
+                const hasStrongStructure = normalizedUser.length >= 100;
+
+                if (hasStrongStructure) {
+                    showResultMessage(resultDiv, 'partial',
+                        '⚠️ Для этой задачи нет эталона от модели, поэтому доступна только базовая проверка. Ответ выглядит достаточно развернутым, но финальная оценка требует эталона.');
+                    textarea.style.borderColor = 'var(--accent3)';
+                    setAnswerStatus(taskId, 'partial');
+                } else {
+                    showResultMessage(resultDiv, 'incorrect',
+                        '❌ Эталон для этой задачи не был сгенерирован, и текущий ответ слишком короткий для базовой проверки. Нажмите «Новая задача», чтобы получить вариант с корректным эталоном.');
+                    textarea.style.borderColor = 'var(--red)';
+                    setAnswerStatus(taskId, 'incorrect');
+                }
+
+                updateAnswerProgress();
+                return;
+            }
+
             if (normalizedUser.length < 24) {
                 showResultMessage(resultDiv, 'incorrect',
                     '❌ Ответ слишком короткий для зачета. Нужен полноценный запрос/код с логикой решения.');
@@ -2393,6 +2578,11 @@
         }
 
         function getExpectedAnswer(container) {
+            const generatedSolution = String(container?.getAttribute?.('data-task-solution') || '').trim();
+            if (generatedSolution) {
+                return generatedSolution.toLowerCase();
+            }
+
             const explicitSolution = container.querySelector('.solution-code')?.textContent?.trim();
             if (explicitSolution) {
                 return explicitSolution.toLowerCase();
