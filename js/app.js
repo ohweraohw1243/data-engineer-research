@@ -42,12 +42,15 @@
 
         const STAGE_TASKS = {
             stage1: [
-                { id: 'stage1-docker', label: 'Docker Compose и различие Image/Container' },
+                { id: 'stage1-sql-top3', label: 'Топ-3 по просмотрам в категории' },
+                { id: 'stage1-sql-moving-avg', label: 'Скользящее среднее за 7 дней' },
+                { id: 'stage1-sql-running-total', label: 'Running total по датам' },
                 { id: 'stage1-sql-agg', label: 'JOIN + GROUP BY + HAVING' },
                 { id: 'stage1-sql-window', label: 'Оконная функция ROW_NUMBER' },
-                { id: 'stage1-dwh', label: 'Модель STG / DDS / Fact / Dimension' },
                 { id: 'stage1-explain-analyze', label: 'Чтение EXPLAIN ANALYZE' },
                 { id: 'stage1-index-strategy', label: 'Стратегия индексов под workload' },
+                { id: 'stage1-docker', label: 'Docker Compose и различие Image/Container' },
+                { id: 'stage1-dwh', label: 'Модель STG / DDS / Fact / Dimension' },
                 { id: 'stage1-scd2-merge', label: 'SCD2 и MERGE/UPSERT' }
             ],
             stage2: [
@@ -85,6 +88,390 @@
             stage4: 70,
             stage5: 70
         };
+
+        const INTERVIEW_QUESTION_BANK = [
+            { id: 'int-s1-1', stage: 'stage1', prompt: 'Как вы оптимизируете запрос с Seq Scan на таблице 300M строк: какие индексы и как проверите результат?' },
+            { id: 'int-s1-2', stage: 'stage1', prompt: 'Объясните разницу между CTE, подзапросом и materialized view в контексте аналитики.' },
+            { id: 'int-s1-3', stage: 'stage1', prompt: 'Как проектировать факт и измерения для витрины продаж, чтобы не потерять историю изменений атрибутов?' },
+            { id: 'int-s1-4', stage: 'stage1', prompt: 'Где в DWH применим SCD2, а где достаточно SCD1? Дайте практический пример.' },
+
+            { id: 'int-s2-1', stage: 'stage2', prompt: 'Как реализовать retry/backoff для внешнего API, чтобы не создать шторм запросов?' },
+            { id: 'int-s2-2', stage: 'stage2', prompt: 'Когда в Python использовать asyncio, а когда multiprocessing в data pipeline?' },
+            { id: 'int-s2-3', stage: 'stage2', prompt: 'Как бы вы построили idempotent ETL шаг загрузки в Postgres?' },
+            { id: 'int-s2-4', stage: 'stage2', prompt: 'Какие базовые проверки данных добавите перед записью в DWH?' },
+
+            { id: 'int-s3-1', stage: 'stage3', prompt: 'Почему broadcast join ускоряет Spark job и когда он опасен?' },
+            { id: 'int-s3-2', stage: 'stage3', prompt: 'Как диагностировать data skew по Spark UI и как лечить salting/partitioning?' },
+            { id: 'int-s3-3', stage: 'stage3', prompt: 'Что именно смотреть в explain(formatted) у Spark DataFrame запроса?' },
+            { id: 'int-s3-4', stage: 'stage3', prompt: 'Чем отличается cache от persist и в каких шагах ETL это дает выигрыш?' },
+
+            { id: 'int-s4-1', stage: 'stage4', prompt: 'Как обеспечить atleast-once и приблизиться к exactly-once при обработке Kafka?' },
+            { id: 'int-s4-2', stage: 'stage4', prompt: 'Как организовать Schema Registry контракт, чтобы изменения схемы не ломали витрины?' },
+            { id: 'int-s4-3', stage: 'stage4', prompt: 'Что такое watermark в streaming и как он влияет на late events?' },
+            { id: 'int-s4-4', stage: 'stage4', prompt: 'Какие DQ проверки обязательны для потока транзакций в real-time?' },
+
+            { id: 'int-s5-1', stage: 'stage5', prompt: 'Спроектируйте high-level pipeline: S3 -> Kafka -> Spark -> ClickHouse -> BI.' },
+            { id: 'int-s5-2', stage: 'stage5', prompt: 'Как выстроить CDC pipeline и стратегию backfill без дублей в факте?' },
+            { id: 'int-s5-3', stage: 'stage5', prompt: 'Какие ключевые настройки MergeTree в ClickHouse важны для быстрых отчетов?' },
+            { id: 'int-s5-4', stage: 'stage5', prompt: 'Какие SLO/метрики вы поставите для продакшен data platform?' }
+        ];
+
+        const INTERVIEW_STAGE_ORDER = ['stage1', 'stage2', 'stage3', 'stage4', 'stage5'];
+
+        let interviewState = {
+            questions: [],
+            currentIndex: 0,
+            answers: {},
+            confident: {},
+            startedAt: null,
+            durationMinutes: 45,
+            isRunning: false,
+            timerInterval: null
+        };
+
+        function getStageDisplayName(stageTab) {
+            const labels = {
+                stage1: 'SQL & DWH',
+                stage2: 'Python & ETL',
+                stage3: 'Spark',
+                stage4: 'Kafka & Streaming',
+                stage5: 'System Design'
+            };
+            return labels[stageTab] || 'General';
+        }
+
+        function shuffleList(items) {
+            const clone = [...items];
+            for (let i = clone.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [clone[i], clone[j]] = [clone[j], clone[i]];
+            }
+            return clone;
+        }
+
+        function pickRandomQuestions(items, count) {
+            return shuffleList(items).slice(0, Math.max(0, count));
+        }
+
+        function buildInterviewQuestionSet(totalQuestions = 15) {
+            const grouped = INTERVIEW_STAGE_ORDER.reduce((acc, stage) => {
+                acc[stage] = INTERVIEW_QUESTION_BANK.filter(q => q.stage === stage);
+                return acc;
+            }, {});
+
+            const basePerStage = Math.floor(totalQuestions / INTERVIEW_STAGE_ORDER.length);
+            const remainder = totalQuestions % INTERVIEW_STAGE_ORDER.length;
+
+            let selected = [];
+            INTERVIEW_STAGE_ORDER.forEach((stage, index) => {
+                const planned = basePerStage + (index < remainder ? 1 : 0);
+                selected = selected.concat(pickRandomQuestions(grouped[stage], planned));
+            });
+
+            if (selected.length < totalQuestions) {
+                const selectedIds = new Set(selected.map(q => q.id));
+                const fallbackPool = INTERVIEW_QUESTION_BANK.filter(q => !selectedIds.has(q.id));
+                selected = selected.concat(pickRandomQuestions(fallbackPool, totalQuestions - selected.length));
+            }
+
+            return shuffleList(selected).slice(0, totalQuestions);
+        }
+
+        function saveInterviewState() {
+            try {
+                const snapshot = {
+                    questions: interviewState.questions,
+                    currentIndex: interviewState.currentIndex,
+                    answers: interviewState.answers,
+                    confident: interviewState.confident,
+                    startedAt: interviewState.startedAt,
+                    durationMinutes: interviewState.durationMinutes,
+                    isRunning: interviewState.isRunning
+                };
+                localStorage.setItem('streamflow_interview_state', JSON.stringify(snapshot));
+            } catch (error) {
+                console.warn('Не удалось сохранить сессию собеседования:', error);
+            }
+        }
+
+        function loadInterviewState() {
+            try {
+                const saved = JSON.parse(localStorage.getItem('streamflow_interview_state') || '{}');
+                if (!saved || typeof saved !== 'object') return;
+
+                interviewState.questions = Array.isArray(saved.questions) ? saved.questions : [];
+                interviewState.currentIndex = Number.isInteger(saved.currentIndex) ? saved.currentIndex : 0;
+                interviewState.answers = saved.answers && typeof saved.answers === 'object' ? saved.answers : {};
+                interviewState.confident = saved.confident && typeof saved.confident === 'object' ? saved.confident : {};
+                interviewState.startedAt = saved.startedAt || null;
+                interviewState.durationMinutes = saved.durationMinutes || 45;
+                interviewState.isRunning = Boolean(saved.isRunning);
+                interviewState.timerInterval = null;
+            } catch (error) {
+                console.warn('Не удалось загрузить сессию собеседования:', error);
+            }
+        }
+
+        function getInterviewStats() {
+            const total = interviewState.questions.length;
+            const answered = Object.values(interviewState.answers || {}).filter(v => (v || '').trim().length > 0).length;
+            const confident = Object.values(interviewState.confident || {}).filter(Boolean).length;
+
+            const answeredPercent = total > 0 ? Math.round((answered / total) * 100) : 0;
+            const confidentPercent = total > 0 ? Math.round((confident / total) * 100) : 0;
+            const readinessScore = Math.round(answeredPercent * 0.75 + confidentPercent * 0.25);
+
+            return {
+                total,
+                answered,
+                confident,
+                answeredPercent,
+                confidentPercent,
+                readinessScore
+            };
+        }
+
+        function formatInterviewTimer(ms) {
+            const totalSec = Math.max(0, Math.floor(ms / 1000));
+            const mins = Math.floor(totalSec / 60);
+            const secs = totalSec % 60;
+            return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function getInterviewRemainingMs() {
+            const durationMs = (interviewState.durationMinutes || 45) * 60 * 1000;
+            if (!interviewState.startedAt) {
+                return durationMs;
+            }
+            return Math.max(0, durationMs - (Date.now() - interviewState.startedAt));
+        }
+
+        function updateInterviewTimerDisplay() {
+            const timerEl = document.getElementById('interview-timer');
+            if (!timerEl) return;
+            timerEl.textContent = formatInterviewTimer(getInterviewRemainingMs());
+        }
+
+        function stopInterviewTimer() {
+            if (interviewState.timerInterval) {
+                clearInterval(interviewState.timerInterval);
+                interviewState.timerInterval = null;
+            }
+        }
+
+        function startInterviewTimer() {
+            if (interviewState.timerInterval) return;
+
+            interviewState.timerInterval = setInterval(() => {
+                const remaining = getInterviewRemainingMs();
+                updateInterviewTimerDisplay();
+
+                if (remaining <= 0) {
+                    stopInterviewTimer();
+                    interviewState.isRunning = false;
+                    saveInterviewState();
+                    finishInterviewSession();
+                }
+            }, 1000);
+        }
+
+        function createInterviewSession(totalQuestions = 15) {
+            interviewState.questions = buildInterviewQuestionSet(totalQuestions);
+            interviewState.currentIndex = 0;
+            interviewState.answers = {};
+            interviewState.confident = {};
+            interviewState.startedAt = null;
+            interviewState.isRunning = false;
+            stopInterviewTimer();
+            saveInterviewState();
+            renderInterviewState();
+        }
+
+        function renderInterviewSummary() {
+            const scoreEl = document.getElementById('interview-score');
+            const summaryEl = document.getElementById('interview-summary');
+            if (!scoreEl || !summaryEl) return;
+
+            const stats = getInterviewStats();
+            scoreEl.textContent = `Отвечено: ${stats.answered}/${stats.total}, уверенно: ${stats.confident}/${stats.total}, готовность: ${stats.readinessScore}%.`;
+
+            if (stats.total === 0) {
+                summaryEl.textContent = 'Сначала сгенерируйте сессию вопросов.';
+            } else if (stats.readinessScore >= 70) {
+                summaryEl.textContent = 'Хороший результат для тренировочного уровня. Сфокусируйтесь на слабых вопросах и повторите сессию.';
+            } else {
+                summaryEl.textContent = 'Пока ниже целевого порога 70%. Пройдите еще одну сессию и разберите эталонные решения из лайв-кодинга.';
+            }
+        }
+
+        function updateInterviewProgressUI() {
+            const stats = getInterviewStats();
+            const progressLabel = document.getElementById('interview-progress-label');
+            const confidenceLabel = document.getElementById('interview-confidence-label');
+            const readyLabel = document.getElementById('interview-ready-label');
+            const progressBar = document.getElementById('interview-progress-bar');
+
+            if (progressLabel) progressLabel.textContent = `Прогресс: ${stats.answered}/${stats.total}`;
+            if (confidenceLabel) confidenceLabel.textContent = `Уверенных ответов: ${stats.confident}`;
+            if (readyLabel) readyLabel.textContent = `Готовность: ${stats.readinessScore}%`;
+            if (progressBar) progressBar.style.width = `${stats.answeredPercent}%`;
+
+            renderInterviewSummary();
+        }
+
+        function renderInterviewQuestion() {
+            const total = interviewState.questions.length;
+            const index = interviewState.currentIndex;
+            const currentQuestion = interviewState.questions[index];
+
+            const counterEl = document.getElementById('interview-counter');
+            const stageEl = document.getElementById('interview-stage-pill');
+            const questionEl = document.getElementById('interview-question-text');
+            const answerEl = document.getElementById('interview-answer');
+            const prevBtn = document.getElementById('interview-prev-btn');
+            const nextBtn = document.getElementById('interview-next-btn');
+            const confidenceBtn = document.getElementById('interview-confidence-btn');
+
+            if (!counterEl || !stageEl || !questionEl || !answerEl || !prevBtn || !nextBtn || !confidenceBtn) return;
+
+            if (!currentQuestion) {
+                counterEl.textContent = 'Вопрос 0/0';
+                stageEl.textContent = 'Этап';
+                questionEl.textContent = 'Нажмите «Сгенерировать сессию», чтобы начать.';
+                answerEl.value = '';
+                answerEl.disabled = true;
+                prevBtn.disabled = true;
+                nextBtn.disabled = true;
+                confidenceBtn.disabled = true;
+                return;
+            }
+
+            counterEl.textContent = `Вопрос ${index + 1}/${total}`;
+            stageEl.textContent = getStageDisplayName(currentQuestion.stage);
+            questionEl.textContent = currentQuestion.prompt;
+            answerEl.disabled = false;
+            answerEl.value = interviewState.answers[currentQuestion.id] || '';
+
+            prevBtn.disabled = index === 0;
+            nextBtn.disabled = index >= total - 1;
+            confidenceBtn.disabled = false;
+            confidenceBtn.textContent = interviewState.confident[currentQuestion.id]
+                ? 'Снять метку уверенности'
+                : 'Отметить как уверенный ответ';
+        }
+
+        function renderInterviewState() {
+            if (!document.getElementById('interview-question-text')) return;
+            renderInterviewQuestion();
+            updateInterviewProgressUI();
+            updateInterviewTimerDisplay();
+        }
+
+        function goToNextInterviewQuestion() {
+            if (interviewState.currentIndex < interviewState.questions.length - 1) {
+                interviewState.currentIndex += 1;
+                saveInterviewState();
+                renderInterviewState();
+            }
+        }
+
+        function goToPrevInterviewQuestion() {
+            if (interviewState.currentIndex > 0) {
+                interviewState.currentIndex -= 1;
+                saveInterviewState();
+                renderInterviewState();
+            }
+        }
+
+        function toggleInterviewConfidence() {
+            const currentQuestion = interviewState.questions[interviewState.currentIndex];
+            if (!currentQuestion) return;
+
+            interviewState.confident[currentQuestion.id] = !interviewState.confident[currentQuestion.id];
+            saveInterviewState();
+            renderInterviewState();
+        }
+
+        function finishInterviewSession() {
+            interviewState.isRunning = false;
+            stopInterviewTimer();
+            saveInterviewState();
+            renderInterviewState();
+            showSuccessMessage('Сессия собеседования завершена. Проверьте блок «Итоги сессии».');
+        }
+
+        function resetInterviewSession() {
+            if (!window.confirm('Сбросить текущую сессию собеседования?')) return;
+
+            stopInterviewTimer();
+            interviewState = {
+                questions: [],
+                currentIndex: 0,
+                answers: {},
+                confident: {},
+                startedAt: null,
+                durationMinutes: 45,
+                isRunning: false,
+                timerInterval: null
+            };
+
+            localStorage.removeItem('streamflow_interview_state');
+            renderInterviewState();
+        }
+
+        function bindInterviewButton(id, handler) {
+            const el = document.getElementById(id);
+            if (!el || el.dataset.bound === 'true') return;
+            el.addEventListener('click', handler);
+            el.dataset.bound = 'true';
+        }
+
+        function ensureInterviewBindings() {
+            bindInterviewButton('interview-generate-btn', () => createInterviewSession(15));
+            bindInterviewButton('interview-start-btn', () => {
+                if (interviewState.questions.length === 0) {
+                    createInterviewSession(15);
+                }
+                if (!interviewState.startedAt) {
+                    interviewState.startedAt = Date.now();
+                }
+                interviewState.isRunning = true;
+                saveInterviewState();
+                startInterviewTimer();
+                renderInterviewState();
+            });
+            bindInterviewButton('interview-reset-btn', resetInterviewSession);
+            bindInterviewButton('interview-prev-btn', goToPrevInterviewQuestion);
+            bindInterviewButton('interview-next-btn', goToNextInterviewQuestion);
+            bindInterviewButton('interview-confidence-btn', toggleInterviewConfidence);
+            bindInterviewButton('interview-finish-btn', finishInterviewSession);
+
+            const answerEl = document.getElementById('interview-answer');
+            if (answerEl && answerEl.dataset.bound !== 'true') {
+                answerEl.addEventListener('input', () => {
+                    const currentQuestion = interviewState.questions[interviewState.currentIndex];
+                    if (!currentQuestion) return;
+                    interviewState.answers[currentQuestion.id] = answerEl.value;
+                    saveInterviewState();
+                    updateInterviewProgressUI();
+                });
+                answerEl.dataset.bound = 'true';
+            }
+        }
+
+        function initInterviewSection() {
+            loadInterviewState();
+            ensureInterviewBindings();
+
+            if (interviewState.isRunning && getInterviewRemainingMs() > 0) {
+                startInterviewTimer();
+            } else {
+                interviewState.isRunning = false;
+                stopInterviewTimer();
+            }
+
+            renderInterviewState();
+        }
 
         function isStageTab(tabId) {
             return Object.prototype.hasOwnProperty.call(STAGE_TASKS, tabId);
@@ -404,6 +791,7 @@
                     document.querySelectorAll('[data-task-id]').forEach(setupAnswerField);
                 }
                 if (typeof loadSavedAnswers !== 'undefined') loadSavedAnswers();
+                if (tabId === 'interview') initInterviewSection();
                 if (typeof updateAnswerProgress !== 'undefined') updateAnswerProgress();
                 saveProgress();
                 

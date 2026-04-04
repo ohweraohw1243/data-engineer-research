@@ -4,87 +4,195 @@
                     <p class="page-desc">Расширенный тренажер под middle data engineer: SQL, Python, Spark, Kafka, DWH modeling и System Design. Если стабильно закрывать не менее 70% задач каждого этапа, уровень готовности к собеседованию заметно растет.</p>
                 </div>
 
-                <div class="space-y-6">
-                    <div class="task-box" data-task-id="task-window-1" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid var(--accent1);">
-                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">📌 Кейс 1: Топ-3 по просмотрам в каждой категории</h4>
-                <p style="margin-bottom: 16px;"><strong>Задача:</strong> Найти топ-3 стримов в каждой категории.<br>
-                <strong>Таблица:</strong> <code>streams (id, name, category, views)</code></p>
+                                <h2 style="font-size: 26px; font-weight: 600; margin-top: 48px; margin-bottom: 24px; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px;">Практические Задачи (Этап 1)</h2>
+                                <p style="margin-bottom: 20px; color:#cbd5e1;">Перестроили блок в последовательный формат по модулям: сначала SQL, потом Docker, затем DWH-моделирование. Так проще проходить по порядку без "скачков" между темами.</p>
 
-                <div class="answer-input-area">
-                    <label>Ваш SQL:</label>
-                    <textarea rows="8" class="answer-textarea" placeholder="SELECT ..."></textarea>
-                    <button class="check-answer-btn" onclick="checkAnswer(this)">Проверить мое решение</button>
-                    <div class="check-result"></div>
-                </div>
+                                <h3 style="font-size: 20px; font-weight: 600; margin-bottom: 16px; color: #fff;">Модуль 1: SQL аналитика (последовательно)</h3>
+                                <div class="space-y-6" style="margin-bottom: 28px;">
+                                        <div class="task-box" data-task-id="stage1-sql-top3" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid var(--accent1);">
+                                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">📌 Задача 1: Топ-3 по просмотрам в каждой категории</h4>
+                                <p style="margin-bottom: 16px;"><strong>Задача:</strong> Найти топ-3 стримов в каждой категории.<br>
+                                <strong>Таблица:</strong> <code>streams (id, name, category, views)</code></p>
 
-                <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
-                    <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
+                                <div class="answer-input-area">
+                                        <label>Ваш SQL:</label>
+                                        <textarea rows="8" class="answer-textarea" placeholder="SELECT ..."></textarea>
+                                        <button class="check-answer-btn" onclick="checkAnswer(this)">Проверить мое решение</button>
+                                        <div class="check-result"></div>
+                                </div>
+
+                                <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
+                                        <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
 <pre style="background:#1e293b; padding:12px; border-radius:6px; margin-top: 12px; margin-bottom: 0; color:#e2e8f0; overflow-x: auto;"><code>WITH ranked AS (
-  SELECT 
-    *,
-    RANK() OVER (PARTITION BY category ORDER BY views DESC) as rank
-  FROM streams
+    SELECT 
+        *,
+        RANK() OVER (PARTITION BY category ORDER BY views DESC) as rank
+    FROM streams
 )
 SELECT * FROM ranked WHERE rank <= 3;</code></pre>
-                </details>
-            </div>
+                                </details>
+                        </div>
 
-            <div class="task-box" data-task-id="task-window-2" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid var(--accent1);">
-                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">📌 Кейс 2: Скользящее среднее за 7 дней</h4>
-                <p style="margin-bottom: 16px;"><strong>Задача:</strong> Рассчитать 7-дневное скользящее среднее.<br>
-                <strong>Таблица:</strong> <code>daily_stats (date, views)</code></p>
+                        <div class="task-box" data-task-id="stage1-sql-moving-avg" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid var(--accent1);">
+                                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">📌 Задача 2: Скользящее среднее за 7 дней</h4>
+                                <p style="margin-bottom: 16px;"><strong>Задача:</strong> Рассчитать 7-дневное скользящее среднее.<br>
+                                <strong>Таблица:</strong> <code>daily_stats (date, views)</code></p>
 
-                <div class="answer-input-area">
-                    <label>Ваш SQL:</label>
-                    <textarea rows="8" class="answer-textarea" placeholder="SELECT ..."></textarea>
-                    <button class="check-answer-btn" onclick="checkAnswer(this)">Проверить мое решение</button>
-                    <div class="check-result"></div>
-                </div>
+                                <div class="answer-input-area">
+                                        <label>Ваш SQL:</label>
+                                        <textarea rows="8" class="answer-textarea" placeholder="SELECT ..."></textarea>
+                                        <button class="check-answer-btn" onclick="checkAnswer(this)">Проверить мое решение</button>
+                                        <div class="check-result"></div>
+                                </div>
 
-                <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
-                    <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
+                                <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
+                                        <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
 <pre style="background:#1e293b; padding:12px; border-radius:6px; margin-top: 12px; margin-bottom: 0; color:#e2e8f0; overflow-x: auto;"><code>SELECT
-  date,
-  views,
-  AVG(views) OVER (
-    ORDER BY date
-    ROWS BETWEEN 6 PRECEDING AND CURRENT ROW
-  ) as moving_avg_7d
+    date,
+    views,
+    AVG(views) OVER (
+        ORDER BY date
+        ROWS BETWEEN 6 PRECEDING AND CURRENT ROW
+    ) as moving_avg_7d
 FROM daily_stats
 ORDER BY date;</code></pre>
-                </details>
-            </div>
+                                </details>
+                        </div>
 
-            <div class="task-box" data-task-id="task-window-3" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid var(--accent1);">
-                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">📌 Кейс 3: Running total (кумулятивная сумма)</h4>
-                <p style="margin-bottom: 16px;"><strong>Задача:</strong> Рассчитать running total доходов.<br>
-                <strong>Таблица:</strong> <code>revenue (date, amount)</code></p>
+                        <div class="task-box" data-task-id="stage1-sql-running-total" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid var(--accent1);">
+                                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">📌 Задача 3: Running total (кумулятивная сумма)</h4>
+                                <p style="margin-bottom: 16px;"><strong>Задача:</strong> Рассчитать running total доходов.<br>
+                                <strong>Таблица:</strong> <code>revenue (date, amount)</code></p>
 
-                <div class="answer-input-area">
-                    <label>Ваш SQL:</label>
-                    <textarea rows="8" class="answer-textarea" placeholder="SELECT ..."></textarea>
-                    <button class="check-answer-btn" onclick="checkAnswer(this)">Проверить мое решение</button>
-                    <div class="check-result"></div>
-                </div>
+                                <div class="answer-input-area">
+                                        <label>Ваш SQL:</label>
+                                        <textarea rows="8" class="answer-textarea" placeholder="SELECT ..."></textarea>
+                                        <button class="check-answer-btn" onclick="checkAnswer(this)">Проверить мое решение</button>
+                                        <div class="check-result"></div>
+                                </div>
 
-                <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
-                    <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
+                                <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
+                                        <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
 <pre style="background:#1e293b; padding:12px; border-radius:6px; margin-top: 12px; margin-bottom: 0; color:#e2e8f0; overflow-x: auto;"><code>SELECT
-  date,
-  amount,
-  SUM(amount) OVER (ORDER BY date) as running_total
+    date,
+    amount,
+    SUM(amount) OVER (ORDER BY date) as running_total
 FROM revenue
 ORDER BY date;</code></pre>
-                </details>
-            </div>
-        </div>
+                                </details>
+                        </div>
 
-<h2 style="font-size: 26px; font-weight: 600; margin-top: 48px; margin-bottom: 24px; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px;">Практические Задачи (Этап 1)</h2>
-        <p style="margin-bottom: 20px; color:#cbd5e1;">Задачи ниже собраны строго по теории Этапа 1: Docker, SQL (GROUP BY/JOIN/оконные функции) и архитектура DWH (STG/DDS + Star Schema).</p>
+                        <div class="task-box" data-task-id="stage1-sql-agg" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid var(--accent1);">
+                                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">🐘 Задача 4: JOIN + GROUP BY + HAVING</h4>
+                                <p style="margin-bottom: 16px;">Есть таблицы <code>orders(id, user_id, amount)</code> и <code>users(id, country)</code>. Напишите запрос, который считает по каждой стране: количество заказов и суммарный объем продаж. Оставьте только страны, где сумма продаж больше 5000. Отсортируйте по сумме продаж по убыванию.</p>
 
-        <div class="space-y-6">
-            <div class="task-box" data-task-id="stage1-docker" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid var(--accent1);">
-                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">🐳 Задача 1: Docker Compose + Image vs Container</h4>
+                                <div class="answer-input-area">
+                                        <label>Ваш SQL:</label>
+                                        <textarea rows="8" class="answer-textarea" placeholder="SELECT ..."></textarea>
+                                        <button class="check-answer-btn" onclick="checkAnswer(this)">Проверить мое решение</button>
+                                        <div class="check-result"></div>
+                                </div>
+
+                                <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
+                                        <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
+<pre style="background:#1e293b; padding:12px; border-radius:6px; margin-top: 12px; margin-bottom: 0; color:#e2e8f0; overflow-x: auto;"><code>SELECT
+    u.country,
+    COUNT(*) AS orders_cnt,
+    SUM(o.amount) AS total_amount
+FROM orders o
+JOIN users u ON u.id = o.user_id
+GROUP BY u.country
+HAVING SUM(o.amount) > 5000
+ORDER BY total_amount DESC;</code></pre>
+                                </details>
+                        </div>
+
+                        <div class="task-box" data-task-id="stage1-sql-window" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid var(--accent1);">
+                                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">📊 Задача 5: Оконная функция (ROW_NUMBER)</h4>
+                                <p style="margin-bottom: 16px;">Напишите запрос, который вернет <strong>последний заказ каждого пользователя</strong> из таблицы <code>orders(id, user_id, amount, created_at)</code> через оконную функцию <code>ROW_NUMBER()</code>.</p>
+
+                                <div class="answer-input-area">
+                                        <label>Ваш SQL:</label>
+                                        <textarea rows="9" class="answer-textarea" placeholder="WITH ranked AS (...) SELECT ..."></textarea>
+                                        <button class="check-answer-btn" onclick="checkAnswer(this)">Проверить мое решение</button>
+                                        <div class="check-result"></div>
+                                </div>
+
+                                <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
+                                        <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
+<pre style="background:#1e293b; padding:12px; border-radius:6px; margin-top: 12px; margin-bottom: 0; color:#e2e8f0; overflow-x: auto;"><code>WITH ranked AS (
+    SELECT
+        o.*,
+        ROW_NUMBER() OVER (
+            PARTITION BY o.user_id
+            ORDER BY o.created_at DESC
+        ) AS rn
+    FROM orders o
+)
+SELECT id, user_id, amount, created_at
+FROM ranked
+WHERE rn = 1;</code></pre>
+                                </details>
+                        </div>
+
+                        <div class="task-box" data-task-id="stage1-explain-analyze" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid var(--accent1);">
+                                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">📈 Задача 6: EXPLAIN ANALYZE и устранение Seq Scan</h4>
+                                <p style="margin-bottom: 16px;">Есть запрос <code>SELECT * FROM orders WHERE user_id = 42 AND created_at &gt;= '2026-01-01'</code> и план с <code>Seq Scan on orders</code>. Напишите, какие индексы добавите и как проверите улучшение через <code>EXPLAIN ANALYZE</code>.</p>
+
+                                <div class="answer-input-area">
+                                        <label>Ваш SQL и объяснение:</label>
+                                        <textarea rows="9" class="answer-textarea" placeholder="CREATE INDEX ...&#10;EXPLAIN ANALYZE ..."></textarea>
+                                        <button class="check-answer-btn" onclick="checkAnswer(this)">Проверить мое решение</button>
+                                        <div class="check-result"></div>
+                                </div>
+
+                                <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
+                                        <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
+<pre style="background:#1e293b; padding:12px; border-radius:6px; margin-top: 12px; margin-bottom: 0; color:#e2e8f0; overflow-x: auto;"><code>CREATE INDEX idx_orders_user_created_at
+ON orders (user_id, created_at);
+
+EXPLAIN ANALYZE
+SELECT *
+FROM orders
+WHERE user_id = 42
+    AND created_at >= '2026-01-01';
+
+-- Ожидаем переход с Seq Scan на Index Scan / Bitmap Index Scan
+-- и снижение фактического времени выполнения.</code></pre>
+                                </details>
+                        </div>
+
+                        <div class="task-box" data-task-id="stage1-index-strategy" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid var(--accent1);">
+                                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">🧠 Задача 7: Индекс-стратегия под аналитический workload</h4>
+                                <p style="margin-bottom: 16px;">Нужно ускорить отчет: фильтр по <code>status='paid'</code> и диапазону по <code>created_at</code>, группировка по <code>country</code>. Предложите набор индексов (включая partial/composite) и кратко объясните trade-off.</p>
+
+                                <div class="answer-input-area">
+                                        <label>Ваш ответ:</label>
+                                        <textarea rows="10" class="answer-textarea" placeholder="CREATE INDEX ...&#10;Пояснение ..."></textarea>
+                                        <button class="check-answer-btn" onclick="checkAnswer(this)">Проверить мое решение</button>
+                                        <div class="check-result"></div>
+                                </div>
+
+                                <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
+                                        <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
+<pre style="background:#1e293b; padding:12px; border-radius:6px; margin-top: 12px; margin-bottom: 0; color:#e2e8f0; overflow-x: auto;"><code>-- Часто используемый фильтр: только оплаченные заказы
+CREATE INDEX idx_orders_paid_created_at
+ON orders (created_at, country)
+WHERE status = 'paid';
+
+-- Для join/point lookup по пользователю
+CREATE INDEX idx_orders_user_id ON orders (user_id);
+
+-- Trade-off: ускоряем чтение отчетов, но замедляем INSERT/UPDATE
+-- из-за дополнительного обслуживания индексов.</code></pre>
+                                </details>
+                        </div>
+                </div>
+
+                <h3 style="font-size: 20px; font-weight: 600; margin-bottom: 16px; color: #fff;">Модуль 2: Docker и окружение</h3>
+                <div class="space-y-6" style="margin-bottom: 28px;">
+                        <div class="task-box" data-task-id="stage1-docker" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid var(--accent1);">
+                                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">🐳 Задача 8: Docker Compose + Image vs Container</h4>
                 <p style="margin-bottom: 16px;">Составьте минимальный <code>docker-compose.yml</code> для PostgreSQL с параметрами: база <code>dwh_db</code>, пользователь <code>admin</code>, пароль <code>1234</code>, порт <code>5432</code>. Ниже добавьте 1-2 предложения: чем <strong>Image</strong> отличается от <strong>Container</strong>.</p>
 
                 <div class="answer-input-area">
@@ -110,63 +218,13 @@ services:
 Image - это шаблон (чертеж).
 Container - это запущенный экземпляр image.</code></pre>
                 </details>
-            </div>
-
-            <div class="task-box" data-task-id="stage1-sql-agg" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid var(--accent1);">
-                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">🐘 Задача 2: JOIN + GROUP BY + HAVING</h4>
-                <p style="margin-bottom: 16px;">Есть таблицы <code>orders(id, user_id, amount)</code> и <code>users(id, country)</code>. Напишите запрос, который считает по каждой стране: количество заказов и суммарный объем продаж. Оставьте только страны, где сумма продаж больше 5000. Отсортируйте по сумме продаж по убыванию.</p>
-
-                <div class="answer-input-area">
-                    <label>Ваш SQL:</label>
-                    <textarea rows="8" class="answer-textarea" placeholder="SELECT ..."></textarea>
-                    <button class="check-answer-btn" onclick="checkAnswer(this)">Проверить мое решение</button>
-                    <div class="check-result"></div>
+                        </div>
                 </div>
 
-                <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
-                    <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
-<pre style="background:#1e293b; padding:12px; border-radius:6px; margin-top: 12px; margin-bottom: 0; color:#e2e8f0; overflow-x: auto;"><code>SELECT
-  u.country,
-  COUNT(*) AS orders_cnt,
-  SUM(o.amount) AS total_amount
-FROM orders o
-JOIN users u ON u.id = o.user_id
-GROUP BY u.country
-HAVING SUM(o.amount) > 5000
-ORDER BY total_amount DESC;</code></pre>
-                </details>
-            </div>
-
-            <div class="task-box" data-task-id="stage1-sql-window" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid var(--accent1);">
-                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">📊 Задача 3: Оконная функция (ROW_NUMBER)</h4>
-                <p style="margin-bottom: 16px;">Напишите запрос, который вернет <strong>последний заказ каждого пользователя</strong> из таблицы <code>orders(id, user_id, amount, created_at)</code> через оконную функцию <code>ROW_NUMBER()</code>.</p>
-
-                <div class="answer-input-area">
-                    <label>Ваш SQL:</label>
-                    <textarea rows="9" class="answer-textarea" placeholder="WITH ranked AS (...) SELECT ..."></textarea>
-                    <button class="check-answer-btn" onclick="checkAnswer(this)">Проверить мое решение</button>
-                    <div class="check-result"></div>
-                </div>
-
-                <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
-                    <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
-<pre style="background:#1e293b; padding:12px; border-radius:6px; margin-top: 12px; margin-bottom: 0; color:#e2e8f0; overflow-x: auto;"><code>WITH ranked AS (
-  SELECT
-    o.*,
-    ROW_NUMBER() OVER (
-      PARTITION BY o.user_id
-      ORDER BY o.created_at DESC
-    ) AS rn
-  FROM orders o
-)
-SELECT id, user_id, amount, created_at
-FROM ranked
-WHERE rn = 1;</code></pre>
-                </details>
-            </div>
-
-            <div class="task-box" data-task-id="stage1-dwh" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid var(--accent1);">
-                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">🏛️ Задача 4: STG / DDS / Fact / Dimension</h4>
+                <h3 style="font-size: 20px; font-weight: 600; margin-bottom: 16px; color: #fff;">Модуль 3: DWH и моделирование</h3>
+                <div class="space-y-6">
+                        <div class="task-box" data-task-id="stage1-dwh" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid var(--accent1);">
+                                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">🏛️ Задача 9: STG / DDS / Fact / Dimension</h4>
                 <p style="margin-bottom: 16px;">Представьте поток заказов из API. Опишите, что положите в <code>STG</code>, какие таблицы будут в <code>DDS</code> (минимум 1 факт и 2 измерения), и какие поля должны лежать в факте, а какие в измерениях.</p>
 
                 <div class="answer-input-area">
@@ -186,61 +244,8 @@ WHERE rn = 1;</code></pre>
                 </details>
             </div>
 
-            <div class="task-box" data-task-id="stage1-explain-analyze" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid var(--accent1);">
-                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">📈 Задача 5: EXPLAIN ANALYZE и устранение Seq Scan</h4>
-                <p style="margin-bottom: 16px;">Есть запрос <code>SELECT * FROM orders WHERE user_id = 42 AND created_at &gt;= '2026-01-01'</code> и план с <code>Seq Scan on orders</code>. Напишите, какие индексы добавите и как проверите улучшение через <code>EXPLAIN ANALYZE</code>.</p>
-
-                <div class="answer-input-area">
-                    <label>Ваш SQL и объяснение:</label>
-                    <textarea rows="9" class="answer-textarea" placeholder="CREATE INDEX ...&#10;EXPLAIN ANALYZE ..."></textarea>
-                    <button class="check-answer-btn" onclick="checkAnswer(this)">Проверить мое решение</button>
-                    <div class="check-result"></div>
-                </div>
-
-                <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
-                    <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
-<pre style="background:#1e293b; padding:12px; border-radius:6px; margin-top: 12px; margin-bottom: 0; color:#e2e8f0; overflow-x: auto;"><code>CREATE INDEX idx_orders_user_created_at
-ON orders (user_id, created_at);
-
-EXPLAIN ANALYZE
-SELECT *
-FROM orders
-WHERE user_id = 42
-  AND created_at >= '2026-01-01';
-
--- Ожидаем переход с Seq Scan на Index Scan / Bitmap Index Scan
--- и снижение фактического времени выполнения.</code></pre>
-                </details>
-            </div>
-
-            <div class="task-box" data-task-id="stage1-index-strategy" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid var(--accent1);">
-                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">🧠 Задача 6: Индекс-стратегия под аналитический workload</h4>
-                <p style="margin-bottom: 16px;">Нужно ускорить отчет: фильтр по <code>status='paid'</code> и диапазону по <code>created_at</code>, группировка по <code>country</code>. Предложите набор индексов (включая partial/composite) и кратко объясните trade-off.</p>
-
-                <div class="answer-input-area">
-                    <label>Ваш ответ:</label>
-                    <textarea rows="10" class="answer-textarea" placeholder="CREATE INDEX ...&#10;Пояснение ..."></textarea>
-                    <button class="check-answer-btn" onclick="checkAnswer(this)">Проверить мое решение</button>
-                    <div class="check-result"></div>
-                </div>
-
-                <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
-                    <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
-<pre style="background:#1e293b; padding:12px; border-radius:6px; margin-top: 12px; margin-bottom: 0; color:#e2e8f0; overflow-x: auto;"><code>-- Часто используемый фильтр: только оплаченные заказы
-CREATE INDEX idx_orders_paid_created_at
-ON orders (created_at, country)
-WHERE status = 'paid';
-
--- Для join/point lookup по пользователю
-CREATE INDEX idx_orders_user_id ON orders (user_id);
-
--- Trade-off: ускоряем чтение отчетов, но замедляем INSERT/UPDATE
--- из-за дополнительного обслуживания индексов.</code></pre>
-                </details>
-            </div>
-
             <div class="task-box" data-task-id="stage1-scd2-merge" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid var(--accent1);">
-                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">🧩 Задача 7: SCD Type 2 для dim_user</h4>
+                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">🧩 Задача 10: SCD Type 2 для dim_user</h4>
                 <p style="margin-bottom: 16px;">Есть <code>dim_user(user_id, city, valid_from, valid_to, is_current)</code>. При изменении города у пользователя нужно закрыть текущую запись и вставить новую. Напишите SQL-шаблон.</p>
 
                 <div class="answer-input-area">
@@ -269,8 +274,10 @@ COMMIT;</code></pre>
         </div>
 
         <h2 style="font-size: 26px; font-weight: 600; margin-top: 48px; margin-bottom: 24px; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px;">Практические Задачи (Этап 2)</h2>
+        <p style="margin-bottom: 20px; color:#cbd5e1;">Этап 2 также упорядочен по модулям: сначала базовый сбор/загрузка, затем устойчивость и оркестрация.</p>
 
         <div class="space-y-6">
+            <h3 style="font-size: 20px; font-weight: 600; margin-bottom: 16px; color: #fff;">Модуль 1: Интеграции и базовые загрузки</h3>
             <div class="task-box" data-task-id="stage2-api" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid var(--accent1);">
                 <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">💻 Задача 1: Получение данных по API</h4>
                 <p style="margin-bottom: 16px;">Напишите скрипт на Python с библиотекой <code>requests</code>, который обращается к API CoinCap (<code>https://api.coincap.io/v2/assets/bitcoin</code>) и выводит <code>priceUsd</code>.</p>
@@ -355,6 +362,8 @@ COPY etl.py .
 CMD ["python", "etl.py"]</code></pre>
                 </details>
             </div>
+
+            <h3 style="font-size: 20px; font-weight: 600; margin-top: 8px; margin-bottom: 16px; color: #fff;">Модуль 2: Надежность и оркестрация</h3>
 
             <div class="task-box" data-task-id="stage2-async-retry" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid var(--accent1);">
                 <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">⚡ Задача 4: Async API + Exponential Backoff</h4>
@@ -455,9 +464,11 @@ class TransactionEvent(BaseModel):
         </div>
 
         <h2 style="font-size: 26px; font-weight: 600; margin-top: 48px; margin-bottom: 24px; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px;">Практические Задачи (Этап 3)</h2>
+        <p style="margin-bottom: 20px; color:#cbd5e1;">Этап 3 идет по трем блокам: сначала ETL на Spark, затем оптимизации производительности, потом диагностика и отладка.</p>
 
         <!-- Project 1 (Stage 3) -->
         <div class="space-y-6">
+            <h3 style="font-size: 20px; font-weight: 600; margin-bottom: 16px; color: #fff;">Модуль 1: Spark ETL фундамент</h3>
             <div class="task-box" data-task-id="stage3-pyspark-etl" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid var(--accent3);">
                 <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">💻 Проект 1: PySpark Streaming / Batch ETL</h4>
                 <p style="margin-bottom: 16px;"><strong>Цель:</strong> Написать скрипт на PySpark, который читает CSV файл (<code>events.csv</code>), оставляет только события 'purchase', группирует по 'user_id' и считает сумму покупок, затем сохраняет результат в Parquet партиционированно по 'date'.</p>
@@ -497,6 +508,8 @@ result.write.partitionBy("date").mode("overwrite").parquet("output_data/")
 spark.stop()</code></pre>
                 </details>
             </div>
+
+            <h3 style="font-size: 20px; font-weight: 600; margin-top: 8px; margin-bottom: 16px; color: #fff;">Модуль 2: Оптимизация Spark</h3>
 
             <div class="task-box" data-task-id="stage3-broadcast-join" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid var(--accent3);">
                 <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">🚀 Проект 2: Broadcast Join для маленького справочника</h4>
@@ -549,6 +562,8 @@ result = part_agg.withColumn("city", col("city_salted").substr(1, 100)) \
                 </details>
             </div>
 
+            <h3 style="font-size: 20px; font-weight: 600; margin-top: 8px; margin-bottom: 16px; color: #fff;">Модуль 3: Диагностика и тюнинг</h3>
+
             <div class="task-box" data-task-id="stage3-plan-debug" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid var(--accent3);">
                 <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">🔍 Проект 4: Диагностика физического плана Spark</h4>
                 <p style="margin-bottom: 16px;">Напишите фрагмент кода, который показывает физический план, количество партиций после shuffle и включает AQE для тяжелого джойна.</p>
@@ -576,9 +591,11 @@ print("shuffle partitions:", spark.conf.get("spark.sql.shuffle.partitions"))
         </div>
 
         <h2 style="font-size: 26px; font-weight: 600; margin-top: 48px; margin-bottom: 24px; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px;">Практические Задачи (Этап 4)</h2>
+        <p style="margin-bottom: 20px; color:#cbd5e1;">Этап 4 идет как на реальном стриминговом проекте: producer/consumer надежность, контракты схем, затем оконные real-time расчеты.</p>
 
         <!-- Project 1 (Stage 4) -->
         <div class="space-y-6">
+            <h3 style="font-size: 20px; font-weight: 600; margin-bottom: 16px; color: #fff;">Модуль 1: Поток и доставка</h3>
             <div class="task-box" data-task-id="stage4-kafka-streaming" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid #a855f7;">
                 <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">💻 Проект 1: Kafka Producer & Data Quality</h4>
                 <p style="margin-bottom: 16px;"><strong>Цель:</strong> Написать Kafka Producer на Python, который симулирует поток транзакций. Перед отправкой скрипт валидирует данные (DQ check): сумма (amount) должна быть > 0. Если данные невалидны — они отбрасываются.</p>
@@ -659,6 +676,8 @@ for msg in consumer:
                 </details>
             </div>
 
+            <h3 style="font-size: 20px; font-weight: 600; margin-top: 8px; margin-bottom: 16px; color: #fff;">Модуль 2: Data Contracts</h3>
+
             <div class="task-box" data-task-id="stage4-schema-registry" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid #a855f7;">
                 <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">📜 Проект 3: Data Contract через Schema Registry</h4>
                 <p style="margin-bottom: 16px;">Опишите схему события заказа (Avro/JSON Schema) и правила совместимости, чтобы случайное удаление поля не ломало downstream.</p>
@@ -687,6 +706,8 @@ Compatibility: BACKWARD
 Правило: новые поля добавлять только с default, существующие не удалять без миграции.</code></pre>
                 </details>
             </div>
+
+            <h3 style="font-size: 20px; font-weight: 600; margin-top: 8px; margin-bottom: 16px; color: #fff;">Модуль 3: Streaming аналитика</h3>
 
             <div class="task-box" data-task-id="stage4-streaming-window" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid #a855f7;">
                 <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">🌊 Проект 4: Window + Watermark в Spark Streaming</h4>
@@ -718,9 +739,11 @@ query = agg.writeStream.outputMode("append").format("console").start()</code></p
         </div>
 
         <h2 style="font-size: 26px; font-weight: 600; margin-top: 48px; margin-bottom: 24px; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px;">Практические Задачи (Этап 5)</h2>
+        <p style="margin-bottom: 20px; color:#cbd5e1;">Этап 5 закрывает финальные компетенции: моделирование, системный дизайн и сценарии промышленной интеграции данных.</p>
 
         <!-- Project 1 (Stage 5) -->
         <div class="space-y-6">
+            <h3 style="font-size: 20px; font-weight: 600; margin-bottom: 16px; color: #fff;">Модуль 1: Моделирование и витрины</h3>
             <div class="task-box" data-task-id="stage5-data-modeling" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid #ef4444;">
                 <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">💻 Проект 1: Моделирование данных (Star Schema)</h4>
                 <p style="margin-bottom: 16px;"><strong>Цель:</strong> Написать DDL-скрипты на SQL для создания модели «Звезда» (Star Schema) под аналитику продаж. Из денормализованных «сырых» данных о продажах создайте одну Таблицу Фактов (Sales Fact) и две Таблицы Измерений (Products Dim, Time Dim).</p>
@@ -765,6 +788,8 @@ CREATE TABLE fact_sales (
                 </details>
             </div>
 
+            <h3 style="font-size: 20px; font-weight: 600; margin-top: 8px; margin-bottom: 16px; color: #fff;">Модуль 2: System Design</h3>
+
             <div class="task-box" data-task-id="stage5-lakehouse-design" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid #ef4444;">
                 <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">🏗️ Проект 2: System Design Lakehouse</h4>
                 <p style="margin-bottom: 16px;">Спроектируйте high-level архитектуру: <code>S3 + Kafka + Spark + Iceberg + ClickHouse + BI</code>. Укажите слои данных, контроль качества и стратегию восстановления после сбоев.</p>
@@ -787,6 +812,8 @@ CREATE TABLE fact_sales (
                     </p>
                 </details>
             </div>
+
+            <h3 style="font-size: 20px; font-weight: 600; margin-top: 8px; margin-bottom: 16px; color: #fff;">Модуль 3: Производительность и CDC</h3>
 
             <div class="task-box" data-task-id="stage5-clickhouse-tuning" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid #ef4444;">
                 <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">📊 Проект 3: ClickHouse таблица под быстрые отчеты</h4>

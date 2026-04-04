@@ -1,0 +1,54 @@
+<div class="page-content">
+    <div class="page-header">
+        <h1 class="page-title">Режим <span>Собеседование</span></h1>
+        <p class="page-desc">Симуляция middle DE интервью: 15 смешанных вопросов по SQL, Python, Spark, Kafka и System Design. Рекомендуем закрывать 70%+ сессии по качеству ответов и уверенности.</p>
+    </div>
+
+    <div class="card" style="margin-bottom: 20px;">
+        <div class="interview-toolbar">
+            <div style="display:flex; flex-wrap:wrap; gap:10px;">
+                <button id="interview-generate-btn" class="btn">Сгенерировать сессию (15)</button>
+                <button id="interview-start-btn" class="btn">Старт таймера 45 мин</button>
+                <button id="interview-reset-btn" class="btn btn-secondary">Сбросить сессию</button>
+            </div>
+            <div class="interview-timer" id="interview-timer">45:00</div>
+        </div>
+
+        <div class="interview-meta" style="margin-top: 12px;">
+            <span id="interview-progress-label">Прогресс: 0/0</span>
+            <span id="interview-confidence-label">Уверенных ответов: 0</span>
+            <span id="interview-ready-label">Готовность: 0%</span>
+        </div>
+
+        <div class="progress-bar" style="margin-top: 10px;">
+            <div class="progress-fill" id="interview-progress-bar" style="width: 0%;"></div>
+        </div>
+    </div>
+
+    <div class="card" style="margin-bottom: 20px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom: 12px;">
+            <div id="interview-counter" style="color: var(--text-dim); font-size: 12px;">Вопрос 0/0</div>
+            <div id="interview-stage-pill" class="interview-stage-pill">Этап</div>
+        </div>
+
+        <h3 id="interview-question-text" class="card-title" style="font-size: 18px; line-height: 1.5; margin-bottom: 10px;">Нажмите «Сгенерировать сессию», чтобы начать.</h3>
+
+        <div class="answer-input-area" style="margin-top: 8px;">
+            <label for="interview-answer">Ваш ответ:</label>
+            <textarea id="interview-answer" rows="10" class="answer-textarea" placeholder="Ответьте так, как на реальном собеседовании: структура, trade-offs, риски, метрики."></textarea>
+        </div>
+
+        <div class="interview-actions">
+            <button id="interview-prev-btn" class="btn btn-secondary">Назад</button>
+            <button id="interview-next-btn" class="btn">Следующий</button>
+            <button id="interview-confidence-btn" class="btn btn-secondary">Отметить как уверенный ответ</button>
+            <button id="interview-finish-btn" class="btn">Завершить и оценить</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3 class="card-title" style="font-size: 18px;">Итоги сессии</h3>
+        <p id="interview-score" class="card-text">Пока нет результатов. Пройдите минимум 1 сессию.</p>
+        <p id="interview-summary" class="card-text" style="margin-top: 10px; color: var(--text-dim);">Оценка условная и нужна как ориентир по знаниям, а не гарантия оффера.</p>
+    </div>
+</div>
