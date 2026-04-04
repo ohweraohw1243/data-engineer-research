@@ -120,9 +120,9 @@
         ];
 
         const TASK_BANK_MANIFEST_SOURCE = 'data/tasks-manifest.json';
-        const TASK_BANK_CACHE_BUST = '2';
+        const TASK_BANK_CACHE_BUST = '3';
         const QUESTIONS_CONTENT_SOURCE = 'data/questions-content.html';
-        const CODING_CONTENT_SOURCE = 'data/coding-content.html';
+        const CODING_CONTENT_SOURCE = 'data/coding-content-ai.html';
         const INTERVIEW_QUESTION_BANK_SOURCE = 'data/interview-questions.json';
         const INTERVIEW_MIN_BANK_SIZE = 25;
         const INTERVIEW_STAGE_ORDER = ['stage1', 'stage2', 'stage3', 'stage4', 'stage5'];
@@ -452,7 +452,7 @@
             if (!note) return;
 
             if (!aiModeEnabled) {
-                note.textContent = 'Показываются исходные и сгенерированные задачи.';
+                note.textContent = 'Показывается AI-каркас этапов и все сгенерированные задачи.';
                 return;
             }
 
@@ -462,7 +462,7 @@
             }
 
             if (!getGitHubModelsToken()) {
-                note.textContent = 'AI-режим включен, но токен не задан. Пока показываются исходные задачи.';
+                note.textContent = 'AI-режим включен, но токен не задан. Укажите токен и сгенерируйте задачи.';
                 return;
             }
 
