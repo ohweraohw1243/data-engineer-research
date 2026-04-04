@@ -89,6 +89,8 @@
             stage5: 70
         };
 
+        const ANSWER_STATUS_STORAGE_KEY = 'streamflow_answer_status';
+
         const INTERVIEW_QUESTION_BANK = [
             { id: 'int-s1-1', stage: 'stage1', prompt: 'Как вы оптимизируете запрос с Seq Scan на таблице 300M строк: какие индексы и как проверите результат?' },
             { id: 'int-s1-2', stage: 'stage1', prompt: 'Объясните разницу между CTE, подзапросом и materialized view в контексте аналитики.' },
@@ -499,30 +501,64 @@
             }
         }
 
+        function getAnswerStatusMap() {
+            try {
+                const raw = JSON.parse(localStorage.getItem(ANSWER_STATUS_STORAGE_KEY) || '{}');
+                return raw && typeof raw === 'object' ? raw : {};
+            } catch (error) {
+                console.warn('Не удалось прочитать статусы ответов:', error);
+                return {};
+            }
+        }
+
+        function setAnswerStatus(taskId, status) {
+            if (!taskId) return;
+            const statuses = getAnswerStatusMap();
+            statuses[taskId] = status;
+            localStorage.setItem(ANSWER_STATUS_STORAGE_KEY, JSON.stringify(statuses));
+        }
+
+        function clearAnswerStatus(taskId) {
+            if (!taskId) return;
+            const statuses = getAnswerStatusMap();
+            if (Object.prototype.hasOwnProperty.call(statuses, taskId)) {
+                delete statuses[taskId];
+                localStorage.setItem(ANSWER_STATUS_STORAGE_KEY, JSON.stringify(statuses));
+            }
+        }
+
         function getStageProgress(stageTab) {
             const tasks = STAGE_TASKS[stageTab] || [];
-            const answers = getSavedAnswersMap();
-            const answeredIds = new Set(
+            const statuses = getAnswerStatusMap();
+            const confirmedIds = new Set(
                 tasks
                     .filter(task => {
-                        const value = answers[task.id];
-                        return typeof value === 'string' && value.trim().length > 0;
+                        return statuses[task.id] === 'correct';
+                    })
+                    .map(task => task.id)
+            );
+            const partialIds = new Set(
+                tasks
+                    .filter(task => {
+                        return statuses[task.id] === 'partial';
                     })
                     .map(task => task.id)
             );
 
             const total = tasks.length;
-            const answered = answeredIds.size;
+            const answered = confirmedIds.size;
+            const partial = partialIds.size;
             const percent = total === 0 ? 0 : Math.round((answered / total) * 100);
             const requiredPercent = STAGE_READY_THRESHOLD[stageTab] || 100;
 
             return {
                 total,
                 answered,
+                partial,
                 percent,
                 requiredPercent,
                 ready: total > 0 && percent >= requiredPercent,
-                missingTasks: tasks.filter(task => !answeredIds.has(task.id))
+                missingTasks: tasks.filter(task => !confirmedIds.has(task.id))
             };
         }
 
@@ -547,8 +583,8 @@
                 badge.classList.toggle('is-ready', progress.ready);
                 badge.classList.toggle('is-not-ready', !progress.ready);
                 badge.title = progress.ready
-                    ? `Этап закрыт: ${progress.answered}/${progress.total}`
-                    : `Этап в работе: ${progress.answered}/${progress.total}`;
+                    ? `Этап закрыт: ${progress.answered}/${progress.total} (частично: ${progress.partial})`
+                    : `Этап в работе: ${progress.answered}/${progress.total} (частично: ${progress.partial})`;
 
                 titleSpan.classList.toggle('stage-label-ready', progress.ready);
                 titleSpan.classList.toggle('stage-label-not-ready', !progress.ready);
@@ -598,7 +634,8 @@
                     <span class="stage-readiness-badge ${statusClass}">${stageProgress.ready ? 'Можно идти дальше' : 'Пока рано переходить'}</span>
                 </div>
                 <p class="stage-readiness-text">
-                    Практика этапа: <strong>${stageProgress.answered}/${stageProgress.total}</strong>.
+                    Подтверждено задач: <strong>${stageProgress.answered}/${stageProgress.total}</strong>.
+                    Частично: <strong>${stageProgress.partial}</strong>.
                     Порог перехода: <strong>${stageProgress.requiredPercent}%</strong>.
                 </p>
                 <div class="progress-bar stage-readiness-progress">
@@ -902,6 +939,7 @@
         function checkAnswer(btn) {
             const container = btn.closest('.card, .task-box');
             if (!container) return;
+            const taskId = container.getAttribute('data-task-id');
             const textarea = container.querySelector('.answer-textarea');
             const resultDiv = container.querySelector('.check-result');
             const expectedAnswer = getExpectedAnswer(container);
@@ -909,6 +947,8 @@
 
             if (!textarea || !userAnswer) {
                 showResultMessage(resultDiv, 'incorrect', '⚠️ Пожалуйста, напишите свой ответ');
+                setAnswerStatus(taskId, 'incorrect');
+                updateAnswerProgress();
                 return;
             }
 
@@ -916,39 +956,55 @@
             const normalizedUser = normalizeSQL(userAnswer);
             const normalizedExpected = normalizeSQL(expectedAnswer);
 
+            if (normalizedUser.length < 24) {
+                showResultMessage(resultDiv, 'incorrect',
+                    '❌ Ответ слишком короткий для зачета. Нужен полноценный запрос/код с логикой решения.');
+                textarea.style.borderColor = 'var(--red)';
+                setAnswerStatus(taskId, 'incorrect');
+                updateAnswerProgress();
+                return;
+            }
+
+            const similarity = normalizedExpected
+                ? calculateSimilarity(normalizedUser, normalizedExpected)
+                : 0;
+
             // Точное совпадение
-            if (normalizedUser === normalizedExpected) {
+            if (normalizedExpected && (normalizedUser === normalizedExpected || similarity >= 0.9)) {
                 showResultMessage(resultDiv, 'correct', 
                     '✅ Отлично! Ваш ответ совпадает с правильным решением.');
                 textarea.style.borderColor = 'var(--accent1)';
+                setAnswerStatus(taskId, 'correct');
                 updateAnswerProgress();
                 return;
             }
 
             // Проверка на частичное совпадение (основные компоненты)
-            const similarity = calculateSimilarity(normalizedUser, normalizedExpected);
-            if (similarity > 0.7) {
+            if (normalizedExpected && similarity >= 0.65 && normalizedUser.length >= 60) {
                 showResultMessage(resultDiv, 'partial', 
                     `⚠️ Похоже! Сходство ${Math.round(similarity * 100)}%. Но есть небольшие различия.<br>Подсказка: Проверьте синтаксис, названия функций и порядок условий.`);
                 textarea.style.borderColor = 'var(--accent3)';
+                setAnswerStatus(taskId, 'partial');
                 updateAnswerProgress();
                 return;
             }
 
             // Проверка наличия ключевых элементов
             const keywordsFound = findKeywords(userAnswer);
-            if (keywordsFound.length > 0) {
+            if (keywordsFound.length >= 3 && normalizedUser.length >= 80) {
                 showResultMessage(resultDiv, 'partial', 
                     `⚠️ Направление правильное! Вы используете ${keywordsFound.join(', ')}.<br>Но нужно еще доработать логику. Нажмите "Показать решение" для подсказки.`);
                 textarea.style.borderColor = 'var(--accent3)';
+                setAnswerStatus(taskId, 'partial');
                 updateAnswerProgress();
                 return;
             }
 
             // Ответ неправильный
             showResultMessage(resultDiv, 'incorrect',
-                '❌ Это не совпадает с правильным ответом.<br>💡 Подсказка: Нажмите "Подсказка" чтобы узнать, какой использовать подход.');
+                '❌ Это не совпадает с правильным ответом.<br>💡 Подсказка: Нажмите "Подсказка" чтобы узнать подход к решению.');
             textarea.style.borderColor = 'var(--red)';
+            setAnswerStatus(taskId, 'incorrect');
             updateAnswerProgress();
         }
 
@@ -1051,15 +1107,42 @@
                 }
             });
 
+            const persistAnswer = () => {
+                const taskId = container.getAttribute('data-task-id');
+                if (!taskId) return;
+                const answers = JSON.parse(localStorage.getItem('userAnswers') || '{}');
+                answers[taskId] = textarea.value;
+                localStorage.setItem('userAnswers', JSON.stringify(answers));
+            };
+
+            const clearCheckedStateOnEdit = () => {
+                const taskId = container.getAttribute('data-task-id');
+                if (!taskId) return;
+
+                const statuses = getAnswerStatusMap();
+                if (!Object.prototype.hasOwnProperty.call(statuses, taskId)) return;
+
+                clearAnswerStatus(taskId);
+
+                const resultDiv = container.querySelector('.check-result');
+                if (resultDiv) {
+                    resultDiv.className = 'check-result';
+                    resultDiv.innerHTML = '';
+                }
+
+                textarea.style.borderColor = 'var(--border)';
+                updateAnswerProgress();
+            };
+
+            textarea.addEventListener('input', () => {
+                persistAnswer();
+                clearCheckedStateOnEdit();
+            });
+
             // Автосохранение ответа в localStorage
             textarea.addEventListener('change', () => {
-                const taskId = container.getAttribute('data-task-id');
-                if (taskId) {
-                    const answers = JSON.parse(localStorage.getItem('userAnswers') || '{}');
-                    answers[taskId] = textarea.value;
-                    localStorage.setItem('userAnswers', JSON.stringify(answers));
-                    updateAnswerProgress();
-                }
+                persistAnswer();
+                clearCheckedStateOnEdit();
             });
         }
 
