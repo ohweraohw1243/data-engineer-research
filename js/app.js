@@ -127,6 +127,8 @@
         const INTERVIEW_MIN_BANK_SIZE = 25;
         const INTERVIEW_STAGE_ORDER = ['stage1', 'stage2', 'stage3', 'stage4', 'stage5'];
         const LIVE_CODING_GENERATED_TITLES_STORAGE_KEY = 'streamflow_generated_task_titles_v1';
+        const LIVE_CODING_SECTION_FILTER_STORAGE_KEY = 'streamflow_coding_section_filter_v1';
+        const LIVE_CODING_SECTION_FILTER_ALL = 'all';
         const LIVE_CODING_STAGE_MODEL_LABELS = {
             1: 'SQL',
             2: 'Python',
@@ -354,6 +356,165 @@
                 && node.tagName === 'H2'
                 && /Практические\s+Задачи\s*\(Этап\s*\d+\)/i.test(node.textContent || '')
             );
+        }
+
+        function isCodingSectionHeadingElement(node) {
+            return Boolean(
+                node
+                && node.tagName === 'H2'
+                && /Практические\s+Задачи\s*\((Этап\s*\d+|Математика[^)]*)\)/i.test(node.textContent || '')
+            );
+        }
+
+        function getCodingSectionKeyFromHeading(headingText, fallbackIndex = 0) {
+            const text = String(headingText || '');
+            const stageMatch = text.match(/Этап\s*(\d+)/i);
+            if (stageMatch) {
+                return `stage${stageMatch[1]}`;
+            }
+
+            if (/матем/i.test(text)) {
+                return 'math';
+            }
+
+            return `section-${fallbackIndex}`;
+        }
+
+        function getCodingSectionLabelFromHeading(headingText, fallbackIndex = 0) {
+            const text = String(headingText || '');
+            const stageMatch = text.match(/Этап\s*(\d+)/i);
+            if (stageMatch) {
+                return `Этап ${stageMatch[1]}`;
+            }
+
+            if (/матем/i.test(text)) {
+                return 'Математика';
+            }
+
+            return `Раздел ${fallbackIndex + 1}`;
+        }
+
+        function collectCodingSections(root) {
+            if (!root) return [];
+
+            const headings = Array.from(root.querySelectorAll('h2'))
+                .filter(isCodingSectionHeadingElement);
+
+            return headings.map((heading, index) => {
+                const nodes = [heading];
+
+                let pointer = heading.nextElementSibling;
+                while (pointer && !isCodingSectionHeadingElement(pointer)) {
+                    nodes.push(pointer);
+                    pointer = pointer.nextElementSibling;
+                }
+
+                return {
+                    key: getCodingSectionKeyFromHeading(heading.textContent, index),
+                    label: getCodingSectionLabelFromHeading(heading.textContent, index),
+                    heading,
+                    nodes
+                };
+            });
+        }
+
+        function getStoredCodingSectionFilter() {
+            try {
+                return String(localStorage.getItem(LIVE_CODING_SECTION_FILTER_STORAGE_KEY) || LIVE_CODING_SECTION_FILTER_ALL)
+                    .trim()
+                    .toLowerCase() || LIVE_CODING_SECTION_FILTER_ALL;
+            } catch (error) {
+                return LIVE_CODING_SECTION_FILTER_ALL;
+            }
+        }
+
+        function saveStoredCodingSectionFilter(filterKey) {
+            try {
+                localStorage.setItem(
+                    LIVE_CODING_SECTION_FILTER_STORAGE_KEY,
+                    String(filterKey || LIVE_CODING_SECTION_FILTER_ALL).trim().toLowerCase()
+                );
+            } catch (error) {
+                // noop
+            }
+        }
+
+        function applyCodingSectionFilter(root, sectionKey) {
+            const sections = collectCodingSections(root);
+            if (sections.length === 0) return;
+
+            const normalized = String(sectionKey || LIVE_CODING_SECTION_FILTER_ALL)
+                .trim()
+                .toLowerCase() || LIVE_CODING_SECTION_FILTER_ALL;
+
+            sections.forEach(section => {
+                const visible = normalized === LIVE_CODING_SECTION_FILTER_ALL || section.key === normalized;
+                section.nodes.forEach(node => {
+                    node.style.display = visible ? '' : 'none';
+                });
+            });
+
+            saveStoredCodingSectionFilter(normalized);
+        }
+
+        function ensureCodingPracticeSelector(root) {
+            if (!root) return;
+
+            const sections = collectCodingSections(root);
+            if (sections.length === 0) return;
+
+            const contentContainer = root.querySelector('.page-content') || root;
+            const pageHeader = contentContainer.querySelector('.page-header');
+            if (!pageHeader) return;
+
+            const existing = contentContainer.querySelector('.coding-practice-switcher');
+            if (existing) {
+                const existingSelect = existing.querySelector('.coding-practice-select');
+                if (existingSelect) {
+                    const selected = getStoredCodingSectionFilter();
+                    const hasOption = Array.from(existingSelect.options).some(option => option.value === selected);
+                    existingSelect.value = hasOption ? selected : LIVE_CODING_SECTION_FILTER_ALL;
+                    applyCodingSectionFilter(root, existingSelect.value);
+                }
+                return;
+            }
+
+            const switcher = document.createElement('div');
+            switcher.className = 'coding-practice-switcher';
+
+            const label = document.createElement('label');
+            label.className = 'coding-practice-label';
+            label.textContent = 'Показать практику:';
+
+            const select = document.createElement('select');
+            select.className = 'coding-practice-select';
+            select.setAttribute('aria-label', 'Выбор раздела практики');
+
+            const allOption = document.createElement('option');
+            allOption.value = LIVE_CODING_SECTION_FILTER_ALL;
+            allOption.textContent = 'Все разделы';
+            select.appendChild(allOption);
+
+            sections.forEach(section => {
+                const option = document.createElement('option');
+                option.value = section.key;
+                option.textContent = section.label;
+                select.appendChild(option);
+            });
+
+            select.addEventListener('change', () => {
+                applyCodingSectionFilter(root, select.value);
+            });
+
+            const stored = getStoredCodingSectionFilter();
+            const hasStoredOption = Array.from(select.options).some(option => option.value === stored);
+            select.value = hasStoredOption ? stored : LIVE_CODING_SECTION_FILTER_ALL;
+
+            switcher.appendChild(label);
+            switcher.appendChild(select);
+            pageHeader.insertAdjacentElement('afterend', switcher);
+
+            applyCodingSectionFilter(root, select.value);
         }
 
         function extractStageNumberFromHeading(headingText) {
@@ -1348,6 +1509,7 @@
 
                 syncGeneratedTaskTitlesFromCodingDom(root);
                 attachCodingStageGenerationControls(root);
+                ensureCodingPracticeSelector(root);
 
                 if (typeof ensureTaskHints !== 'undefined') ensureTaskHints(root);
                 if (typeof setupAnswerField !== 'undefined') {
