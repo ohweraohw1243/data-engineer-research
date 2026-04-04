@@ -120,7 +120,9 @@
         ];
 
         const TASK_BANK_MANIFEST_SOURCE = 'data/tasks-manifest.json';
-        const TASK_BANK_CACHE_BUST = '1';
+        const TASK_BANK_CACHE_BUST = '2';
+        const QUESTIONS_CONTENT_SOURCE = 'data/questions-content.html';
+        const CODING_CONTENT_SOURCE = 'data/coding-content.html';
         const INTERVIEW_QUESTION_BANK_SOURCE = 'data/interview-questions.json';
         const INTERVIEW_MIN_BANK_SIZE = 25;
         const INTERVIEW_STAGE_ORDER = ['stage1', 'stage2', 'stage3', 'stage4', 'stage5'];
@@ -255,6 +257,33 @@
             return Number.isFinite(configuredMinItems) && configuredMinItems > 0
                 ? Math.floor(configuredMinItems)
                 : fallbackMinItems;
+        }
+
+        async function loadTaskBankSectionText(sectionName, fallbackSource, forceReload = false) {
+            await loadTaskBankManifest(forceReload);
+
+            const preferredUrl = withCacheBust(getTaskBankSectionUrl(sectionName, fallbackSource));
+            const fallbackUrl = withCacheBust(resolveTaskSourceUrl(fallbackSource));
+            const candidates = [preferredUrl, fallbackUrl]
+                .filter(Boolean)
+                .filter((value, index, arr) => arr.indexOf(value) === index);
+
+            let lastError = null;
+
+            for (const url of candidates) {
+                try {
+                    const response = await fetch(url);
+                    if (!response.ok) {
+                        throw new Error(`Не удалось загрузить раздел ${sectionName}: ${response.status}`);
+                    }
+                    return await response.text();
+                } catch (error) {
+                    lastError = error;
+                    console.warn(`Ошибка загрузки ${sectionName} из ${url}:`, error);
+                }
+            }
+
+            throw lastError || new Error(`Не удалось загрузить раздел ${sectionName}`);
         }
 
         function pickRandomQuestions(items, count) {
@@ -854,6 +883,42 @@
             renderInterviewState();
         }
 
+        async function initQuestionsSection() {
+            const root = document.getElementById('questions-content-root');
+            if (!root) return;
+
+            root.innerHTML = '<div style="text-align:center; color: var(--text-dim); margin-top: 24px;">Загрузка вопросов...</div>';
+
+            try {
+                const html = await loadTaskBankSectionText('questions', QUESTIONS_CONTENT_SOURCE);
+                root.innerHTML = html;
+            } catch (error) {
+                console.error('Не удалось загрузить контент вопросов:', error);
+                root.innerHTML = '<div style="text-align:center; color: var(--red); margin-top: 24px;">Не удалось загрузить вопросы. Попробуйте обновить страницу.</div>';
+            }
+        }
+
+        async function initCodingSection() {
+            const root = document.getElementById('coding-content-root');
+            if (!root) return;
+
+            root.innerHTML = '<div style="text-align:center; color: var(--text-dim); margin-top: 24px;">Загрузка практики...</div>';
+
+            try {
+                const html = await loadTaskBankSectionText('coding', CODING_CONTENT_SOURCE);
+                root.innerHTML = html;
+
+                if (typeof ensureTaskHints !== 'undefined') ensureTaskHints(root);
+                if (typeof setupAnswerField !== 'undefined') {
+                    root.querySelectorAll('[data-task-id]').forEach(setupAnswerField);
+                }
+                if (typeof loadSavedAnswers !== 'undefined') loadSavedAnswers();
+            } catch (error) {
+                console.error('Не удалось загрузить контент лайв-кодинга:', error);
+                root.innerHTML = '<div style="text-align:center; color: var(--red); margin-top: 24px;">Не удалось загрузить задания лайв-кодинга. Попробуйте обновить страницу.</div>';
+            }
+        }
+
         function isStageTab(tabId) {
             return Object.prototype.hasOwnProperty.call(STAGE_TASKS, tabId);
         }
@@ -1203,6 +1268,8 @@
                 }
                 if (typeof loadSavedAnswers !== 'undefined') loadSavedAnswers();
                 if (tabId === 'interview') initInterviewSection();
+                if (tabId === 'questions') await initQuestionsSection();
+                if (tabId === 'coding') await initCodingSection();
                 if (typeof updateAnswerProgress !== 'undefined') updateAnswerProgress();
                 saveProgress();
                 

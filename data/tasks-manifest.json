@@ -2,9 +2,15 @@
   "schemaVersion": "1.0.0",
   "generatedAt": "2026-04-05T00:00:00Z",
   "sections": {
+    "coding": {
+      "url": "data/coding-content.html"
+    },
     "interview": {
       "url": "data/interview-questions.json",
       "minItems": 25
+    },
+    "questions": {
+      "url": "data/questions-content.html"
     }
   }
 }
