@@ -177,6 +177,160 @@
             'Моделирование и Качество данных'
         ];
         const QUESTIONS_AI_GENERATOR_SYSTEM_PROMPT = 'Ты создаешь вопросы для подготовки к собеседованию Data Engineer. Пиши на русском языке. Отвечай только валидным JSON без markdown и без текста вне JSON.';
+        const LIVE_CODING_LOCAL_FALLBACK_TASK_POOL = {
+            1: [
+                {
+                    title: 'Оконная аналитика по заказам',
+                    description: 'Рассчитайте для каждого пользователя номер заказа по дате и cumulative сумму покупок.',
+                    tables: 'orders(order_id, user_id, amount, created_at)',
+                    placeholder: 'WITH ranked AS (...) SELECT ...',
+                    hint: 'Используйте ROW_NUMBER() и SUM() OVER(PARTITION BY ... ORDER BY ...).',
+                    solution: 'SELECT\n  user_id,\n  order_id,\n  ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at) AS order_rank,\n  SUM(amount) OVER (PARTITION BY user_id ORDER BY created_at) AS running_amount\nFROM orders;',
+                    difficulty: 'medium'
+                },
+                {
+                    title: 'Отчет по странам с HAVING',
+                    description: 'Соберите количество заказов и сумму продаж по странам, оставьте только страны с оборотом выше порога.',
+                    tables: 'orders(order_id, user_id, amount), users(user_id, country)',
+                    placeholder: 'SELECT ... FROM ... JOIN ... GROUP BY ... HAVING ...',
+                    hint: 'Сначала JOIN orders и users, затем GROUP BY country и HAVING SUM(amount).',
+                    solution: 'SELECT\n  u.country,\n  COUNT(*) AS orders_cnt,\n  SUM(o.amount) AS total_amount\nFROM orders o\nJOIN users u ON u.user_id = o.user_id\nGROUP BY u.country\nHAVING SUM(o.amount) > 10000\nORDER BY total_amount DESC;',
+                    difficulty: 'easy'
+                }
+            ],
+            2: [
+                {
+                    title: 'Надежная загрузка API в staging',
+                    description: 'Получите данные из REST API, провалидируйте обязательные поля и загрузите в staging-таблицу.',
+                    tables: 'stg_events(event_id, payload, loaded_at)',
+                    placeholder: 'import requests\n# fetch + validate + load',
+                    hint: 'Разделите код на fetch -> validate -> load и добавьте retry.',
+                    solution: 'import requests\nimport time\n\nfor attempt in range(3):\n    try:\n        response = requests.get("https://example.com/events", timeout=15)\n        response.raise_for_status()\n        data = response.json()\n        valid = [item for item in data if item.get("event_id") and item.get("event_ts")]\n        # insert valid into stg_events\n        break\n    except Exception:\n        if attempt == 2:\n            raise\n        time.sleep(2 ** attempt)',
+                    difficulty: 'medium'
+                },
+                {
+                    title: 'Airflow DAG с проверкой качества',
+                    description: 'Смоделируйте DAG: extract -> transform -> dq_check -> load с ретраями на extract и dq_check.',
+                    tables: 'stg_orders, dds_orders',
+                    placeholder: 'with DAG(...) as dag:\n    ...',
+                    hint: 'Используйте PythonOperator и fail-fast если dq_check не пройден.',
+                    solution: 'from airflow import DAG\nfrom airflow.operators.python import PythonOperator\n\nwith DAG("orders_pipeline", schedule="@daily", catchup=False) as dag:\n    extract = PythonOperator(task_id="extract", python_callable=extract_fn, retries=3)\n    transform = PythonOperator(task_id="transform", python_callable=transform_fn)\n    dq_check = PythonOperator(task_id="dq_check", python_callable=dq_fn, retries=2)\n    load = PythonOperator(task_id="load", python_callable=load_fn)\n\n    extract >> transform >> dq_check >> load',
+                    difficulty: 'medium'
+                }
+            ],
+            3: [
+                {
+                    title: 'PySpark join с оптимизацией',
+                    description: 'Соедините факты и справочник, минимизируйте shuffle и покажите explain.',
+                    tables: 'df_events, df_users',
+                    placeholder: 'from pyspark.sql.functions import ...',
+                    hint: 'Для маленького справочника используйте broadcast join.',
+                    solution: 'from pyspark.sql.functions import broadcast\n\njoined = df_events.join(broadcast(df_users), on="user_id", how="left")\nresult = joined.groupBy("country").count()\nresult.explain("formatted")',
+                    difficulty: 'medium'
+                },
+                {
+                    title: 'Борьба со skew через salting',
+                    description: 'Разбейте горячие ключи на под-ключи и выполните двухшаговую агрегацию.',
+                    tables: 'df_tx(user_id, city, amount)',
+                    placeholder: 'from pyspark.sql.functions import ...',
+                    hint: 'Добавьте salt-колонку, агрегируйте по (key, salt), затем финально по key.',
+                    solution: 'from pyspark.sql.functions import rand, floor, sum as spark_sum\n\nsalted = df_tx.withColumn("salt", floor(rand() * 20))\npart = salted.groupBy("city", "salt").agg(spark_sum("amount").alias("part_sum"))\nfinal = part.groupBy("city").agg(spark_sum("part_sum").alias("total_amount"))',
+                    difficulty: 'hard'
+                }
+            ],
+            4: [
+                {
+                    title: 'Kafka consumer с manual commit',
+                    description: 'Реализуйте чтение батчами и коммит offset только после успешной обработки.',
+                    tables: 'topic: transactions',
+                    placeholder: 'from kafka import KafkaConsumer\n...',
+                    hint: 'enable_auto_commit=False и commit после обработки батча.',
+                    solution: 'from kafka import KafkaConsumer\n\nconsumer = KafkaConsumer("transactions", enable_auto_commit=False, group_id="de-group")\nbatch = []\nfor msg in consumer:\n    batch.append(msg.value)\n    if len(batch) >= 100:\n        process_batch(batch)\n        consumer.commit()\n        batch = []',
+                    difficulty: 'medium'
+                },
+                {
+                    title: 'Streaming окно и watermark',
+                    description: 'Постройте агрегат сумм по 10-минутным окнам с учетом опоздавших событий.',
+                    tables: 'stream events(event_time, amount)',
+                    placeholder: 'parsed.withWatermark(...).groupBy(window(...))',
+                    hint: 'Используйте withWatermark + window и агрегируйте sum(amount).',
+                    solution: 'from pyspark.sql.functions import window, col, sum as spark_sum\n\nagg = parsed\n  .withWatermark("event_time", "15 minutes")\n  .groupBy(window(col("event_time"), "10 minutes"))\n  .agg(spark_sum("amount").alias("total_amount"))',
+                    difficulty: 'medium'
+                }
+            ],
+            5: [
+                {
+                    title: 'Star schema для продаж',
+                    description: 'Опишите DDL для fact_sales и двух измерений, укажите ключи и grain.',
+                    tables: 'fact_sales, dim_product, dim_date',
+                    placeholder: 'CREATE TABLE ...',
+                    hint: 'Сначала определите grain факта, затем FK на измерения.',
+                    solution: 'CREATE TABLE dim_product (\n  product_id INT PRIMARY KEY,\n  category TEXT,\n  product_name TEXT\n);\n\nCREATE TABLE dim_date (\n  date_id INT PRIMARY KEY,\n  full_date DATE\n);\n\nCREATE TABLE fact_sales (\n  sale_id BIGINT PRIMARY KEY,\n  date_id INT REFERENCES dim_date(date_id),\n  product_id INT REFERENCES dim_product(product_id),\n  amount NUMERIC(12,2),\n  quantity INT\n);',
+                    difficulty: 'medium'
+                },
+                {
+                    title: 'SLA и алертинг для ETL',
+                    description: 'Предложите контрольные метрики и алерты для ежедневного пайплайна загрузки.',
+                    tables: 'pipeline_runs(run_id, started_at, finished_at, status, rows_loaded)',
+                    placeholder: 'Опишите метрики и SQL/псевдокод проверки...',
+                    hint: 'Добавьте latency, completeness, freshness и пороги алертов.',
+                    solution: 'Ключевые проверки:\n1) Freshness: max(event_date) >= current_date - 1.\n2) Completeness: rows_loaded >= p95 за 14 дней * 0.8.\n3) SLA: finished_at - started_at <= 45 минут.\n\nПример SQL:\nSELECT\n  run_id,\n  status,\n  EXTRACT(EPOCH FROM (finished_at - started_at))/60 AS duration_min\nFROM pipeline_runs\nWHERE run_id = :run_id;',
+                    difficulty: 'hard'
+                }
+            ]
+        };
+        const QUESTIONS_LOCAL_FALLBACK_POOL = [
+            {
+                category: 'SQL и Базы Данных',
+                question: 'Как выбрать индекс под фильтр status + диапазон created_at?',
+                answer: 'Обычно подходит составной индекс по (status, created_at), но порядок зависит от селективности. Важно проверить план через EXPLAIN ANALYZE и оценить влияние на запись.'
+            },
+            {
+                category: 'SQL и Базы Данных',
+                question: 'Когда стоит использовать materialized view вместо обычного view?',
+                answer: 'Materialized view полезен для тяжелой агрегации, которую дорого считать на лету. Он хранит результат физически, но требует refresh и контроля актуальности.'
+            },
+            {
+                category: 'Python и PySpark',
+                question: 'Как в ETL сделать retry без дублирования уже загруженных данных?',
+                answer: 'Нужна идемпотентность: use upsert/merge, дедуп по business key и контроль watermark/checkpoint. Retry должен повторять шаг безопасно без повторной записи дублей.'
+            },
+            {
+                category: 'Python и PySpark',
+                question: 'Почему DataFrame API в Spark обычно предпочтительнее RDD?',
+                answer: 'DataFrame позволяет Catalyst оптимизировать план, включая pushdown и выбор стратегий join. Это дает стабильный прирост по производительности и удобнее для поддержки.'
+            },
+            {
+                category: 'Архитектура Хранилищ (DWH & Data Lake)',
+                question: 'Как выбрать grain фактовой таблицы при проектировании витрины?',
+                answer: 'Сначала фиксируют бизнес-событие как атомарную запись и только потом строят агрегаты. Grain должен быть однозначным, иначе сложно обеспечить консистентность метрик.'
+            },
+            {
+                category: 'Архитектура Хранилищ (DWH & Data Lake)',
+                question: 'Зачем разделять слои staging и dds?',
+                answer: 'Staging хранит сырые или почти сырые данные для трассируемости, а DDS — очищенные и согласованные сущности. Это упрощает отладку, replay и управление качеством.'
+            },
+            {
+                category: 'Streaming и Оркестрация',
+                question: 'Что контролировать в Kafka consumer lag и почему это важно?',
+                answer: 'Lag показывает отставание обработки от потока событий и напрямую влияет на freshness данных. Резкий рост lag обычно сигнализирует о деградации consumer или инфраструктуры.'
+            },
+            {
+                category: 'Streaming и Оркестрация',
+                question: 'Как watermark влияет на поздние события в стриминге?',
+                answer: 'Watermark ограничивает, как долго система ждет опоздавшие события. Слишком маленький watermark повышает риск потери late data, слишком большой увеличивает задержку результата.'
+            },
+            {
+                category: 'Моделирование и Качество данных',
+                question: 'Какие базовые DQ-проверки ставить перед загрузкой в витрину?',
+                answer: 'Минимум: not null на ключах, уникальность бизнес-ключей, допустимые диапазоны значений и referential integrity. Плюс сверка объемов с историческими окнами.'
+            },
+            {
+                category: 'Моделирование и Качество данных',
+                question: 'Когда выбирать SCD Type 2 и какие риски у него есть?',
+                answer: 'SCD2 используют, когда нужна история изменений атрибутов во времени. Риски: рост таблицы, усложнение join и требований к корректному закрытию интервалов valid_from/valid_to.'
+            }
+        ];
         let taskBankManifest = null;
         let taskBankManifestPromise = null;
         let interviewQuestionBank = [...FALLBACK_INTERVIEW_QUESTION_BANK];
@@ -910,6 +1064,82 @@
             return LIVE_CODING_STARTER_FALLBACK_TASKS_PER_STAGE;
         }
 
+        function makeUniqueTitle(baseTitle, existingTitlesSet) {
+            const normalizedBase = normalizeTitleValue(baseTitle) || `Задача ${Date.now()}`;
+            const used = existingTitlesSet instanceof Set ? existingTitlesSet : new Set();
+
+            let candidate = normalizedBase;
+            let suffix = 2;
+
+            while (used.has(candidate.toLowerCase())) {
+                candidate = `${normalizedBase} #${suffix}`;
+                suffix += 1;
+            }
+
+            return candidate;
+        }
+
+        function buildLocalFallbackLiveCodingTask(stageNumber, moduleName, generationContext = {}) {
+            const templates = LIVE_CODING_LOCAL_FALLBACK_TASK_POOL[stageNumber] || LIVE_CODING_LOCAL_FALLBACK_TASK_POOL[1];
+            const selectedTemplate = shuffleList(templates)[0] || templates[0];
+
+            const existingTitles = new Set(
+                normalizeTaskTitleList(generationContext.shownTitles || []).map(title => title.toLowerCase())
+            );
+
+            const baseTitle = `${selectedTemplate.title} (${moduleName || 'Общий модуль'})`;
+            const uniqueTitle = makeUniqueTitle(baseTitle, existingTitles);
+
+            return {
+                title: uniqueTitle,
+                description: selectedTemplate.description,
+                tables: selectedTemplate.tables,
+                placeholder: selectedTemplate.placeholder || 'Опишите решение и приведите код/запрос.',
+                hint: selectedTemplate.hint,
+                solution: selectedTemplate.solution,
+                difficulty: selectedTemplate.difficulty || 'medium'
+            };
+        }
+
+        function buildLocalFallbackQuestionPack(existingPrompts = [], desiredCount = QUESTIONS_AI_PACK_SIZE) {
+            const existing = new Set(
+                normalizeTaskTitleList(existingPrompts).map(value => value.toLowerCase())
+            );
+
+            const result = [];
+            const pool = shuffleList(QUESTIONS_LOCAL_FALLBACK_POOL);
+
+            pool.forEach(item => {
+                if (result.length >= desiredCount) return;
+
+                const question = normalizeTitleValue(item.question);
+                const key = question.toLowerCase();
+                if (!question || existing.has(key)) return;
+
+                existing.add(key);
+                result.push({
+                    category: normalizeQuestionsCategory(item.category),
+                    question,
+                    answer: String(item.answer || '').trim()
+                });
+            });
+
+            while (result.length < desiredCount) {
+                const idx = result.length + 1;
+                const category = QUESTIONS_AI_CATEGORY_ORDER[result.length % QUESTIONS_AI_CATEGORY_ORDER.length];
+                const generatedQuestion = makeUniqueTitle(`Практический вопрос ${idx} по теме ${category}`, existing);
+                existing.add(generatedQuestion.toLowerCase());
+
+                result.push({
+                    category,
+                    question: generatedQuestion,
+                    answer: 'Разберите решение по шагам: постановка цели, модель данных/интерфейс, проверка качества, контроль ошибок и мониторинг после запуска.'
+                });
+            }
+
+            return result;
+        }
+
         function getStageSectionScope(stageHeading) {
             const stageNumber = extractStageNumberFromHeading(stageHeading?.textContent || '');
             const nodes = [];
@@ -1537,11 +1767,6 @@
             if (!token) {
                 token = openGitHubTokenSettings(root.querySelector('.questions-token-btn') || null);
                 refreshQuestionsAiControls(root);
-
-                if (!token) {
-                    showErrorMessage('Генерация отменена: токен не указан.');
-                    return;
-                }
             }
 
             setQuestionsGenerateButtonLoading(triggerButton, true);
@@ -1551,21 +1776,35 @@
                 const generationContext = [...existingPrompts];
 
                 const generated = [];
-                for (let attempt = 0; attempt < 3 && generated.length < QUESTIONS_AI_PACK_SIZE; attempt += 1) {
-                    const pack = await requestGeneratedQuestionsPack(generationContext, token);
-                    const fresh = pack.filter(item => {
-                        const key = item.question.toLowerCase();
-                        if (usedPrompts.has(key)) return false;
-                        usedPrompts.add(key);
-                        return true;
-                    });
+                let usedLocalFallback = false;
 
-                    generated.push(...fresh);
-                    generationContext.push(...fresh.map(item => item.question));
+                if (token) {
+                    for (let attempt = 0; attempt < 3 && generated.length < QUESTIONS_AI_PACK_SIZE; attempt += 1) {
+                        try {
+                            const pack = await requestGeneratedQuestionsPack(generationContext, token);
+                            const fresh = pack.filter(item => {
+                                const key = item.question.toLowerCase();
+                                if (usedPrompts.has(key)) return false;
+                                usedPrompts.add(key);
+                                return true;
+                            });
+
+                            generated.push(...fresh);
+                            generationContext.push(...fresh.map(item => item.question));
+                        } catch (error) {
+                            console.warn('API генерации вопросов недоступен, переключаюсь на локальный fallback:', error);
+                            break;
+                        }
+                    }
                 }
 
-                if (generated.length === 0) {
-                    throw new Error('Модель вернула только повторяющиеся вопросы.');
+                if (generated.length < QUESTIONS_AI_PACK_SIZE) {
+                    const localPack = buildLocalFallbackQuestionPack(
+                        generationContext,
+                        QUESTIONS_AI_PACK_SIZE - generated.length
+                    );
+                    generated.push(...localPack);
+                    usedLocalFallback = true;
                 }
 
                 const added = appendGeneratedQuestions(root, generated.slice(0, QUESTIONS_AI_PACK_SIZE));
@@ -1574,10 +1813,25 @@
                 }
 
                 refreshQuestionsAiControls(root);
-                showSuccessMessage(`Добавлено AI-вопросов: ${added}.`);
+                if (usedLocalFallback && !token) {
+                    showSuccessMessage(`Токен не задан: добавлено локальных вопросов ${added}.`);
+                } else if (usedLocalFallback) {
+                    showSuccessMessage(`Добавлено вопросов: ${added} (частично локальный fallback).`);
+                } else {
+                    showSuccessMessage(`Добавлено AI-вопросов: ${added}.`);
+                }
             } catch (error) {
                 console.error('Ошибка генерации вопросов:', error);
-                showErrorMessage('Не удалось сгенерировать вопросы, попробуйте еще раз.');
+                const existingPrompts = collectExistingQuestionPrompts(root);
+                const fallbackPack = buildLocalFallbackQuestionPack(existingPrompts, QUESTIONS_AI_PACK_SIZE);
+                const added = appendGeneratedQuestions(root, fallbackPack);
+
+                if (added > 0) {
+                    refreshQuestionsAiControls(root);
+                    showSuccessMessage(`Добавлено локальных вопросов: ${added}.`);
+                } else {
+                    showErrorMessage('Не удалось сгенерировать вопросы, попробуйте еще раз.');
+                }
             } finally {
                 setQuestionsGenerateButtonLoading(triggerButton, false);
             }
@@ -1668,14 +1922,10 @@
 
             const stageLabel = stageScope.stageLabel;
             const moduleName = normalizeTitleValue(moduleSelect?.value || stageScope.moduleNames[0] || 'Общий модуль');
-            let token = getGitHubModelsToken();
+            let token = String(options.preferredToken || getGitHubModelsToken() || '').trim();
 
-            if (!token) {
+            if (!token && !options.skipTokenPrompt) {
                 token = openGitHubTokenSettings();
-                if (!token) {
-                    showErrorMessage('Генерация отменена: токен не указан.');
-                    return;
-                }
             }
 
             syncGeneratedTaskTitlesFromCodingDom(root);
@@ -1697,18 +1947,29 @@
             setGenerateTaskButtonLoading(triggerButton, true);
             try {
                 let task = null;
-                for (let attempt = 0; attempt < 3; attempt += 1) {
-                    const candidate = await requestGeneratedLiveCodingTask(stageLabel, moduleName, generationContext, token);
-                    const normalizedTitle = normalizeTitleValue(candidate.title).toLowerCase();
+                let usedLocalFallback = false;
 
-                    if (!existingTitlesSet.has(normalizedTitle)) {
-                        task = candidate;
-                        break;
+                if (token) {
+                    for (let attempt = 0; attempt < 3; attempt += 1) {
+                        let candidate = null;
+                        try {
+                            candidate = await requestGeneratedLiveCodingTask(stageLabel, moduleName, generationContext, token);
+                        } catch (apiError) {
+                            console.warn('API генерации задачи недоступен, переключаюсь на локальный fallback:', apiError);
+                            break;
+                        }
+
+                        const normalizedTitle = normalizeTitleValue(candidate.title).toLowerCase();
+                        if (!existingTitlesSet.has(normalizedTitle)) {
+                            task = candidate;
+                            break;
+                        }
                     }
                 }
 
                 if (!task) {
-                    throw new Error('Модель вернула повторяющиеся названия задач для выбранного этапа.');
+                    task = buildLocalFallbackLiveCodingTask(stageScope.stageNumber, moduleName, generationContext);
+                    usedLocalFallback = true;
                 }
 
                 appendGeneratedTaskToStage(root, stageHeading, task, moduleName, {
@@ -1718,7 +1979,13 @@
                 applyCodingAiModeVisibility(root);
 
                 if (!options.silentSuccess) {
-                    showSuccessMessage('Новая задача добавлена.');
+                    if (!token) {
+                        showSuccessMessage('Токен не задан: добавлена локальная задача.');
+                    } else if (usedLocalFallback) {
+                        showSuccessMessage('API недоступен: добавлена локальная задача.');
+                    } else {
+                        showSuccessMessage('Новая задача добавлена.');
+                    }
                 }
 
                 return true;
@@ -1748,10 +2015,6 @@
             let token = getGitHubModelsToken();
             if (!token) {
                 token = openGitHubTokenSettings();
-                if (!token) {
-                    showErrorMessage('Генерация отменена: токен не указан.');
-                    return;
-                }
             }
 
             isGeneratingStarterPack = true;
@@ -1785,6 +2048,8 @@
                         const created = await handleStageTaskGeneration(root, stageHeading, moduleSelect, null, {
                             silentSuccess: true,
                             silentFailure: true,
+                            skipTokenPrompt: true,
+                            preferredToken: token,
                             disableAutoScroll: true
                         });
 
