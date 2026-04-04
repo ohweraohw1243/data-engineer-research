@@ -831,7 +831,7 @@
         function getStageSectionScope(stageHeading) {
             const stageNumber = extractStageNumberFromHeading(stageHeading?.textContent || '');
             const nodes = [];
-            const stageContainer = stageHeading?.closest('.coding-section-group') || stageHeading?.parentElement || null;
+            const stageContainer = stageHeading?.closest('.coding-section-group') || null;
 
             let pointer = stageHeading?.nextElementSibling || null;
             while (pointer && !isStageHeadingElement(pointer)) {
@@ -843,61 +843,52 @@
             const taskBoxes = [];
             const moduleScopes = [];
 
+            let sequence = [];
             if (stageContainer) {
-                const sequence = Array.from(stageContainer.querySelectorAll('h3, .task-box'));
-                let activeModule = null;
+                sequence = Array.from(stageContainer.querySelectorAll('h3, .task-box'));
+            } else {
+                nodes.forEach(node => {
+                    if (node.matches?.('h3, .task-box')) {
+                        sequence.push(node);
+                    }
+                    node.querySelectorAll?.('h3, .task-box').forEach(item => sequence.push(item));
+                });
+                sequence = Array.from(new Set(sequence));
+            }
 
-                sequence.forEach(node => {
-                    if (node.tagName === 'H3') {
-                        const moduleName = normalizeTitleValue(node.textContent);
-                        if (!moduleName) {
-                            activeModule = null;
-                            return;
-                        }
-
-                        activeModule = {
-                            key: moduleName.toLowerCase(),
-                            moduleName,
-                            heading: node,
-                            taskBoxes: [],
-                            lastAnchorNode: node
-                        };
-                        moduleScopes.push(activeModule);
+            let activeModule = null;
+            sequence.forEach(node => {
+                if (node.tagName === 'H3') {
+                    const moduleName = normalizeTitleValue(node.textContent);
+                    if (!moduleName) {
+                        activeModule = null;
                         return;
                     }
 
-                    if (node.classList?.contains('task-box')) {
-                        taskBoxes.push(node);
-
-                        if (activeModule) {
-                            activeModule.taskBoxes.push(node);
-                            activeModule.lastAnchorNode = node;
-                        }
-                    }
-                });
-            }
-
-            nodes.forEach(node => {
-                if (node.tagName === 'H3') {
-                    moduleNames.push(normalizeTitleValue(node.textContent));
+                    moduleNames.push(moduleName);
+                    activeModule = {
+                        key: moduleName.toLowerCase(),
+                        moduleName,
+                        heading: node,
+                        taskBoxes: [],
+                        lastAnchorNode: node
+                    };
+                    moduleScopes.push(activeModule);
+                    return;
                 }
 
-                node.querySelectorAll?.('h3').forEach(mod => {
-                    const title = normalizeTitleValue(mod.textContent);
-                    if (title) moduleNames.push(title);
-                });
+                if (node.classList?.contains('task-box')) {
+                    taskBoxes.push(node);
 
-                if (!stageContainer) {
-                    if (node.classList?.contains('task-box')) {
-                        taskBoxes.push(node);
+                    if (activeModule) {
+                        activeModule.taskBoxes.push(node);
+                        activeModule.lastAnchorNode = node;
                     }
-                    node.querySelectorAll?.('.task-box').forEach(box => taskBoxes.push(box));
                 }
             });
 
             const uniqueTaskBoxes = Array.from(new Set(taskBoxes));
-            const scopedModuleNames = moduleScopes.map(scope => scope.moduleName);
-            const uniqueModuleNames = Array.from(new Set([...moduleNames.filter(Boolean), ...scopedModuleNames].filter(Boolean)));
+            const uniqueModuleNames = Array.from(new Set(moduleNames.filter(Boolean)));
 
             return {
                 stageNumber,
@@ -1934,8 +1925,8 @@
                 root.innerHTML = html;
 
                 syncGeneratedTaskTitlesFromCodingDom(root);
-                attachCodingStageGenerationControls(root);
                 ensureCodingPracticeSelector(root);
+                attachCodingStageGenerationControls(root);
 
                 if (typeof ensureTaskHints !== 'undefined') ensureTaskHints(root);
                 if (typeof setupAnswerField !== 'undefined') {
