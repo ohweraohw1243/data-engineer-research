@@ -129,7 +129,7 @@
         const LIVE_CODING_GENERATED_TITLES_STORAGE_KEY = 'streamflow_generated_task_titles_v1';
         const LIVE_CODING_GITHUB_TOKEN_STORAGE_KEY = 'streamflow_github_token';
         const LIVE_CODING_SECTION_SELECTION_STORAGE_KEY = 'streamflow_coding_section_selection_v2';
-        const LIVE_CODING_STARTER_TASKS_PER_STAGE = 1;
+        const LIVE_CODING_STARTER_FALLBACK_TASKS_PER_STAGE = 6;
         const LIVE_CODING_STAGE_MODEL_LABELS = {
             1: 'SQL',
             2: 'Python',
@@ -437,7 +437,7 @@
                 return;
             }
 
-            note.textContent = 'AI-first активен: нажмите «Сгенерировать стартовый набор», чтобы получить задачи для всех модулей.';
+            note.textContent = 'AI-first активен: нажмите «Сгенерировать стартовый набор», чтобы получить полный набор задач этапа по всем модулям.';
         }
 
         function getStoredGeneratedTaskTitles() {
@@ -894,6 +894,19 @@
         function getModuleTaskTitles(stageScope, moduleName) {
             const moduleScope = getModuleScopeByName(stageScope, moduleName);
             return getTaskTitlesFromBoxes(moduleScope?.taskBoxes || []);
+        }
+
+        function getStageStarterTargetCount(stageNumber) {
+            if (!stageNumber) {
+                return LIVE_CODING_STARTER_FALLBACK_TASKS_PER_STAGE;
+            }
+
+            const stageTasks = STAGE_TASKS[`stage${stageNumber}`];
+            if (Array.isArray(stageTasks) && stageTasks.length > 0) {
+                return stageTasks.length;
+            }
+
+            return LIVE_CODING_STARTER_FALLBACK_TASKS_PER_STAGE;
         }
 
         function getStageSectionScope(stageHeading) {
@@ -1738,24 +1751,31 @@
             setGenerateTaskButtonLoading(triggerButton, true);
 
             let generatedCount = 0;
+            let plannedCount = 0;
             try {
                 for (const stageHeading of stageHeadings) {
                     const stageScope = getStageSectionScope(stageHeading);
+                    const targetCount = getStageStarterTargetCount(stageScope.stageNumber);
+                    let currentCount = stageScope.taskBoxes.length;
+                    const remainingCount = Math.max(0, targetCount - currentCount);
+
                     const moduleNames = stageScope.moduleNames.length > 0
                         ? stageScope.moduleNames
                         : ['Общий модуль'];
 
-                    for (const moduleName of moduleNames) {
+                    plannedCount += remainingCount;
+
+                    for (let i = 0; i < remainingCount; i += 1) {
+                        const moduleName = moduleNames[i % moduleNames.length];
                         const moduleSelect = { value: moduleName };
 
-                        for (let i = 0; i < LIVE_CODING_STARTER_TASKS_PER_STAGE; i += 1) {
-                            const created = await handleStageTaskGeneration(root, stageHeading, moduleSelect, null, {
-                                silentSuccess: true,
-                                disableAutoScroll: true
-                            });
-                            if (created) {
-                                generatedCount += 1;
-                            }
+                        const created = await handleStageTaskGeneration(root, stageHeading, moduleSelect, null, {
+                            silentSuccess: true,
+                            disableAutoScroll: true
+                        });
+                        if (created) {
+                            generatedCount += 1;
+                            currentCount += 1;
                         }
                     }
                 }
@@ -1763,6 +1783,10 @@
 
                 if (generatedCount > 0) {
                     showSuccessMessage(`Стартовый AI-набор готов: ${generatedCount} задач.`);
+                } else if (plannedCount === 0) {
+                    showSuccessMessage('Для выбранных этапов полный стартовый набор уже сформирован.');
+                } else {
+                    showErrorMessage('Не удалось сгенерировать полный стартовый набор. Попробуйте еще раз.');
                 }
             } catch (error) {
                 console.error('Ошибка генерации стартового AI-набора:', error);
