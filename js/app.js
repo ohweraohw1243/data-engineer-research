@@ -166,6 +166,7 @@
             // Fallback token (avoid committing real secrets to git)
             token: ''
         };
+        const LIVE_CODING_GENERATOR_MODEL_FALLBACKS = ['gpt-4.1-mini', 'gpt-4o-mini'];
         const LIVE_CODING_GENERATOR_SYSTEM_PROMPT = 'Ты генератор практических задач для подготовки к собеседованию на позицию middle data engineer. Стек: PostgreSQL, PySpark, Kafka, Airflow, ClickHouse. Таблицы используй реалистичные: fact_orders, dim_user, daily_stats, streams, revenue, events. Отвечай ТОЛЬКО валидным JSON без markdown, без пояснений, без текста вне JSON.';
         const QUESTIONS_AI_GENERATED_STORAGE_KEY = 'streamflow_ai_questions_v1';
         const QUESTIONS_AI_PACK_SIZE = 10;
@@ -1361,43 +1362,103 @@
             throw new Error('Не удалось извлечь текст из ответа модели');
         }
 
-        async function requestGeneratedLiveCodingTask(stageLabel, moduleName, generationContext, token) {
-            const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), LIVE_CODING_GENERATOR_CONFIG.requestTimeoutMs);
-
-            try {
-                const response = await fetch(LIVE_CODING_GENERATOR_CONFIG.apiUrl, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                        'Authorization': `Bearer ${token}`,
-                        'api-key': token
-                    },
-                    body: JSON.stringify({
-                        model: LIVE_CODING_GENERATOR_CONFIG.model,
-                        temperature: 0.9,
-                        max_tokens: 1200,
-                        response_format: { type: 'json_object' },
-                        messages: [
-                            { role: 'system', content: LIVE_CODING_GENERATOR_SYSTEM_PROMPT },
-                            { role: 'user', content: buildLiveCodingUserPrompt(stageLabel, moduleName, generationContext) }
-                        ]
-                    }),
-                    signal: controller.signal
-                });
-
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`GitHub Models API: ${response.status} ${errorText.slice(0, 240)}`);
-                }
-
-                const payload = await response.json();
-                const content = extractModelContent(payload);
-                return normalizeGeneratedTaskPayload(extractJsonObjectFromModelText(content));
-            } finally {
-                clearTimeout(timeout);
+        async function requestGitHubModelsContent(token, messages, options = {}) {
+            const normalizedToken = String(token || '').trim();
+            if (!normalizedToken) {
+                throw new Error('Токен GitHub Models не задан');
             }
+
+            const preferredModel = String(options.model || LIVE_CODING_GENERATOR_CONFIG.model || '').trim();
+            const modelCandidates = Array.from(new Set(
+                [preferredModel].concat(LIVE_CODING_GENERATOR_MODEL_FALLBACKS)
+                    .map(value => String(value || '').trim())
+                    .filter(Boolean)
+            ));
+
+            const requestVariants = [
+                { includeApiKey: true, forceJsonObject: true },
+                { includeApiKey: false, forceJsonObject: true },
+                { includeApiKey: true, forceJsonObject: false },
+                { includeApiKey: false, forceJsonObject: false }
+            ];
+
+            const normalizedMessages = Array.isArray(messages) ? messages : [];
+            if (normalizedMessages.length === 0) {
+                throw new Error('Пустой список сообщений для запроса к модели');
+            }
+
+            let lastError = null;
+
+            for (const model of modelCandidates) {
+                for (const variant of requestVariants) {
+                    const controller = new AbortController();
+                    const timeout = setTimeout(() => controller.abort(), LIVE_CODING_GENERATOR_CONFIG.requestTimeoutMs);
+
+                    try {
+                        const headers = {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'Authorization': `Bearer ${normalizedToken}`
+                        };
+
+                        if (variant.includeApiKey) {
+                            headers['api-key'] = normalizedToken;
+                        }
+
+                        const requestBody = {
+                            model,
+                            temperature: Number.isFinite(options.temperature) ? options.temperature : 0.85,
+                            max_tokens: Number.isFinite(options.maxTokens) ? options.maxTokens : 1200,
+                            messages: normalizedMessages
+                        };
+
+                        if (variant.forceJsonObject) {
+                            requestBody.response_format = { type: 'json_object' };
+                        }
+
+                        const response = await fetch(LIVE_CODING_GENERATOR_CONFIG.apiUrl, {
+                            method: 'POST',
+                            headers,
+                            body: JSON.stringify(requestBody),
+                            signal: controller.signal
+                        });
+
+                        if (!response.ok) {
+                            const errorText = await response.text();
+                            throw new Error(
+                                `GitHub Models API: ${response.status}; model=${model}; json=${variant.forceJsonObject ? '1' : '0'}; apiKey=${variant.includeApiKey ? '1' : '0'}; ${errorText.slice(0, 220)}`
+                            );
+                        }
+
+                        const payload = await response.json();
+                        const content = extractModelContent(payload);
+                        return {
+                            content,
+                            model,
+                            variant
+                        };
+                    } catch (error) {
+                        lastError = error;
+                    } finally {
+                        clearTimeout(timeout);
+                    }
+                }
+            }
+
+            throw lastError || new Error('Не удалось получить ответ от GitHub Models');
+        }
+
+        async function requestGeneratedLiveCodingTask(stageLabel, moduleName, generationContext, token) {
+            const result = await requestGitHubModelsContent(token, [
+                { role: 'system', content: LIVE_CODING_GENERATOR_SYSTEM_PROMPT },
+                { role: 'user', content: buildLiveCodingUserPrompt(stageLabel, moduleName, generationContext) }
+            ], {
+                model: LIVE_CODING_GENERATOR_CONFIG.model,
+                temperature: 0.9,
+                maxTokens: 1200
+            });
+
+            return normalizeGeneratedTaskPayload(extractJsonObjectFromModelText(result.content));
         }
 
         function normalizeQuestionsCategory(rawCategory) {
@@ -1570,42 +1631,16 @@
         }
 
         async function requestGeneratedQuestionsPack(existingPrompts, token) {
-            const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), LIVE_CODING_GENERATOR_CONFIG.requestTimeoutMs);
+            const result = await requestGitHubModelsContent(token, [
+                { role: 'system', content: QUESTIONS_AI_GENERATOR_SYSTEM_PROMPT },
+                { role: 'user', content: buildQuestionsGenerationUserPrompt(existingPrompts) }
+            ], {
+                model: LIVE_CODING_GENERATOR_CONFIG.model,
+                temperature: 0.85,
+                maxTokens: 2000
+            });
 
-            try {
-                const response = await fetch(LIVE_CODING_GENERATOR_CONFIG.apiUrl, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                        'Authorization': `Bearer ${token}`,
-                        'api-key': token
-                    },
-                    body: JSON.stringify({
-                        model: LIVE_CODING_GENERATOR_CONFIG.model,
-                        temperature: 0.85,
-                        max_tokens: 2000,
-                        response_format: { type: 'json_object' },
-                        messages: [
-                            { role: 'system', content: QUESTIONS_AI_GENERATOR_SYSTEM_PROMPT },
-                            { role: 'user', content: buildQuestionsGenerationUserPrompt(existingPrompts) }
-                        ]
-                    }),
-                    signal: controller.signal
-                });
-
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`GitHub Models API: ${response.status} ${errorText.slice(0, 240)}`);
-                }
-
-                const payload = await response.json();
-                const content = extractModelContent(payload);
-                return normalizeGeneratedQuestionPack(extractJsonObjectFromModelText(content));
-            } finally {
-                clearTimeout(timeout);
-            }
+            return normalizeGeneratedQuestionPack(extractJsonObjectFromModelText(result.content));
         }
 
         function createGeneratedQuestionAccordionItem(item) {
