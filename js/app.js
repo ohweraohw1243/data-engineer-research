@@ -169,6 +169,16 @@
             token: ''
         };
         const LIVE_CODING_GENERATOR_SYSTEM_PROMPT = 'Ты генератор практических задач для подготовки к собеседованию на позицию middle data engineer. Стек: PostgreSQL, PySpark, Kafka, Airflow, ClickHouse. Таблицы используй реалистичные: fact_orders, dim_user, daily_stats, streams, revenue, events. Отвечай ТОЛЬКО валидным JSON без markdown, без пояснений, без текста вне JSON.';
+        const QUESTIONS_AI_GENERATED_STORAGE_KEY = 'streamflow_ai_questions_v1';
+        const QUESTIONS_AI_PACK_SIZE = 10;
+        const QUESTIONS_AI_CATEGORY_ORDER = [
+            'SQL и Базы Данных',
+            'Python и PySpark',
+            'Архитектура Хранилищ (DWH & Data Lake)',
+            'Streaming и Оркестрация',
+            'Моделирование и Качество данных'
+        ];
+        const QUESTIONS_AI_GENERATOR_SYSTEM_PROMPT = 'Ты создаешь вопросы для подготовки к собеседованию Data Engineer. Пиши на русском языке. Отвечай только валидным JSON без markdown и без текста вне JSON.';
         let taskBankManifest = null;
         let taskBankManifestPromise = null;
         let interviewQuestionBank = [...FALLBACK_INTERVIEW_QUESTION_BANK];
@@ -1174,6 +1184,420 @@
             }
         }
 
+        function normalizeQuestionsCategory(rawCategory) {
+            const category = String(rawCategory || '').trim().toLowerCase();
+
+            if (!category) return QUESTIONS_AI_CATEGORY_ORDER[0];
+
+            if (category.includes('sql') || category.includes('бд') || category.includes('баз') || category.includes('database')) {
+                return QUESTIONS_AI_CATEGORY_ORDER[0];
+            }
+
+            if (category.includes('python') || category.includes('pyspark') || category.includes('spark')) {
+                return QUESTIONS_AI_CATEGORY_ORDER[1];
+            }
+
+            if (category.includes('архит') || category.includes('dwh') || category.includes('lake') || category.includes('warehouse')) {
+                return QUESTIONS_AI_CATEGORY_ORDER[2];
+            }
+
+            if (category.includes('stream') || category.includes('kafka') || category.includes('airflow') || category.includes('оркестр')) {
+                return QUESTIONS_AI_CATEGORY_ORDER[3];
+            }
+
+            if (
+                category.includes('модел')
+                || category.includes('кач')
+                || category.includes('govern')
+                || category.includes('vault')
+                || category.includes('scd')
+                || category.includes('catalog')
+            ) {
+                return QUESTIONS_AI_CATEGORY_ORDER[4];
+            }
+
+            return QUESTIONS_AI_CATEGORY_ORDER[0];
+        }
+
+        function getStoredGeneratedQuestions() {
+            try {
+                const parsed = JSON.parse(localStorage.getItem(QUESTIONS_AI_GENERATED_STORAGE_KEY) || '[]');
+                if (!Array.isArray(parsed)) {
+                    return [];
+                }
+
+                const unique = [];
+                const used = new Set();
+
+                parsed.forEach(item => {
+                    if (!item || typeof item !== 'object') return;
+
+                    const question = normalizeTitleValue(item.question || item.title || item.prompt || '');
+                    const answer = String(item.answer || item.solution || '').trim();
+                    const category = normalizeQuestionsCategory(item.category || item.topic || '');
+                    const key = question.toLowerCase();
+
+                    if (!question || !answer || used.has(key)) return;
+
+                    used.add(key);
+                    unique.push({ category, question, answer });
+                });
+
+                return unique.slice(-300);
+            } catch (error) {
+                return [];
+            }
+        }
+
+        function saveStoredGeneratedQuestions(items) {
+            const source = Array.isArray(items) ? items : [];
+            const unique = [];
+            const used = new Set();
+
+            source.forEach(item => {
+                if (!item || typeof item !== 'object') return;
+
+                const question = normalizeTitleValue(item.question || item.title || item.prompt || '');
+                const answer = String(item.answer || item.solution || '').trim();
+                const category = normalizeQuestionsCategory(item.category || item.topic || '');
+                const key = question.toLowerCase();
+
+                if (!question || !answer || used.has(key)) return;
+
+                used.add(key);
+                unique.push({ category, question, answer });
+            });
+
+            localStorage.setItem(
+                QUESTIONS_AI_GENERATED_STORAGE_KEY,
+                JSON.stringify(unique.slice(-300))
+            );
+        }
+
+        function getQuestionPromptFromAccordionHeader(header) {
+            if (!header) return '';
+
+            const label = header.querySelector('span:not(.accordion-toggle)') || header.querySelector('span');
+            return normalizeTitleValue(label?.textContent || '');
+        }
+
+        function collectExistingQuestionPrompts(root = document) {
+            const prompts = Array.from(root.querySelectorAll('.accordion-item .accordion-header'))
+                .map(getQuestionPromptFromAccordionHeader)
+                .filter(Boolean);
+
+            return normalizeTaskTitleList(prompts);
+        }
+
+        function normalizeGeneratedQuestionPack(payload) {
+            const source = Array.isArray(payload)
+                ? payload
+                : (Array.isArray(payload?.questions) ? payload.questions : []);
+
+            if (source.length === 0) {
+                throw new Error('Модель не вернула список вопросов');
+            }
+
+            const unique = [];
+            const used = new Set();
+
+            source.forEach(item => {
+                if (!item || typeof item !== 'object') return;
+
+                const question = normalizeTitleValue(item.question || item.title || item.prompt || '');
+                const answer = String(item.answer || item.solution || item.explanation || '').trim();
+                const category = normalizeQuestionsCategory(item.category || item.topic || item.section || '');
+                const key = question.toLowerCase();
+
+                if (!question || !answer || used.has(key)) return;
+                if (question.length < 8 || answer.length < 24) return;
+
+                used.add(key);
+                unique.push({ category, question, answer });
+            });
+
+            if (unique.length < 4) {
+                throw new Error('Слишком мало валидных вопросов в ответе модели');
+            }
+
+            return unique.slice(0, QUESTIONS_AI_PACK_SIZE);
+        }
+
+        function buildQuestionsGenerationUserPrompt(existingPrompts = []) {
+            const seenList = normalizeTaskTitleList(existingPrompts);
+            const seenJson = seenList.length > 0
+                ? JSON.stringify(seenList.slice(-250), null, 0)
+                : '[]';
+
+            const categoriesJson = JSON.stringify(QUESTIONS_AI_CATEGORY_ORDER, null, 0);
+
+            return `Сгенерируй ${QUESTIONS_AI_PACK_SIZE} новых вопросов для подготовки к собеседованию на middle data engineer.
+
+Требования к контенту:
+- Формат как в текущем разделе: короткий вопрос и развернутый ответ (2-5 предложений), практический и конкретный.
+- Вопросы должны быть на русском языке.
+- Не повторяй уже существующие вопросы.
+- Используй только категории из списка: ${categoriesJson}.
+
+Уже существующие вопросы: ${seenJson}.
+
+Верни только JSON строго в формате:
+{
+  "questions": [
+    {
+      "category": "string",
+      "question": "string",
+      "answer": "string"
+    }
+  ]
+}`;
+        }
+
+        async function requestGeneratedQuestionsPack(existingPrompts, token) {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), LIVE_CODING_GENERATOR_CONFIG.requestTimeoutMs);
+
+            try {
+                const response = await fetch(LIVE_CODING_GENERATOR_CONFIG.apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'Authorization': `Bearer ${token}`,
+                        'api-key': token
+                    },
+                    body: JSON.stringify({
+                        model: LIVE_CODING_GENERATOR_CONFIG.model,
+                        temperature: 0.85,
+                        max_tokens: 2000,
+                        response_format: { type: 'json_object' },
+                        messages: [
+                            { role: 'system', content: QUESTIONS_AI_GENERATOR_SYSTEM_PROMPT },
+                            { role: 'user', content: buildQuestionsGenerationUserPrompt(existingPrompts) }
+                        ]
+                    }),
+                    signal: controller.signal
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`GitHub Models API: ${response.status} ${errorText.slice(0, 240)}`);
+                }
+
+                const payload = await response.json();
+                const content = extractModelContent(payload);
+                return normalizeGeneratedQuestionPack(extractJsonObjectFromModelText(content));
+            } finally {
+                clearTimeout(timeout);
+            }
+        }
+
+        function createGeneratedQuestionAccordionItem(item) {
+            const question = normalizeTitleValue(item?.question || '');
+            const answer = String(item?.answer || '').trim();
+
+            const wrapper = document.createElement('div');
+            wrapper.className = 'accordion-item generated-question-item';
+            wrapper.setAttribute('data-generated-question', 'true');
+            wrapper.style.background = 'var(--bg-card)';
+            wrapper.style.borderRadius = '12px';
+            wrapper.style.marginBottom = '12px';
+            wrapper.style.border = '1px solid rgba(74,240,196,0.25)';
+            wrapper.style.overflow = 'hidden';
+
+            wrapper.innerHTML = `
+                <div class="accordion-header" style="padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleAccordion(this)">
+                    <span style="font-weight: 600; font-size: 15px;">${escapeHtml(question)}</span>
+                    <span class="accordion-toggle" style="transition: transform 0.3s; color: var(--accent1); font-size: 13px; font-weight: 500;">Показать ответ ▼</span>
+                </div>
+                <div class="accordion-content" style="display: none; padding: 0 16px 16px 16px; color: var(--text-muted); line-height: 1.6; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px;">
+                    <strong style="color: var(--accent1);">Ответ:</strong><br>${escapeHtml(answer).replace(/\n/g, '<br>')}
+                </div>
+            `;
+
+            return wrapper;
+        }
+
+        function findQuestionsCategoryContainer(root, category) {
+            const targetCategory = normalizeQuestionsCategory(category);
+            const headings = Array.from(root.querySelectorAll('h2'));
+
+            for (const heading of headings) {
+                const headingCategory = normalizeQuestionsCategory(heading.textContent || '');
+                if (headingCategory !== targetCategory) continue;
+
+                let candidate = heading.nextElementSibling;
+                while (candidate) {
+                    if (candidate.classList?.contains('space-y-4')) {
+                        return candidate;
+                    }
+
+                    if (candidate.tagName === 'H2') {
+                        break;
+                    }
+
+                    candidate = candidate.nextElementSibling;
+                }
+            }
+
+            return null;
+        }
+
+        function ensureQuestionsGeneratedFallbackContainer(root) {
+            const contentContainer = root.querySelector('.page-content') || root;
+            let list = contentContainer.querySelector('.questions-ai-generated-list');
+            if (list) return list;
+
+            const heading = document.createElement('h2');
+            heading.className = 'questions-ai-generated-heading';
+            heading.textContent = 'AI-добавленные вопросы';
+
+            list = document.createElement('div');
+            list.className = 'space-y-4 questions-ai-generated-list';
+
+            contentContainer.appendChild(heading);
+            contentContainer.appendChild(list);
+
+            return list;
+        }
+
+        function appendGeneratedQuestions(root, questions, options = {}) {
+            const source = Array.isArray(questions) ? questions : [];
+            if (source.length === 0) return 0;
+
+            const existingSet = new Set(
+                collectExistingQuestionPrompts(root).map(value => value.toLowerCase())
+            );
+
+            const addedItems = [];
+
+            source.forEach(item => {
+                const question = normalizeTitleValue(item?.question || '');
+                const answer = String(item?.answer || '').trim();
+                const category = normalizeQuestionsCategory(item?.category || '');
+                const key = question.toLowerCase();
+
+                if (!question || !answer || existingSet.has(key)) {
+                    return;
+                }
+
+                const container = findQuestionsCategoryContainer(root, category)
+                    || ensureQuestionsGeneratedFallbackContainer(root);
+
+                container.appendChild(createGeneratedQuestionAccordionItem({ category, question, answer }));
+                existingSet.add(key);
+                addedItems.push({ category, question, answer });
+            });
+
+            if (addedItems.length > 0 && options.persist !== false) {
+                const merged = getStoredGeneratedQuestions().concat(addedItems);
+                saveStoredGeneratedQuestions(merged);
+            }
+
+            return addedItems.length;
+        }
+
+        function hydrateStoredGeneratedQuestions(root) {
+            const stored = getStoredGeneratedQuestions();
+            if (stored.length === 0) return;
+            appendGeneratedQuestions(root, stored, { persist: false });
+        }
+
+        function refreshQuestionsAiControls(root = document.getElementById('questions-content-root')) {
+            if (!root) return;
+
+            const tokenButton = root.querySelector('.questions-token-btn');
+            if (tokenButton) {
+                updateTokenSettingsButtonState(tokenButton);
+            }
+
+            const note = root.querySelector('.questions-ai-note');
+            if (!note) return;
+
+            const generatedCount = root.querySelectorAll('.accordion-item[data-generated-question="true"]').length;
+            note.textContent = generatedCount > 0
+                ? `AI-добавлено вопросов: ${generatedCount}. Можно добавить еще ${QUESTIONS_AI_PACK_SIZE}.`
+                : `Сгенерируй еще ${QUESTIONS_AI_PACK_SIZE} вопросов и ответов в текущем стиле.`;
+        }
+
+        function setQuestionsGenerateButtonLoading(button, isLoading) {
+            if (!button) return;
+
+            if (!button.dataset.defaultLabel) {
+                button.dataset.defaultLabel = button.textContent || `Добавить ${QUESTIONS_AI_PACK_SIZE} AI-вопросов`;
+            }
+
+            if (isLoading) {
+                button.disabled = true;
+                button.classList.add('is-loading');
+                button.innerHTML = `<span class="btn-spinner" aria-hidden="true"></span><span>Генерация ${QUESTIONS_AI_PACK_SIZE}...</span>`;
+                return;
+            }
+
+            button.disabled = false;
+            button.classList.remove('is-loading');
+            button.textContent = button.dataset.defaultLabel;
+        }
+
+        function openQuestionsTokenSettings(button) {
+            openGitHubTokenSettings(button || null);
+            refreshQuestionsAiControls(document.getElementById('questions-content-root'));
+        }
+
+        async function generateQuestionsPack(triggerButton = null) {
+            const root = document.getElementById('questions-content-root');
+            if (!root) return;
+
+            let token = getGitHubModelsToken();
+            if (!token) {
+                token = openGitHubTokenSettings(root.querySelector('.questions-token-btn') || null);
+                refreshQuestionsAiControls(root);
+
+                if (!token) {
+                    showErrorMessage('Генерация отменена: токен не указан.');
+                    return;
+                }
+            }
+
+            setQuestionsGenerateButtonLoading(triggerButton, true);
+            try {
+                const existingPrompts = collectExistingQuestionPrompts(root);
+                const usedPrompts = new Set(existingPrompts.map(value => value.toLowerCase()));
+                const generationContext = [...existingPrompts];
+
+                const generated = [];
+                for (let attempt = 0; attempt < 3 && generated.length < QUESTIONS_AI_PACK_SIZE; attempt += 1) {
+                    const pack = await requestGeneratedQuestionsPack(generationContext, token);
+                    const fresh = pack.filter(item => {
+                        const key = item.question.toLowerCase();
+                        if (usedPrompts.has(key)) return false;
+                        usedPrompts.add(key);
+                        return true;
+                    });
+
+                    generated.push(...fresh);
+                    generationContext.push(...fresh.map(item => item.question));
+                }
+
+                if (generated.length === 0) {
+                    throw new Error('Модель вернула только повторяющиеся вопросы.');
+                }
+
+                const added = appendGeneratedQuestions(root, generated.slice(0, QUESTIONS_AI_PACK_SIZE));
+                if (added === 0) {
+                    throw new Error('Новые вопросы не были добавлены из-за дублей.');
+                }
+
+                refreshQuestionsAiControls(root);
+                showSuccessMessage(`Добавлено AI-вопросов: ${added}.`);
+            } catch (error) {
+                console.error('Ошибка генерации вопросов:', error);
+                showErrorMessage('Не удалось сгенерировать вопросы, попробуйте еще раз.');
+            } finally {
+                setQuestionsGenerateButtonLoading(triggerButton, false);
+            }
+        }
+
         function getStageAccentColor(stageNumber) {
             if (stageNumber === 1 || stageNumber === 2) return 'var(--accent1)';
             if (stageNumber === 3) return 'var(--accent3)';
@@ -2126,6 +2550,8 @@
             try {
                 const html = await loadTaskBankSectionText('questions', QUESTIONS_CONTENT_SOURCE);
                 root.innerHTML = html;
+                hydrateStoredGeneratedQuestions(root);
+                refreshQuestionsAiControls(root);
             } catch (error) {
                 console.error('Не удалось загрузить контент вопросов:', error);
                 root.innerHTML = '<div style="text-align:center; color: var(--red); margin-top: 24px;">Не удалось загрузить вопросы. Попробуйте обновить страницу.</div>';

@@ -544,6 +544,39 @@
             animation: buttonSpin 0.8s linear infinite;
         }
 
+        .questions-ai-controls {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 12px;
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .questions-ai-generate-btn {
+            min-width: 236px;
+        }
+
+        .questions-ai-note {
+            width: 100%;
+            margin: 0;
+            font-size: 11px;
+            color: #9aa8c4;
+        }
+
+        .questions-ai-generated-heading {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            margin-top: 32px;
+            color: #fff;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 8px;
+        }
+
         @keyframes buttonSpin {
             to {
                 transform: rotate(360deg);
@@ -1090,13 +1123,15 @@
 
             .coding-practice-switcher,
             .coding-ai-mode-controls,
-            .coding-stage-actions {
+            .coding-stage-actions,
+            .questions-ai-controls {
                 flex-direction: column;
                 align-items: stretch;
             }
 
             .coding-module-select,
-            .coding-ai-starter-btn {
+            .coding-ai-starter-btn,
+            .questions-ai-generate-btn {
                 width: 100%;
                 min-width: 0;
             }
