@@ -1851,6 +1851,7 @@
             const taskId = `generated-stage${stageNumber}-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
             const safeSolution = String(task?.solution || '').trim()
                 || 'Эталон ответа временно недоступен. Нажмите "Добавить задачи" еще раз, чтобы получить новый вариант.';
+            const sourceLabel = String(task?.source || '').toLowerCase() === 'ai' ? 'AI' : 'Локально';
             const card = document.createElement('div');
             card.className = 'task-box generated-task-box';
             card.setAttribute('data-task-id', taskId);
@@ -1872,6 +1873,7 @@
             card.innerHTML = `
                 <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">🆕 ${escapeHtml(task.title)}</h4>
                 <p style="margin-bottom: 10px; color:#cbd5e1;"><strong>Сложность:</strong> ${escapeHtml(difficultyLabel)}</p>
+                <p style="margin-bottom: 10px; color:#9fb0d8;"><strong>Источник:</strong> ${escapeHtml(sourceLabel)}</p>
                 <p style="margin-bottom: 12px;">${escapeHtml(task.description)}</p>
                 ${task.tables ? `<p style="margin-bottom: 16px;"><strong>Таблицы/данные:</strong> <code>${escapeHtml(task.tables)}</code></p>` : ''}
 
@@ -1975,6 +1977,20 @@
                     usedLocalFallback = true;
                 }
 
+                const source = usedLocalFallback ? 'local' : 'ai';
+                task = {
+                    ...task,
+                    source
+                };
+
+                if (options.generationStats && typeof options.generationStats === 'object') {
+                    if (source === 'ai') {
+                        options.generationStats.ai = Number(options.generationStats.ai || 0) + 1;
+                    } else {
+                        options.generationStats.local = Number(options.generationStats.local || 0) + 1;
+                    }
+                }
+
                 appendGeneratedTaskToStage(root, stageHeading, task, moduleName, {
                     scrollIntoView: options.disableAutoScroll ? false : true
                 });
@@ -2025,6 +2041,7 @@
 
             let generatedCount = 0;
             let plannedCount = 0;
+            const generationStats = { ai: 0, local: 0 };
             try {
                 for (const stageHeading of stageHeadings) {
                     const stageScope = getStageSectionScope(stageHeading);
@@ -2053,6 +2070,7 @@
                             silentFailure: true,
                             skipTokenPrompt: true,
                             preferredToken: token,
+                            generationStats,
                             disableAutoScroll: true
                         });
 
@@ -2063,13 +2081,14 @@
                     }
                 }
                 applyCodingAiModeVisibility(root);
+                const sourceSummary = ` (AI: ${generationStats.ai}, локально: ${generationStats.local})`;
 
                 if (plannedCount === 0) {
                     showSuccessMessage('Для выбранных этапов полный стартовый набор уже сформирован.');
                 } else if (generatedCount >= plannedCount) {
-                    showSuccessMessage(`Стартовый AI-набор готов: ${generatedCount} задач.`);
+                    showSuccessMessage(`Стартовый AI-набор готов: ${generatedCount} задач${sourceSummary}.`);
                 } else if (generatedCount > 0) {
-                    showErrorMessage(`Сгенерировано ${generatedCount} из ${plannedCount}. Можно нажать кнопку еще раз для добора.`);
+                    showErrorMessage(`Сгенерировано ${generatedCount} из ${plannedCount}${sourceSummary}. Можно нажать кнопку еще раз для добора.`);
                 } else {
                     showErrorMessage('Не удалось сгенерировать полный стартовый набор. Попробуйте еще раз.');
                 }
@@ -2154,6 +2173,7 @@
             const stageSelect = panel.querySelector('.coding-global-stage-select');
             const moduleSelect = panel.querySelector('.coding-global-module-select');
             const countInput = panel.querySelector('.coding-global-count-input');
+            const tokenButton = panel.querySelector('.coding-global-token-btn');
 
             if (!stageSelect || !moduleSelect || !countInput) {
                 showErrorMessage('Не удалось прочитать параметры генерации.');
@@ -2173,7 +2193,11 @@
 
             const selectedStage = String(stageSelect.value || 'all');
             const selectedModule = String(moduleSelect.value || 'all');
-            const token = String(getGitHubModelsToken() || '').trim();
+            let token = String(getGitHubModelsToken() || '').trim();
+            if (!token) {
+                token = String(openGitHubTokenSettings(tokenButton || null) || '').trim();
+                if (tokenButton) updateTokenSettingsButtonState(tokenButton);
+            }
 
             const targets = [];
 
@@ -2208,6 +2232,7 @@
             setGenerateTaskButtonLoading(triggerButton, true);
 
             let generatedCount = 0;
+            const generationStats = { ai: 0, local: 0 };
             try {
                 for (const target of targets) {
                     const created = await handleStageTaskGeneration(
@@ -2220,6 +2245,7 @@
                             silentFailure: true,
                             skipTokenPrompt: true,
                             preferredToken: token,
+                            generationStats,
                             disableAutoScroll: true
                         }
                     );
@@ -2230,13 +2256,14 @@
                 }
 
                 applyCodingAiModeVisibility(root);
+                const sourceSummary = ` (AI: ${generationStats.ai}, локально: ${generationStats.local})`;
 
                 if (generatedCount === 0) {
                     showErrorMessage('Не удалось добавить задачи. Попробуйте еще раз.');
                 } else if (generatedCount < targets.length) {
-                    showErrorMessage(`Добавлено задач: ${generatedCount} из ${targets.length}. Можно повторить для добора.`);
+                    showErrorMessage(`Добавлено задач: ${generatedCount} из ${targets.length}${sourceSummary}. Можно повторить для добора.`);
                 } else {
-                    showSuccessMessage(`Добавлено задач: ${generatedCount}.`);
+                    showSuccessMessage(`Добавлено задач: ${generatedCount}${sourceSummary}.`);
                 }
             } catch (error) {
                 console.error('Ошибка массовой генерации задач:', error);
