@@ -127,6 +127,7 @@
         const INTERVIEW_MIN_BANK_SIZE = 25;
         const INTERVIEW_STAGE_ORDER = ['stage1', 'stage2', 'stage3', 'stage4', 'stage5'];
         const LIVE_CODING_GENERATED_TITLES_STORAGE_KEY = 'streamflow_generated_task_titles_v1';
+        const LIVE_CODING_GITHUB_TOKEN_STORAGE_KEY = 'streamflow_github_token';
         const LIVE_CODING_SECTION_SELECTION_STORAGE_KEY = 'streamflow_coding_section_selection_v2';
         const LIVE_CODING_STAGE_MODEL_LABELS = {
             1: 'SQL',
@@ -290,12 +291,87 @@
 
             let localToken = '';
             try {
-                localToken = localStorage.getItem('streamflow_github_token') || '';
+                localToken = localStorage.getItem(LIVE_CODING_GITHUB_TOKEN_STORAGE_KEY) || '';
             } catch (error) {
                 localToken = '';
             }
 
             return String(runtimeToken || envToken || localToken || LIVE_CODING_GENERATOR_CONFIG.token || '').trim();
+        }
+
+        function saveGitHubModelsToken(token) {
+            try {
+                localStorage.setItem(LIVE_CODING_GITHUB_TOKEN_STORAGE_KEY, String(token || '').trim());
+            } catch (error) {
+                // noop
+            }
+        }
+
+        function clearGitHubModelsToken() {
+            try {
+                localStorage.removeItem(LIVE_CODING_GITHUB_TOKEN_STORAGE_KEY);
+            } catch (error) {
+                // noop
+            }
+        }
+
+        function promptForGitHubModelsToken(prefillValue = '') {
+            const message = [
+                'Введите GitHub token для генерации задач (GitHub Models).',
+                'Токен будет сохранен локально только в этом браузере.',
+                'Оставьте пустым, чтобы удалить сохраненный токен.'
+            ].join('\n');
+
+            const value = window.prompt(message, String(prefillValue || '').trim());
+            if (value === null) {
+                return null;
+            }
+
+            return String(value).trim();
+        }
+
+        function getMaskedTokenLabel(token) {
+            const normalized = String(token || '').trim();
+            if (!normalized) return '';
+            if (normalized.length <= 8) return '••••••••';
+            return `${normalized.slice(0, 4)}••••${normalized.slice(-4)}`;
+        }
+
+        function updateTokenSettingsButtonState(button) {
+            if (!button) return;
+
+            const hasToken = Boolean(getGitHubModelsToken());
+            button.classList.toggle('token-ready', hasToken);
+            button.textContent = hasToken ? 'Токен: задан' : 'Указать токен';
+            button.title = hasToken
+                ? 'Токен найден. Нажмите, чтобы заменить или удалить.'
+                : 'Нажмите, чтобы указать токен GitHub Models.';
+        }
+
+            function refreshTokenSettingsButtons() {
+                document.querySelectorAll('.token-config-btn').forEach(updateTokenSettingsButtonState);
+            }
+
+        function openGitHubTokenSettings(tokenButton = null) {
+            const currentToken = getGitHubModelsToken();
+            const inputToken = promptForGitHubModelsToken(currentToken);
+
+            if (inputToken === null) {
+                if (tokenButton) updateTokenSettingsButtonState(tokenButton);
+                return currentToken;
+            }
+
+            if (!inputToken) {
+                clearGitHubModelsToken();
+                showSuccessMessage('Токен удален из localStorage.');
+                refreshTokenSettingsButtons();
+                return '';
+            }
+
+            saveGitHubModelsToken(inputToken);
+            showSuccessMessage(`Токен сохранен (${getMaskedTokenLabel(inputToken)}).`);
+            refreshTokenSettingsButtons();
+            return inputToken;
         }
 
         function normalizeTitleValue(rawTitle) {
@@ -964,11 +1040,14 @@
 
             const stageLabel = stageScope.stageLabel;
             const moduleName = normalizeTitleValue(moduleSelect?.value || stageScope.moduleNames[0] || 'Общий модуль');
-            const token = getGitHubModelsToken();
+            let token = getGitHubModelsToken();
 
             if (!token) {
-                showErrorMessage('Не найден GITHUB_TOKEN. Добавьте токен в STREAMFLOW_CONFIG, localStorage (streamflow_github_token) или конфиг.');
-                return;
+                token = openGitHubTokenSettings();
+                if (!token) {
+                    showErrorMessage('Генерация отменена: токен не указан.');
+                    return;
+                }
             }
 
             syncGeneratedTaskTitlesFromCodingDom(root);
@@ -1024,7 +1103,16 @@
                     handleStageTaskGeneration(root, stageHeading, moduleSelect, generateButton);
                 });
 
+                const tokenButton = document.createElement('button');
+                tokenButton.type = 'button';
+                tokenButton.className = 'btn btn-secondary token-config-btn';
+                tokenButton.addEventListener('click', () => {
+                    openGitHubTokenSettings(tokenButton);
+                });
+                updateTokenSettingsButtonState(tokenButton);
+
                 controls.appendChild(moduleSelect);
+                controls.appendChild(tokenButton);
                 controls.appendChild(generateButton);
                 stageHeading.insertAdjacentElement('afterend', controls);
             });

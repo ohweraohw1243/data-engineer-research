@@ -482,6 +482,16 @@
             min-width: 144px;
         }
 
+        .token-config-btn {
+            min-width: 138px;
+        }
+
+        .token-config-btn.token-ready {
+            border-color: rgba(74, 240, 196, 0.55);
+            color: #c6fff2;
+            background: rgba(74, 240, 196, 0.08);
+        }
+
         .generate-task-btn.is-loading {
             pointer-events: none;
         }
