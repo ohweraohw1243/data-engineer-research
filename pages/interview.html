@@ -1,23 +1,24 @@
 <div class="page-content">
     <div class="page-header">
         <h1 class="page-title">Режим <span>Собеседование</span></h1>
-        <p class="page-desc">Симуляция middle DE интервью: 15 смешанных вопросов по SQL, Python, Spark, Kafka и System Design. Рекомендуем закрывать 70%+ сессии по качеству ответов и уверенности.</p>
+        <p class="page-desc">Симуляция middle DE интервью: сессия запускается сразу после генерации. В готовность идут только содержательные ответы, шаблоны вроде "123 123" не засчитываются.</p>
     </div>
 
     <div class="card" style="margin-bottom: 20px;">
         <div class="interview-toolbar">
             <div style="display:flex; flex-wrap:wrap; gap:10px;">
-                <button id="interview-generate-btn" class="btn">Сгенерировать сессию (15)</button>
-                <button id="interview-start-btn" class="btn">Старт таймера 45 мин</button>
+                <button id="interview-generate-btn" class="btn">Сгенерировать и стартовать (15)</button>
+                <button id="interview-start-btn" class="btn">Перезапустить таймер 45 мин</button>
                 <button id="interview-reset-btn" class="btn btn-secondary">Сбросить сессию</button>
             </div>
             <div class="interview-timer" id="interview-timer">45:00</div>
         </div>
 
         <div class="interview-meta" style="margin-top: 12px;">
-            <span id="interview-progress-label">Прогресс: 0/0</span>
-            <span id="interview-confidence-label">Уверенных ответов: 0</span>
+            <span id="interview-progress-label">Качественные: 0/0</span>
+            <span id="interview-confidence-label">Уверенных качественных: 0</span>
             <span id="interview-ready-label">Готовность: 0%</span>
+            <span id="interview-pool-label">Пул вопросов: ...</span>
         </div>
 
         <div class="progress-bar" style="margin-top: 10px;">
@@ -36,6 +37,7 @@
         <div class="answer-input-area" style="margin-top: 8px;">
             <label for="interview-answer">Ваш ответ:</label>
             <textarea id="interview-answer" rows="10" class="answer-textarea" placeholder="Ответьте так, как на реальном собеседовании: структура, trade-offs, риски, метрики."></textarea>
+            <div id="interview-answer-quality" class="interview-answer-quality is-empty">Оценка ответа появится после генерации сессии.</div>
         </div>
 
         <div class="interview-actions">

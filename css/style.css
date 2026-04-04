@@ -510,6 +510,33 @@
             gap: 10px;
         }
 
+        .interview-answer-quality {
+            margin-top: 10px;
+            font-size: 12px;
+            padding: 10px 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.03);
+            color: var(--text-dim);
+        }
+
+        .interview-answer-quality.is-empty {
+            border-color: rgba(148, 163, 184, 0.5);
+            color: #cbd5e1;
+        }
+
+        .interview-answer-quality.is-weak {
+            border-color: rgba(247, 74, 122, 0.5);
+            color: #fda4af;
+            background: rgba(247, 74, 122, 0.12);
+        }
+
+        .interview-answer-quality.is-strong {
+            border-color: rgba(74, 240, 196, 0.5);
+            color: #86efac;
+            background: rgba(74, 240, 196, 0.12);
+        }
+
         .time-window-card {
             background: linear-gradient(135deg, rgba(74, 240, 196, 0.1), rgba(108, 142, 247, 0.1));
             border: 1px solid var(--border);

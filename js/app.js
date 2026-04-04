@@ -91,7 +91,7 @@
 
         const ANSWER_STATUS_STORAGE_KEY = 'streamflow_answer_status';
 
-        const INTERVIEW_QUESTION_BANK = [
+        const FALLBACK_INTERVIEW_QUESTION_BANK = [
             { id: 'int-s1-1', stage: 'stage1', prompt: 'Как вы оптимизируете запрос с Seq Scan на таблице 300M строк: какие индексы и как проверите результат?' },
             { id: 'int-s1-2', stage: 'stage1', prompt: 'Объясните разницу между CTE, подзапросом и materialized view в контексте аналитики.' },
             { id: 'int-s1-3', stage: 'stage1', prompt: 'Как проектировать факт и измерения для витрины продаж, чтобы не потерять историю изменений атрибутов?' },
@@ -118,7 +118,12 @@
             { id: 'int-s5-4', stage: 'stage5', prompt: 'Какие SLO/метрики вы поставите для продакшен data platform?' }
         ];
 
+        const INTERVIEW_QUESTION_BANK_SOURCE = 'data/interview-questions.json';
+        const INTERVIEW_MIN_BANK_SIZE = 25;
         const INTERVIEW_STAGE_ORDER = ['stage1', 'stage2', 'stage3', 'stage4', 'stage5'];
+        let interviewQuestionBank = [...FALLBACK_INTERVIEW_QUESTION_BANK];
+        let interviewQuestionBankLoaded = false;
+        let interviewQuestionBankPromise = null;
 
         let interviewState = {
             questions: [],
@@ -151,13 +156,83 @@
             return clone;
         }
 
+        function getAppBasePath() {
+            let basePath = '';
+            if (window.location.hostname.includes('github.io')) {
+                const parts = window.location.pathname.split('/');
+                if (parts.length > 1 && parts[1] !== '') {
+                    basePath = `/${parts[1]}/`;
+                }
+            }
+            return basePath;
+        }
+
         function pickRandomQuestions(items, count) {
             return shuffleList(items).slice(0, Math.max(0, count));
         }
 
+        function normalizeInterviewQuestionBank(payload) {
+            const source = Array.isArray(payload)
+                ? payload
+                : (Array.isArray(payload?.questions) ? payload.questions : []);
+
+            const usedIds = new Set();
+            return source.filter(item => {
+                if (!item || typeof item !== 'object') return false;
+                const id = typeof item.id === 'string' ? item.id.trim() : '';
+                const stage = typeof item.stage === 'string' ? item.stage.trim() : '';
+                const prompt = typeof item.prompt === 'string' ? item.prompt.trim() : '';
+
+                if (!id || !prompt || !INTERVIEW_STAGE_ORDER.includes(stage)) return false;
+                if (usedIds.has(id)) return false;
+
+                usedIds.add(id);
+                return true;
+            });
+        }
+
+        async function loadInterviewQuestionBank(forceReload = false) {
+            if (interviewQuestionBankLoaded && !forceReload) {
+                return interviewQuestionBank;
+            }
+
+            if (interviewQuestionBankPromise && !forceReload) {
+                return interviewQuestionBankPromise;
+            }
+
+            const sourceUrl = `${getAppBasePath()}${INTERVIEW_QUESTION_BANK_SOURCE}?v=1`;
+            interviewQuestionBankPromise = fetch(sourceUrl)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Не удалось загрузить ${INTERVIEW_QUESTION_BANK_SOURCE}: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(payload => {
+                    const normalized = normalizeInterviewQuestionBank(payload);
+                    if (normalized.length < INTERVIEW_MIN_BANK_SIZE) {
+                        throw new Error(`Слишком маленький пул вопросов: ${normalized.length}`);
+                    }
+                    interviewQuestionBank = normalized;
+                    interviewQuestionBankLoaded = true;
+                    return interviewQuestionBank;
+                })
+                .catch(error => {
+                    console.warn('Использую fallback-пул вопросов:', error);
+                    interviewQuestionBank = [...FALLBACK_INTERVIEW_QUESTION_BANK];
+                    interviewQuestionBankLoaded = true;
+                    return interviewQuestionBank;
+                })
+                .finally(() => {
+                    interviewQuestionBankPromise = null;
+                });
+
+            return interviewQuestionBankPromise;
+        }
+
         function buildInterviewQuestionSet(totalQuestions = 15) {
             const grouped = INTERVIEW_STAGE_ORDER.reduce((acc, stage) => {
-                acc[stage] = INTERVIEW_QUESTION_BANK.filter(q => q.stage === stage);
+                acc[stage] = interviewQuestionBank.filter(q => q.stage === stage);
                 return acc;
             }, {});
 
@@ -172,7 +247,7 @@
 
             if (selected.length < totalQuestions) {
                 const selectedIds = new Set(selected.map(q => q.id));
-                const fallbackPool = INTERVIEW_QUESTION_BANK.filter(q => !selectedIds.has(q.id));
+                const fallbackPool = interviewQuestionBank.filter(q => !selectedIds.has(q.id));
                 selected = selected.concat(pickRandomQuestions(fallbackPool, totalQuestions - selected.length));
             }
 
@@ -214,22 +289,146 @@
             }
         }
 
+        function evaluateInterviewAnswer(rawAnswer) {
+            const text = (rawAnswer || '').trim();
+            if (!text) {
+                return {
+                    status: 'empty',
+                    reason: 'Нет ответа'
+                };
+            }
+
+            if (/^(?:\d+\s*)+$/.test(text)) {
+                return {
+                    status: 'weak',
+                    reason: 'Только числа без объяснения'
+                };
+            }
+
+            const words = text
+                .toLowerCase()
+                .replace(/[^a-zа-я0-9_\-\s]/gi, ' ')
+                .split(/\s+/)
+                .filter(Boolean);
+
+            const uniqueWords = new Set(words);
+            const uniqueRatio = words.length > 0 ? uniqueWords.size / words.length : 0;
+
+            if (text.length < 55 || words.length < 9) {
+                return {
+                    status: 'weak',
+                    reason: 'Слишком коротко для уровня интервью'
+                };
+            }
+
+            if (words.length >= 8 && uniqueWords.size <= 3) {
+                return {
+                    status: 'weak',
+                    reason: 'Похоже на повтор одного шаблона'
+                };
+            }
+
+            if (uniqueRatio < 0.4) {
+                return {
+                    status: 'weak',
+                    reason: 'Низкая информативность ответа'
+                };
+            }
+
+            return {
+                status: 'strong',
+                reason: 'Содержательный ответ'
+            };
+        }
+
+        function getCurrentInterviewQuestion() {
+            return interviewState.questions[interviewState.currentIndex] || null;
+        }
+
+        function syncInterviewAnswerQualityState() {
+            const qualityEl = document.getElementById('interview-answer-quality');
+            const confidenceBtn = document.getElementById('interview-confidence-btn');
+            const currentQuestion = getCurrentInterviewQuestion();
+
+            if (!qualityEl || !confidenceBtn) return;
+
+            qualityEl.className = 'interview-answer-quality';
+
+            if (!currentQuestion) {
+                qualityEl.classList.add('is-empty');
+                qualityEl.textContent = 'Оценка ответа появится после генерации сессии.';
+                confidenceBtn.disabled = true;
+                return;
+            }
+
+            const assessment = evaluateInterviewAnswer(interviewState.answers[currentQuestion.id] || '');
+
+            if (assessment.status === 'empty') {
+                qualityEl.classList.add('is-empty');
+                qualityEl.textContent = 'Ответ не засчитан: поле пустое.';
+            } else if (assessment.status === 'weak') {
+                qualityEl.classList.add('is-weak');
+                qualityEl.textContent = `Ответ не засчитан: ${assessment.reason}.`;
+            } else {
+                qualityEl.classList.add('is-strong');
+                qualityEl.textContent = 'Ответ засчитан как содержательный.';
+            }
+
+            const canMarkConfident = assessment.status === 'strong';
+            if (!canMarkConfident && interviewState.confident[currentQuestion.id]) {
+                interviewState.confident[currentQuestion.id] = false;
+                saveInterviewState();
+            }
+
+            confidenceBtn.disabled = !canMarkConfident;
+            confidenceBtn.title = canMarkConfident
+                ? ''
+                : 'Отметка уверенности доступна после содержательного ответа.';
+            confidenceBtn.textContent = interviewState.confident[currentQuestion.id]
+                ? 'Снять метку уверенности'
+                : 'Отметить как уверенный ответ';
+        }
+
         function getInterviewStats() {
             const total = interviewState.questions.length;
-            const answered = Object.values(interviewState.answers || {}).filter(v => (v || '').trim().length > 0).length;
-            const confident = Object.values(interviewState.confident || {}).filter(Boolean).length;
+            const assessments = {};
 
-            const answeredPercent = total > 0 ? Math.round((answered / total) * 100) : 0;
+            interviewState.questions.forEach(question => {
+                assessments[question.id] = evaluateInterviewAnswer(interviewState.answers[question.id] || '');
+            });
+
+            const answered = interviewState.questions.filter(question => {
+                return assessments[question.id].status !== 'empty';
+            }).length;
+
+            const qualityAnswered = interviewState.questions.filter(question => {
+                return assessments[question.id].status === 'strong';
+            }).length;
+
+            const weakAnswers = interviewState.questions.filter(question => {
+                return assessments[question.id].status === 'weak';
+            }).length;
+
+            const confident = interviewState.questions.filter(question => {
+                return Boolean(interviewState.confident[question.id]) && assessments[question.id].status === 'strong';
+            }).length;
+
+            const coveragePercent = total > 0 ? Math.round((answered / total) * 100) : 0;
+            const qualityPercent = total > 0 ? Math.round((qualityAnswered / total) * 100) : 0;
             const confidentPercent = total > 0 ? Math.round((confident / total) * 100) : 0;
-            const readinessScore = Math.round(answeredPercent * 0.75 + confidentPercent * 0.25);
+            const readinessScore = Math.round(qualityPercent * 0.8 + confidentPercent * 0.2);
 
             return {
                 total,
                 answered,
+                qualityAnswered,
+                weakAnswers,
                 confident,
-                answeredPercent,
+                coveragePercent,
+                qualityPercent,
                 confidentPercent,
-                readinessScore
+                readinessScore,
+                poolSize: interviewQuestionBank.length
             };
         }
 
@@ -277,14 +476,29 @@
             }, 1000);
         }
 
-        function createInterviewSession(totalQuestions = 15) {
+        async function createInterviewSession(totalQuestions = 15, options = {}) {
+            await loadInterviewQuestionBank();
+
+            const settings = {
+                autoStart: true,
+                ...options
+            };
+
             interviewState.questions = buildInterviewQuestionSet(totalQuestions);
             interviewState.currentIndex = 0;
             interviewState.answers = {};
             interviewState.confident = {};
-            interviewState.startedAt = null;
-            interviewState.isRunning = false;
             stopInterviewTimer();
+
+            if (settings.autoStart) {
+                interviewState.startedAt = Date.now();
+                interviewState.isRunning = true;
+                startInterviewTimer();
+            } else {
+                interviewState.startedAt = null;
+                interviewState.isRunning = false;
+            }
+
             saveInterviewState();
             renderInterviewState();
         }
@@ -295,14 +509,14 @@
             if (!scoreEl || !summaryEl) return;
 
             const stats = getInterviewStats();
-            scoreEl.textContent = `Отвечено: ${stats.answered}/${stats.total}, уверенно: ${stats.confident}/${stats.total}, готовность: ${stats.readinessScore}%.`;
+            scoreEl.textContent = `Качественно: ${stats.qualityAnswered}/${stats.total}, слабых: ${stats.weakAnswers}, уверенных: ${stats.confident}, готовность: ${stats.readinessScore}%.`;
 
             if (stats.total === 0) {
                 summaryEl.textContent = 'Сначала сгенерируйте сессию вопросов.';
             } else if (stats.readinessScore >= 70) {
-                summaryEl.textContent = 'Хороший результат для тренировочного уровня. Сфокусируйтесь на слабых вопросах и повторите сессию.';
+                summaryEl.textContent = 'Хороший результат для тренировочного уровня. Добейте слабые ответы и повторите сессию на другом наборе вопросов.';
             } else {
-                summaryEl.textContent = 'Пока ниже целевого порога 70%. Пройдите еще одну сессию и разберите эталонные решения из лайв-кодинга.';
+                summaryEl.textContent = 'Пока ниже целевого порога 70%. Нужны более структурированные ответы: решение, trade-offs, риски, метрики.';
             }
         }
 
@@ -312,11 +526,13 @@
             const confidenceLabel = document.getElementById('interview-confidence-label');
             const readyLabel = document.getElementById('interview-ready-label');
             const progressBar = document.getElementById('interview-progress-bar');
+            const poolLabel = document.getElementById('interview-pool-label');
 
-            if (progressLabel) progressLabel.textContent = `Прогресс: ${stats.answered}/${stats.total}`;
-            if (confidenceLabel) confidenceLabel.textContent = `Уверенных ответов: ${stats.confident}`;
+            if (progressLabel) progressLabel.textContent = `Качественные: ${stats.qualityAnswered}/${stats.total} (заполнено: ${stats.answered})`;
+            if (confidenceLabel) confidenceLabel.textContent = `Уверенных качественных: ${stats.confident}`;
             if (readyLabel) readyLabel.textContent = `Готовность: ${stats.readinessScore}%`;
-            if (progressBar) progressBar.style.width = `${stats.answeredPercent}%`;
+            if (poolLabel) poolLabel.textContent = `Пул вопросов: ${stats.poolSize}`;
+            if (progressBar) progressBar.style.width = `${stats.qualityPercent}%`;
 
             renderInterviewSummary();
         }
@@ -345,6 +561,7 @@
                 prevBtn.disabled = true;
                 nextBtn.disabled = true;
                 confidenceBtn.disabled = true;
+                syncInterviewAnswerQualityState();
                 return;
             }
 
@@ -356,10 +573,7 @@
 
             prevBtn.disabled = index === 0;
             nextBtn.disabled = index >= total - 1;
-            confidenceBtn.disabled = false;
-            confidenceBtn.textContent = interviewState.confident[currentQuestion.id]
-                ? 'Снять метку уверенности'
-                : 'Отметить как уверенный ответ';
+            syncInterviewAnswerQualityState();
         }
 
         function renderInterviewState() {
@@ -388,6 +602,12 @@
         function toggleInterviewConfidence() {
             const currentQuestion = interviewState.questions[interviewState.currentIndex];
             if (!currentQuestion) return;
+
+            const assessment = evaluateInterviewAnswer(interviewState.answers[currentQuestion.id] || '');
+            if (assessment.status !== 'strong') {
+                showErrorMessage('Сначала дайте содержательный ответ, потом ставьте метку уверенности.');
+                return;
+            }
 
             interviewState.confident[currentQuestion.id] = !interviewState.confident[currentQuestion.id];
             saveInterviewState();
@@ -429,17 +649,32 @@
         }
 
         function ensureInterviewBindings() {
-            bindInterviewButton('interview-generate-btn', () => createInterviewSession(15));
-            bindInterviewButton('interview-start-btn', () => {
+            bindInterviewButton('interview-generate-btn', async () => {
+                try {
+                    await createInterviewSession(15, { autoStart: true });
+                } catch (error) {
+                    console.error('Не удалось создать сессию:', error);
+                    showErrorMessage('Не удалось создать сессию собеседования. Попробуйте снова.');
+                }
+            });
+
+            bindInterviewButton('interview-start-btn', async () => {
                 if (interviewState.questions.length === 0) {
-                    createInterviewSession(15);
+                    try {
+                        await createInterviewSession(15, { autoStart: true });
+                        return;
+                    } catch (error) {
+                        console.error('Не удалось запустить сессию:', error);
+                        showErrorMessage('Не удалось запустить сессию собеседования.');
+                        return;
+                    }
                 }
-                if (!interviewState.startedAt) {
-                    interviewState.startedAt = Date.now();
-                }
+
+                interviewState.startedAt = Date.now();
                 interviewState.isRunning = true;
-                saveInterviewState();
+                stopInterviewTimer();
                 startInterviewTimer();
+                saveInterviewState();
                 renderInterviewState();
             });
             bindInterviewButton('interview-reset-btn', resetInterviewSession);
@@ -455,6 +690,7 @@
                     if (!currentQuestion) return;
                     interviewState.answers[currentQuestion.id] = answerEl.value;
                     saveInterviewState();
+                    syncInterviewAnswerQualityState();
                     updateInterviewProgressUI();
                 });
                 answerEl.dataset.bound = 'true';
@@ -464,6 +700,9 @@
         function initInterviewSection() {
             loadInterviewState();
             ensureInterviewBindings();
+            loadInterviewQuestionBank().then(() => {
+                updateInterviewProgressUI();
+            });
 
             if (interviewState.isRunning && getInterviewRemainingMs() > 0) {
                 startInterviewTimer();
@@ -803,13 +1042,7 @@
             }
             
             try {
-                let basePath = '';
-                if (window.location.hostname.includes('github.io')) {
-                    const parts = window.location.pathname.split('/');
-                    if (parts.length > 1 && parts[1] !== '') {
-                        basePath = '/' + parts[1] + '/';
-                    }
-                }
+                const basePath = getAppBasePath();
                 const nocache = new Date().getTime();
                 const response = await fetch(`${basePath}pages/${tabId}.html?v=${nocache}`);
                 if (!response.ok) throw new Error('Network response was not ok');
@@ -927,52 +1160,18 @@
                 'fact', 'dimension', 'stg', 'dds'
             ];
 
-            return dictionary.filter(term => lower.includes(term)).slice(0, 8);
+            return dictionary.filter(term => lower.includes(term)).slice(0, 3);
         }
 
-        function buildHintSkeleton(answerText) {
-            const lines = (answerText || '')
-                .split('\n')
-                .map(line => line.trim())
-                .filter(line => line && !line.startsWith('--') && !line.startsWith('#'));
-
-            if (lines.length === 0) return '';
-
-            return lines.slice(0, 3).map((line, index) => {
-                let compact = line
-                    .replace(/\s+/g, ' ')
-                    .replace(/'[^']*'/g, "'...'")
-                    .replace(/"[^"]*"/g, '"..."')
-                    .replace(/\b\d+\b/g, 'N')
-                    .trim();
-
-                if (compact.length > 90) {
-                    compact = `${compact.slice(0, 90)}...`;
-                }
-
-                return `${index + 1}. ${compact}`;
-            }).join('\n');
-        }
-
-        function buildTaskHints(container) {
-            const expected = getExpectedAnswer(container);
+        function buildTaskHint(container) {
             const taskText = container.textContent || '';
-            const terms = extractHintTerms(`${taskText}\n${expected}`);
-            const skeleton = buildHintSkeleton(expected);
+            const terms = extractHintTerms(taskText);
 
-            const level1 = terms.length > 0
-                ? `Начните с опорных элементов: ${terms.slice(0, 5).join(', ')}.`
-                : 'Сначала опишите логику решения по шагам: источник данных -> преобразование -> итог.';
+            if (terms.length > 0) {
+                return `Мягкий намек: сначала определите итоговый результат и только потом соберите запрос/код вокруг ${terms.slice(0, 2).join(' и ')}.`;
+            }
 
-            const level2 = skeleton
-                ? `Каркас решения:\n${skeleton}`
-                : 'Соберите минимально рабочий вариант, затем добавьте обработку ошибок и проверку результата.';
-
-            const level3 = expected
-                ? 'Перед отправкой проверьте синтаксис, условия фильтрации/агрегации и формат итогового вывода.'
-                : 'Сравните ответ с формулировкой задачи: все ли поля, условия и ограничения покрыты.';
-
-            return [level1, level2, level3];
+            return 'Мягкий намек: сначала опишите входные данные, затем шаг преобразования, и в конце ожидаемый формат результата.';
         }
 
         function ensureTaskHints(root = document) {
@@ -987,14 +1186,12 @@
                     const actions = document.createElement('div');
                     actions.className = 'hint-actions';
 
-                    [1, 2, 3].forEach(level => {
-                        const button = document.createElement('button');
-                        button.type = 'button';
-                        button.className = 'hint-btn';
-                        button.textContent = `Подсказка ${level}`;
-                        button.setAttribute('onclick', `showHint(this, ${level})`);
-                        actions.appendChild(button);
-                    });
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'hint-btn';
+                    button.textContent = 'Подсказка';
+                    button.setAttribute('onclick', 'showHint(this, 1)');
+                    actions.appendChild(button);
 
                     const result = answerArea.querySelector('.check-result');
                     if (result) {
@@ -1005,14 +1202,11 @@
                 }
 
                 if (taskBox.querySelectorAll('.hint-level').length === 0) {
-                    const hints = buildTaskHints(taskBox);
-                    hints.forEach((hintText, index) => {
-                        const hintBlock = document.createElement('div');
-                        hintBlock.className = 'hint-level';
-                        hintBlock.dataset.level = String(index + 1);
-                        hintBlock.textContent = hintText;
-                        answerArea.appendChild(hintBlock);
-                    });
+                    const hintBlock = document.createElement('div');
+                    hintBlock.className = 'hint-level';
+                    hintBlock.dataset.level = '1';
+                    hintBlock.textContent = buildTaskHint(taskBox);
+                    answerArea.appendChild(hintBlock);
                 }
             });
         }
@@ -1025,13 +1219,13 @@
             if (!hints || hints.length === 0) return;
 
             hints.forEach((hint, index) => {
-                const isVisible = index < level;
+                const isVisible = index === (level - 1);
                 hint.classList.toggle('active', isVisible);
                 hint.style.display = isVisible ? 'block' : 'none';
             });
 
-            hintButtons.forEach((button, index) => {
-                button.classList.toggle('active', index < level);
+            hintButtons.forEach(button => {
+                button.classList.add('active');
             });
         }
 
