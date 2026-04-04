@@ -1,7 +1,7 @@
 <div class="page-content">
 <div class="page-header">
                     <h1 class="page-title">Лайв-кодинг <span>кейсы</span></h1>
-                    <p class="page-desc">SQL кейсы для практики. Примеры с подсказками.</p>
+                    <p class="page-desc">Расширенный тренажер под middle data engineer: SQL, Python, Spark, Kafka, DWH modeling и System Design. Если стабильно закрывать не менее 70% задач каждого этапа, уровень готовности к собеседованию заметно растет.</p>
                 </div>
 
                 <div class="space-y-6">
@@ -185,6 +185,87 @@ WHERE rn = 1;</code></pre>
                     </p>
                 </details>
             </div>
+
+            <div class="task-box" data-task-id="stage1-explain-analyze" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid var(--accent1);">
+                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">📈 Задача 5: EXPLAIN ANALYZE и устранение Seq Scan</h4>
+                <p style="margin-bottom: 16px;">Есть запрос <code>SELECT * FROM orders WHERE user_id = 42 AND created_at &gt;= '2026-01-01'</code> и план с <code>Seq Scan on orders</code>. Напишите, какие индексы добавите и как проверите улучшение через <code>EXPLAIN ANALYZE</code>.</p>
+
+                <div class="answer-input-area">
+                    <label>Ваш SQL и объяснение:</label>
+                    <textarea rows="9" class="answer-textarea" placeholder="CREATE INDEX ...&#10;EXPLAIN ANALYZE ..."></textarea>
+                    <button class="check-answer-btn" onclick="checkAnswer(this)">Проверить мое решение</button>
+                    <div class="check-result"></div>
+                </div>
+
+                <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
+                    <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
+<pre style="background:#1e293b; padding:12px; border-radius:6px; margin-top: 12px; margin-bottom: 0; color:#e2e8f0; overflow-x: auto;"><code>CREATE INDEX idx_orders_user_created_at
+ON orders (user_id, created_at);
+
+EXPLAIN ANALYZE
+SELECT *
+FROM orders
+WHERE user_id = 42
+  AND created_at >= '2026-01-01';
+
+-- Ожидаем переход с Seq Scan на Index Scan / Bitmap Index Scan
+-- и снижение фактического времени выполнения.</code></pre>
+                </details>
+            </div>
+
+            <div class="task-box" data-task-id="stage1-index-strategy" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid var(--accent1);">
+                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">🧠 Задача 6: Индекс-стратегия под аналитический workload</h4>
+                <p style="margin-bottom: 16px;">Нужно ускорить отчет: фильтр по <code>status='paid'</code> и диапазону по <code>created_at</code>, группировка по <code>country</code>. Предложите набор индексов (включая partial/composite) и кратко объясните trade-off.</p>
+
+                <div class="answer-input-area">
+                    <label>Ваш ответ:</label>
+                    <textarea rows="10" class="answer-textarea" placeholder="CREATE INDEX ...&#10;Пояснение ..."></textarea>
+                    <button class="check-answer-btn" onclick="checkAnswer(this)">Проверить мое решение</button>
+                    <div class="check-result"></div>
+                </div>
+
+                <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
+                    <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
+<pre style="background:#1e293b; padding:12px; border-radius:6px; margin-top: 12px; margin-bottom: 0; color:#e2e8f0; overflow-x: auto;"><code>-- Часто используемый фильтр: только оплаченные заказы
+CREATE INDEX idx_orders_paid_created_at
+ON orders (created_at, country)
+WHERE status = 'paid';
+
+-- Для join/point lookup по пользователю
+CREATE INDEX idx_orders_user_id ON orders (user_id);
+
+-- Trade-off: ускоряем чтение отчетов, но замедляем INSERT/UPDATE
+-- из-за дополнительного обслуживания индексов.</code></pre>
+                </details>
+            </div>
+
+            <div class="task-box" data-task-id="stage1-scd2-merge" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid var(--accent1);">
+                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">🧩 Задача 7: SCD Type 2 для dim_user</h4>
+                <p style="margin-bottom: 16px;">Есть <code>dim_user(user_id, city, valid_from, valid_to, is_current)</code>. При изменении города у пользователя нужно закрыть текущую запись и вставить новую. Напишите SQL-шаблон.</p>
+
+                <div class="answer-input-area">
+                    <label>Ваш SQL:</label>
+                    <textarea rows="11" class="answer-textarea" placeholder="BEGIN; ... COMMIT;"></textarea>
+                    <button class="check-answer-btn" onclick="checkAnswer(this)">Проверить мое решение</button>
+                    <div class="check-result"></div>
+                </div>
+
+                <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
+                    <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
+<pre style="background:#1e293b; padding:12px; border-radius:6px; margin-top: 12px; margin-bottom: 0; color:#e2e8f0; overflow-x: auto;"><code>BEGIN;
+
+UPDATE dim_user
+SET valid_to = CURRENT_DATE - INTERVAL '1 day',
+    is_current = false
+WHERE user_id = 42
+  AND is_current = true;
+
+INSERT INTO dim_user (user_id, city, valid_from, valid_to, is_current)
+VALUES (42, 'Berlin', CURRENT_DATE, DATE '9999-12-31', true);
+
+COMMIT;</code></pre>
+                </details>
+            </div>
         </div>
 
         <h2 style="font-size: 26px; font-weight: 600; margin-top: 48px; margin-bottom: 24px; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px;">Практические Задачи (Этап 2)</h2>
@@ -274,6 +355,103 @@ COPY etl.py .
 CMD ["python", "etl.py"]</code></pre>
                 </details>
             </div>
+
+            <div class="task-box" data-task-id="stage2-async-retry" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid var(--accent1);">
+                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">⚡ Задача 4: Async API + Exponential Backoff</h4>
+                <p style="margin-bottom: 16px;">Напишите функцию на <code>aiohttp</code>, которая делает запрос к API с максимум 5 попытками и экспоненциальной задержкой при ошибках <code>429/500</code>.</p>
+
+                <div class="answer-input-area">
+                    <label>Ваш Python код:</label>
+                    <textarea rows="12" class="answer-textarea" placeholder="import asyncio&#10;import aiohttp&#10;..."></textarea>
+                    <button class="check-answer-btn" onclick="checkAnswer(this)">Проверить мое решение</button>
+                    <div class="check-result"></div>
+                </div>
+
+                <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
+                    <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
+<pre style="background:#1e293b; padding:12px; border-radius:6px; margin-top: 12px; margin-bottom: 0; color:#e2e8f0; overflow-x: auto;"><code>import asyncio
+import aiohttp
+
+async def fetch_with_retry(url, attempts=5):
+    async with aiohttp.ClientSession() as session:
+        for i in range(attempts):
+            try:
+                async with session.get(url, timeout=10) as resp:
+                    if resp.status in (429, 500, 502, 503, 504):
+                        raise RuntimeError(f"retryable status={resp.status}")
+                    resp.raise_for_status()
+                    return await resp.json()
+            except Exception:
+                if i == attempts - 1:
+                    raise
+                await asyncio.sleep(2 ** i)</code></pre>
+                </details>
+            </div>
+
+            <div class="task-box" data-task-id="stage2-airflow-dag" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid var(--accent1);">
+                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">🛠️ Задача 5: Airflow DAG с SLA и retry</h4>
+                <p style="margin-bottom: 16px;">Опишите DAG <code>extract -> transform -> load</code> с ежедневным запуском, <code>retries=3</code>, <code>retry_delay=5 min</code> и SLA 30 минут.</p>
+
+                <div class="answer-input-area">
+                    <label>Ваш Python DAG:</label>
+                    <textarea rows="12" class="answer-textarea" placeholder="from airflow import DAG&#10;..."></textarea>
+                    <button class="check-answer-btn" onclick="checkAnswer(this)">Проверить мое решение</button>
+                    <div class="check-result"></div>
+                </div>
+
+                <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
+                    <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
+<pre style="background:#1e293b; padding:12px; border-radius:6px; margin-top: 12px; margin-bottom: 0; color:#e2e8f0; overflow-x: auto;"><code>from datetime import datetime, timedelta
+from airflow import DAG
+from airflow.operators.python import PythonOperator
+
+default_args = {
+    "owner": "de",
+    "retries": 3,
+    "retry_delay": timedelta(minutes=5)
+}
+
+with DAG(
+    "daily_etl",
+    start_date=datetime(2026, 1, 1),
+    schedule="0 6 * * *",
+    catchup=False,
+    default_args=default_args,
+    sla_miss_callback=None
+) as dag:
+    extract = PythonOperator(task_id="extract", python_callable=lambda: None)
+    transform = PythonOperator(task_id="transform", python_callable=lambda: None)
+    load = PythonOperator(task_id="load", python_callable=lambda: None)
+
+    extract >> transform >> load</code></pre>
+                </details>
+            </div>
+
+            <div class="task-box" data-task-id="stage2-data-validation" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid var(--accent1);">
+                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">✅ Задача 6: Валидация входящих событий (Pydantic)</h4>
+                <p style="margin-bottom: 16px;">Опишите модель события транзакции: <code>txn_id</code> (int), <code>user_id</code> (str), <code>amount</code> (&gt;0), <code>event_ts</code> (datetime). Невалидные записи должны падать с ошибкой валидации.</p>
+
+                <div class="answer-input-area">
+                    <label>Ваш Python код:</label>
+                    <textarea rows="10" class="answer-textarea" placeholder="from pydantic import BaseModel, Field&#10;..."></textarea>
+                    <button class="check-answer-btn" onclick="checkAnswer(this)">Проверить мое решение</button>
+                    <div class="check-result"></div>
+                </div>
+
+                <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
+                    <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
+<pre style="background:#1e293b; padding:12px; border-radius:6px; margin-top: 12px; margin-bottom: 0; color:#e2e8f0; overflow-x: auto;"><code>from datetime import datetime
+from pydantic import BaseModel, Field
+
+class TransactionEvent(BaseModel):
+    txn_id: int
+    user_id: str = Field(min_length=1)
+    amount: float = Field(gt=0)
+    event_ts: datetime
+
+# TransactionEvent(**payload)  # бросит ValidationError, если данные плохие</code></pre>
+                </details>
+            </div>
         </div>
 
         <h2 style="font-size: 26px; font-weight: 600; margin-top: 48px; margin-bottom: 24px; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px;">Практические Задачи (Этап 3)</h2>
@@ -317,6 +495,82 @@ result = df.filter(col("event_type") == "purchase") \
 result.write.partitionBy("date").mode("overwrite").parquet("output_data/")
 
 spark.stop()</code></pre>
+                </details>
+            </div>
+
+            <div class="task-box" data-task-id="stage3-broadcast-join" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid var(--accent3);">
+                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">🚀 Проект 2: Broadcast Join для маленького справочника</h4>
+                <p style="margin-bottom: 16px;">Есть большой <code>df_sales</code> и маленький <code>df_currency</code>. Напишите join так, чтобы избежать тяжелого shuffle.</p>
+
+                <div class="answer-input-area">
+                    <label>Ваш PySpark код:</label>
+                    <textarea rows="9" class="answer-textarea" placeholder="from pyspark.sql.functions import broadcast&#10;..."></textarea>
+                    <button class="check-answer-btn" onclick="checkAnswer(this)">Проверить мое решение</button>
+                    <div class="check-result"></div>
+                </div>
+
+                <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
+                    <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
+<pre style="background:#1e293b; padding:12px; border-radius:6px; margin-top: 12px; margin-bottom: 0; color:#e2e8f0; overflow-x: auto;"><code>from pyspark.sql.functions import broadcast
+
+result = (
+    df_sales
+    .join(broadcast(df_currency), on="currency_code", how="left")
+    .select("sale_id", "amount", "rate", "amount_usd")
+)
+
+result.explain(True)  # проверяем, что выбран BroadcastHashJoin</code></pre>
+                </details>
+            </div>
+
+            <div class="task-box" data-task-id="stage3-skew-salting" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid var(--accent3);">
+                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">🧂 Проект 3: Борьба с Data Skew через Salting</h4>
+                <p style="margin-bottom: 16px;">В <code>groupBy(city)</code> город <code>Moscow</code> занимает 80% данных и убивает один executor. Покажите двухфазную агрегацию с salt-колонкой.</p>
+
+                <div class="answer-input-area">
+                    <label>Ваш PySpark код:</label>
+                    <textarea rows="12" class="answer-textarea" placeholder="from pyspark.sql.functions import rand, floor, concat_ws, sum&#10;..."></textarea>
+                    <button class="check-answer-btn" onclick="checkAnswer(this)">Проверить мое решение</button>
+                    <div class="check-result"></div>
+                </div>
+
+                <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
+                    <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
+<pre style="background:#1e293b; padding:12px; border-radius:6px; margin-top: 12px; margin-bottom: 0; color:#e2e8f0; overflow-x: auto;"><code>from pyspark.sql.functions import rand, floor, concat_ws, col, sum as spark_sum
+
+salted = df.withColumn("salt", floor(rand() * 20)) \
+           .withColumn("city_salted", concat_ws("_", col("city"), col("salt")))
+
+part_agg = salted.groupBy("city_salted").agg(spark_sum("amount").alias("part_sum"))
+
+result = part_agg.withColumn("city", col("city_salted").substr(1, 100)) \
+                 .groupBy("city") \
+                 .agg(spark_sum("part_sum").alias("total_amount"))</code></pre>
+                </details>
+            </div>
+
+            <div class="task-box" data-task-id="stage3-plan-debug" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid var(--accent3);">
+                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">🔍 Проект 4: Диагностика физического плана Spark</h4>
+                <p style="margin-bottom: 16px;">Напишите фрагмент кода, который показывает физический план, количество партиций после shuffle и включает AQE для тяжелого джойна.</p>
+
+                <div class="answer-input-area">
+                    <label>Ваш PySpark код:</label>
+                    <textarea rows="10" class="answer-textarea" placeholder="spark.conf.set(...)"></textarea>
+                    <button class="check-answer-btn" onclick="checkAnswer(this)">Проверить мое решение</button>
+                    <div class="check-result"></div>
+                </div>
+
+                <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
+                    <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
+<pre style="background:#1e293b; padding:12px; border-radius:6px; margin-top: 12px; margin-bottom: 0; color:#e2e8f0; overflow-x: auto;"><code>spark.conf.set("spark.sql.adaptive.enabled", "true")
+spark.conf.set("spark.sql.shuffle.partitions", "200")
+
+joined = df_big.join(df_ref, "user_id", "left")
+
+joined.explain("formatted")
+print("shuffle partitions:", spark.conf.get("spark.sql.shuffle.partitions"))
+
+# Дополнительно: открыть Spark UI и проверить skew/task duration.</code></pre>
                 </details>
             </div>
         </div>
@@ -372,6 +626,95 @@ producer.flush()
 print("Valid transactions sent.")</code></pre>
                 </details>
             </div>
+
+            <div class="task-box" data-task-id="stage4-consumer-commit" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid #a855f7;">
+                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">💻 Проект 2: Kafka Consumer с manual commit</h4>
+                <p style="margin-bottom: 16px;">Реализуйте consumer, который читает сообщения батчами и коммитит offset только после успешной обработки батча.</p>
+
+                <div class="answer-input-area">
+                    <label>Ваш Python код:</label>
+                    <textarea rows="12" class="answer-textarea" placeholder="from kafka import KafkaConsumer&#10;..."></textarea>
+                    <button class="check-answer-btn" onclick="checkAnswer(this)">Проверить мое решение</button>
+                    <div class="check-result"></div>
+                </div>
+
+                <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
+                    <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
+<pre style="background:#1e293b; padding:12px; border-radius:6px; margin-top: 12px; margin-bottom: 0; color:#e2e8f0; overflow-x: auto;"><code>from kafka import KafkaConsumer
+
+consumer = KafkaConsumer(
+    "transactions",
+    bootstrap_servers=["localhost:9092"],
+    enable_auto_commit=False,
+    group_id="de-consumer"
+)
+
+batch = []
+for msg in consumer:
+    batch.append(msg)
+    if len(batch) >= 100:
+        # process_batch(batch)
+        consumer.commit()  # только после успешной обработки
+        batch = []</code></pre>
+                </details>
+            </div>
+
+            <div class="task-box" data-task-id="stage4-schema-registry" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid #a855f7;">
+                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">📜 Проект 3: Data Contract через Schema Registry</h4>
+                <p style="margin-bottom: 16px;">Опишите схему события заказа (Avro/JSON Schema) и правила совместимости, чтобы случайное удаление поля не ломало downstream.</p>
+
+                <div class="answer-input-area">
+                    <label>Ваш ответ:</label>
+                    <textarea rows="10" class="answer-textarea" placeholder="schema: {...}&#10;compatibility: BACKWARD"></textarea>
+                    <button class="check-answer-btn" onclick="checkAnswer(this)">Проверить мое решение</button>
+                    <div class="check-result"></div>
+                </div>
+
+                <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
+                    <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
+<pre style="background:#1e293b; padding:12px; border-radius:6px; margin-top: 12px; margin-bottom: 0; color:#e2e8f0; overflow-x: auto;"><code>{
+  "type": "record",
+  "name": "OrderEvent",
+  "fields": [
+    {"name": "order_id", "type": "long"},
+    {"name": "user_id", "type": "long"},
+    {"name": "amount", "type": "double"},
+    {"name": "event_ts", "type": "string"}
+  ]
+}
+
+Compatibility: BACKWARD
+Правило: новые поля добавлять только с default, существующие не удалять без миграции.</code></pre>
+                </details>
+            </div>
+
+            <div class="task-box" data-task-id="stage4-streaming-window" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid #a855f7;">
+                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">🌊 Проект 4: Window + Watermark в Spark Streaming</h4>
+                <p style="margin-bottom: 16px;">Напишите стрим, который читает Kafka topic <code>transactions</code> и считает сумму по 10-минутным окнам с watermark 15 минут по <code>event_time</code>.</p>
+
+                <div class="answer-input-area">
+                    <label>Ваш PySpark код:</label>
+                    <textarea rows="12" class="answer-textarea" placeholder="stream_df = spark.readStream...&#10;..."></textarea>
+                    <button class="check-answer-btn" onclick="checkAnswer(this)">Проверить мое решение</button>
+                    <div class="check-result"></div>
+                </div>
+
+                <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
+                    <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
+<pre style="background:#1e293b; padding:12px; border-radius:6px; margin-top: 12px; margin-bottom: 0; color:#e2e8f0; overflow-x: auto;"><code>from pyspark.sql.functions import from_json, col, window, sum as spark_sum
+
+parsed = stream_df.selectExpr("CAST(value AS STRING) as raw")
+
+agg = (
+    parsed
+    .withWatermark("event_time", "15 minutes")
+    .groupBy(window(col("event_time"), "10 minutes"))
+    .agg(spark_sum("amount").alias("total_amount"))
+)
+
+query = agg.writeStream.outputMode("append").format("console").start()</code></pre>
+                </details>
+            </div>
         </div>
 
         <h2 style="font-size: 26px; font-weight: 600; margin-top: 48px; margin-bottom: 24px; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px;">Практические Задачи (Этап 5)</h2>
@@ -421,6 +764,77 @@ CREATE TABLE fact_sales (
 -- но логическая связь идёт от таблицы фактов к измерениям.</code></pre>
                 </details>
             </div>
+
+            <div class="task-box" data-task-id="stage5-lakehouse-design" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid #ef4444;">
+                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">🏗️ Проект 2: System Design Lakehouse</h4>
+                <p style="margin-bottom: 16px;">Спроектируйте high-level архитектуру: <code>S3 + Kafka + Spark + Iceberg + ClickHouse + BI</code>. Укажите слои данных, контроль качества и стратегию восстановления после сбоев.</p>
+
+                <div class="answer-input-area">
+                    <label>Ваш дизайн:</label>
+                    <textarea rows="10" class="answer-textarea" placeholder="Ingestion -> Bronze -> Silver -> Gold ..."></textarea>
+                    <button class="check-answer-btn" onclick="checkAnswer(this)">Проверить мое решение</button>
+                    <div class="check-result"></div>
+                </div>
+
+                <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
+                    <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
+                    <p style="margin-top: 8px; font-size: 14px; color: #cbd5e1; margin-bottom: 0;">
+                        <strong>Ingestion:</strong> API/DB CDC -&gt; Kafka.<br>
+                        <strong>Bronze:</strong> сырые события в S3 (append-only).<br>
+                        <strong>Silver:</strong> Spark quality rules, дедуп, нормализация в Iceberg.<br>
+                        <strong>Gold:</strong> бизнес-витрины и агрегаты в ClickHouse.<br>
+                        <strong>Надежность:</strong> checkpoint, idempotent writes, replay из Kafka, DQ-алерты в мониторинг.
+                    </p>
+                </details>
+            </div>
+
+            <div class="task-box" data-task-id="stage5-clickhouse-tuning" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid #ef4444;">
+                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">📊 Проект 3: ClickHouse таблица под быстрые отчеты</h4>
+                <p style="margin-bottom: 16px;">Создайте DDL для <code>fact_events</code> на MergeTree: партиционирование по месяцу, сортировка по <code>(event_date, user_id)</code>, TTL 180 дней.</p>
+
+                <div class="answer-input-area">
+                    <label>Ваш SQL DDL:</label>
+                    <textarea rows="10" class="answer-textarea" placeholder="CREATE TABLE fact_events ..."></textarea>
+                    <button class="check-answer-btn" onclick="checkAnswer(this)">Проверить мое решение</button>
+                    <div class="check-result"></div>
+                </div>
+
+                <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
+                    <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
+<pre style="background:#1e293b; padding:12px; border-radius:6px; margin-top: 12px; margin-bottom: 0; color:#e2e8f0; overflow-x: auto;"><code>CREATE TABLE fact_events (
+    event_date Date,
+    user_id UInt64,
+    event_type LowCardinality(String),
+    amount Float64
+)
+ENGINE = MergeTree
+PARTITION BY toYYYYMM(event_date)
+ORDER BY (event_date, user_id)
+TTL event_date + INTERVAL 180 DAY;
+</code></pre>
+                </details>
+            </div>
+
+            <div class="task-box" data-task-id="stage5-cdc-zeroetl" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid #ef4444;">
+                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">🔄 Проект 4: CDC + Zero-ETL сценарий</h4>
+                <p style="margin-bottom: 16px;">Опишите pipeline изменений из PostgreSQL в аналитический слой с минимальной задержкой: где хранить raw changelog, как обеспечить exactly-once и backfill.</p>
+
+                <div class="answer-input-area">
+                    <label>Ваш ответ:</label>
+                    <textarea rows="10" class="answer-textarea" placeholder="Debezium -> Kafka -> ..."></textarea>
+                    <button class="check-answer-btn" onclick="checkAnswer(this)">Проверить мое решение</button>
+                    <div class="check-result"></div>
+                </div>
+
+                <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
+                    <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
+                    <p style="margin-top: 8px; font-size: 14px; color: #cbd5e1; margin-bottom: 0;">
+                        <strong>Поток:</strong> Debezium (WAL) -&gt; Kafka topic per table -&gt; Spark/Flink CDC processor -&gt; Iceberg upsert -&gt; ClickHouse marts.<br>
+                        <strong>Exactly-once:</strong> transactional producer + checkpoint + идемпотентный merge по PK и op_ts.<br>
+                        <strong>Backfill:</strong> снимок таблиц в S3 и реплей changelog от сохраненного offset.
+                    </p>
+                </details>
+            </div>
         </div>
 
         <h2 style="font-size: 26px; font-weight: 600; margin-top: 48px; margin-bottom: 24px; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px;">Практические Задачи (Математика и Статистика)</h2>
@@ -467,6 +881,55 @@ def detect_outliers(data):
 # Проверка:
 print(detect_outliers([10, 12, 12, 13, 12, 11, 14, 13, 15, 102, 12, 14]))
 # Вывод: [102]</code></pre>
+                </details>
+            </div>
+
+            <div class="task-box" data-task-id="math-ab-test-sample-size" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid #facc15;">
+                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">📐 Проект 2: Оценка размера выборки для A/B</h4>
+                <p style="margin-bottom: 16px;">Напишите функцию, оценивающую размер выборки на группу для проверки разницы конверсии: baseline=0.12, uplift=0.02, alpha=0.05, power=0.8.</p>
+
+                <div class="answer-input-area">
+                    <label>Ваш Python код:</label>
+                    <textarea rows="11" class="answer-textarea" placeholder="from math import sqrt&#10;..."></textarea>
+                    <button class="check-answer-btn" onclick="checkAnswer(this)">Проверить мое решение</button>
+                    <div class="check-result"></div>
+                </div>
+
+                <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
+                    <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
+<pre style="background:#1e293b; padding:12px; border-radius:6px; margin-top: 12px; margin-bottom: 0; color:#e2e8f0; overflow-x: auto;"><code>from math import sqrt
+
+def estimate_sample_size(p, delta, z_alpha=1.96, z_beta=0.84):
+    p2 = p + delta
+    var = p * (1 - p) + p2 * (1 - p2)
+    n = ((z_alpha + z_beta) ** 2 * var) / (delta ** 2)
+    return int(n) + 1
+
+print(estimate_sample_size(0.12, 0.02))</code></pre>
+                </details>
+            </div>
+
+            <div class="task-box" data-task-id="math-zscore-monitoring" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border-left: 4px solid #facc15;">
+                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">📉 Проект 3: Z-score мониторинг метрики</h4>
+                <p style="margin-bottom: 16px;">Есть дневная метрика revenue. Напишите логику аномалий: если |z| &gt; 3, поднимаем alert. Можно Python или SQL-псевдокод.</p>
+
+                <div class="answer-input-area">
+                    <label>Ваш код:</label>
+                    <textarea rows="10" class="answer-textarea" placeholder="mean = ...&#10;std = ..."></textarea>
+                    <button class="check-answer-btn" onclick="checkAnswer(this)">Проверить мое решение</button>
+                    <div class="check-result"></div>
+                </div>
+
+                <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
+                    <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
+<pre style="background:#1e293b; padding:12px; border-radius:6px; margin-top: 12px; margin-bottom: 0; color:#e2e8f0; overflow-x: auto;"><code>import statistics
+
+def detect_zscore_anomalies(series, threshold=3):
+    mu = statistics.mean(series)
+    sigma = statistics.pstdev(series)
+    if sigma == 0:
+        return []
+    return [x for x in series if abs((x - mu) / sigma) > threshold]</code></pre>
                 </details>
             </div>
         </div>

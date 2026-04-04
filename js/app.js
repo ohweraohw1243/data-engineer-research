@@ -45,30 +45,45 @@
                 { id: 'stage1-docker', label: 'Docker Compose и различие Image/Container' },
                 { id: 'stage1-sql-agg', label: 'JOIN + GROUP BY + HAVING' },
                 { id: 'stage1-sql-window', label: 'Оконная функция ROW_NUMBER' },
-                { id: 'stage1-dwh', label: 'Модель STG / DDS / Fact / Dimension' }
+                { id: 'stage1-dwh', label: 'Модель STG / DDS / Fact / Dimension' },
+                { id: 'stage1-explain-analyze', label: 'Чтение EXPLAIN ANALYZE' },
+                { id: 'stage1-index-strategy', label: 'Стратегия индексов под workload' },
+                { id: 'stage1-scd2-merge', label: 'SCD2 и MERGE/UPSERT' }
             ],
             stage2: [
                 { id: 'stage2-api', label: 'Python API коннектор' },
                 { id: 'stage2-psycopg', label: 'Массовый INSERT через psycopg2' },
-                { id: 'stage2-dockerfile', label: 'Dockerfile для ETL' }
+                { id: 'stage2-dockerfile', label: 'Dockerfile для ETL' },
+                { id: 'stage2-async-retry', label: 'Asyncio + retry/backoff' },
+                { id: 'stage2-airflow-dag', label: 'DAG с ретраями и SLA' },
+                { id: 'stage2-data-validation', label: 'Валидация JSON/Pydantic' }
             ],
             stage3: [
-                { id: 'stage3-pyspark-etl', label: 'PySpark ETL mini-проект' }
+                { id: 'stage3-pyspark-etl', label: 'PySpark ETL mini-проект' },
+                { id: 'stage3-broadcast-join', label: 'Broadcast join оптимизация' },
+                { id: 'stage3-skew-salting', label: 'Борьба с data skew через salting' },
+                { id: 'stage3-plan-debug', label: 'Разбор физического Spark-плана' }
             ],
             stage4: [
-                { id: 'stage4-kafka-streaming', label: 'Kafka producer + DQ check' }
+                { id: 'stage4-kafka-streaming', label: 'Kafka producer + DQ check' },
+                { id: 'stage4-consumer-commit', label: 'Consumer с manual commit' },
+                { id: 'stage4-schema-registry', label: 'Schema Registry контракт' },
+                { id: 'stage4-streaming-window', label: 'Streaming window + watermark' }
             ],
             stage5: [
-                { id: 'stage5-data-modeling', label: 'Star Schema DDL mini-проект' }
+                { id: 'stage5-data-modeling', label: 'Star Schema DDL mini-проект' },
+                { id: 'stage5-lakehouse-design', label: 'Lakehouse System Design' },
+                { id: 'stage5-clickhouse-tuning', label: 'ClickHouse модель и тюнинг' },
+                { id: 'stage5-cdc-zeroetl', label: 'CDC и Zero-ETL архитектура' }
             ]
         };
 
         const STAGE_READY_THRESHOLD = {
-            stage1: 75,
-            stage2: 67,
-            stage3: 100,
-            stage4: 100,
-            stage5: 100
+            stage1: 70,
+            stage2: 70,
+            stage3: 70,
+            stage4: 70,
+            stage5: 70
         };
 
         function isStageTab(tabId) {
@@ -166,8 +181,11 @@
             const nextStage = getAdjacentStageTab(tabId, 1);
             const statusClass = stageProgress.ready ? 'is-ready' : 'is-not-ready';
 
-            const missingText = stageProgress.missingTasks.length > 0
-                ? stageProgress.missingTasks.map(task => task.label).join(', ')
+            const missingLabels = stageProgress.missingTasks.map(task => task.label);
+            const missingText = missingLabels.length > 0
+                ? (missingLabels.length > 4
+                    ? `${missingLabels.slice(0, 4).join(', ')} и еще ${missingLabels.length - 4}`
+                    : missingLabels.join(', '))
                 : 'Все практические задачи этапа закрыты.';
 
             const recommendationText = stageProgress.ready
@@ -498,7 +516,7 @@
             if (!container) return;
             const textarea = container.querySelector('.answer-textarea');
             const resultDiv = container.querySelector('.check-result');
-            const expectedAnswer = container.querySelector('.solution-code')?.textContent?.trim().toLowerCase() || '';
+            const expectedAnswer = getExpectedAnswer(container);
             const userAnswer = textarea?.value?.trim().toLowerCase() || '';
 
             if (!textarea || !userAnswer) {
@@ -544,6 +562,25 @@
                 '❌ Это не совпадает с правильным ответом.<br>💡 Подсказка: Нажмите "Подсказка" чтобы узнать, какой использовать подход.');
             textarea.style.borderColor = 'var(--red)';
             updateAnswerProgress();
+        }
+
+        function getExpectedAnswer(container) {
+            const explicitSolution = container.querySelector('.solution-code')?.textContent?.trim();
+            if (explicitSolution) {
+                return explicitSolution.toLowerCase();
+            }
+
+            const detailsCode = container.querySelector('details code')?.textContent?.trim();
+            if (detailsCode) {
+                return detailsCode.toLowerCase();
+            }
+
+            const detailsText = container.querySelector('details p')?.textContent?.trim();
+            if (detailsText) {
+                return detailsText.toLowerCase();
+            }
+
+            return '';
         }
 
         function showResultMessage(resultDiv, type, message) {
