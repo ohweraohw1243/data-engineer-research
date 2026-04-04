@@ -129,8 +129,6 @@
         const LIVE_CODING_GENERATED_TITLES_STORAGE_KEY = 'streamflow_generated_task_titles_v1';
         const LIVE_CODING_GITHUB_TOKEN_STORAGE_KEY = 'streamflow_github_token';
         const LIVE_CODING_SECTION_SELECTION_STORAGE_KEY = 'streamflow_coding_section_selection_v2';
-        const LIVE_CODING_AI_MODE_STORAGE_KEY = 'streamflow_coding_ai_mode_v1';
-        const LIVE_CODING_AI_MODE_DEFAULT = true;
         const LIVE_CODING_STARTER_TASKS_PER_STAGE = 1;
         const LIVE_CODING_STAGE_MODEL_LABELS = {
             1: 'SQL',
@@ -415,58 +413,31 @@
                 .trim();
         }
 
-        function getStoredCodingAiMode() {
-            try {
-                const rawValue = localStorage.getItem(LIVE_CODING_AI_MODE_STORAGE_KEY);
-                if (rawValue === null) return LIVE_CODING_AI_MODE_DEFAULT;
-                return rawValue === '1';
-            } catch (error) {
-                return LIVE_CODING_AI_MODE_DEFAULT;
-            }
-        }
-
-        function saveStoredCodingAiMode(enabled) {
-            try {
-                localStorage.setItem(LIVE_CODING_AI_MODE_STORAGE_KEY, enabled ? '1' : '0');
-            } catch (error) {
-                // noop
-            }
-        }
-
         function hasGeneratedCodingTasks(root) {
             return Boolean(root?.querySelector('.generated-task-box'));
         }
 
-        function applyCodingAiModeVisibility(root, aiModeEnabled) {
+        function applyCodingAiModeVisibility(root) {
             if (!root) return;
-
-            const canUseAiTasks = hasGeneratedCodingTasks(root) || Boolean(getGitHubModelsToken());
-            const hideStaticTasks = aiModeEnabled && canUseAiTasks;
             const taskBoxes = root.querySelectorAll('.task-box[data-task-id]');
             taskBoxes.forEach(taskBox => {
-                const isGenerated = taskBox.classList.contains('generated-task-box');
-                taskBox.style.display = hideStaticTasks && !isGenerated ? 'none' : '';
+                taskBox.style.display = '';
             });
 
             const note = root.querySelector('.coding-ai-mode-note');
             if (!note) return;
 
-            if (!aiModeEnabled) {
-                note.textContent = 'Показывается AI-каркас этапов и все сгенерированные задачи.';
-                return;
-            }
-
             if (hasGeneratedCodingTasks(root)) {
-                note.textContent = 'AI-режим активен: показаны только сгенерированные задачи.';
+                note.textContent = 'AI-first активен: задачи ниже сформированы генератором.';
                 return;
             }
 
             if (!getGitHubModelsToken()) {
-                note.textContent = 'AI-режим включен, но токен не задан. Укажите токен и сгенерируйте задачи.';
+                note.textContent = 'AI-first активен. Укажите токен и сгенерируйте задачи.';
                 return;
             }
 
-            note.textContent = 'AI-режим активен: нажмите «Сгенерировать стартовый набор», чтобы получить новые задачи.';
+            note.textContent = 'AI-first активен: нажмите «Сгенерировать стартовый набор», чтобы получить новые задачи.';
         }
 
         function getStoredGeneratedTaskTitles() {
@@ -1730,10 +1701,7 @@
                     scrollIntoView: options.disableAutoScroll ? false : true
                 });
                 rememberGeneratedTaskTitle(task.title);
-
-                if (getStoredCodingAiMode()) {
-                    applyCodingAiModeVisibility(root, true);
-                }
+                applyCodingAiModeVisibility(root);
 
                 if (!options.silentSuccess) {
                     showSuccessMessage('Новая задача добавлена.');
@@ -1790,10 +1758,7 @@
                         }
                     }
                 }
-
-                if (getStoredCodingAiMode()) {
-                    applyCodingAiModeVisibility(root, true);
-                }
+                applyCodingAiModeVisibility(root);
 
                 if (generatedCount > 0) {
                     showSuccessMessage(`Стартовый AI-набор готов: ${generatedCount} задач.`);
@@ -1819,10 +1784,6 @@
                 panel.className = 'coding-ai-mode-controls';
 
                 panel.innerHTML = `
-                    <label class="coding-ai-mode-toggle">
-                        <input type="checkbox" class="coding-ai-mode-checkbox" />
-                        <span>AI-режим: показывать только сгенерированные задачи</span>
-                    </label>
                     <button type="button" class="btn btn-secondary coding-ai-starter-btn">Сгенерировать стартовый набор</button>
                     <p class="coding-ai-mode-note"></p>
                 `;
@@ -1831,21 +1792,11 @@
                 anchor.insertAdjacentElement('afterend', panel);
             }
 
-            const modeCheckbox = panel.querySelector('.coding-ai-mode-checkbox');
             const starterButton = panel.querySelector('.coding-ai-starter-btn');
 
-            if (!modeCheckbox || !starterButton) return;
+            if (!starterButton) return;
 
             if (panel.dataset.bound !== 'true') {
-                modeCheckbox.addEventListener('change', () => {
-                    saveStoredCodingAiMode(modeCheckbox.checked);
-                    applyCodingAiModeVisibility(root, modeCheckbox.checked);
-
-                    if (modeCheckbox.checked && !hasGeneratedCodingTasks(root) && getGitHubModelsToken()) {
-                        generateStarterTasksForVisibleStages(root, starterButton);
-                    }
-                });
-
                 starterButton.addEventListener('click', () => {
                     generateStarterTasksForVisibleStages(root, starterButton);
                 });
@@ -1853,12 +1804,10 @@
                 panel.dataset.bound = 'true';
             }
 
-            modeCheckbox.checked = getStoredCodingAiMode();
-            applyCodingAiModeVisibility(root, modeCheckbox.checked);
+            applyCodingAiModeVisibility(root);
 
             if (
-                modeCheckbox.checked
-                && getGitHubModelsToken()
+                getGitHubModelsToken()
                 && !hasGeneratedCodingTasks(root)
                 && panel.dataset.autostarted !== 'true'
             ) {
