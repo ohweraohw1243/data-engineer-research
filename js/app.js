@@ -823,6 +823,7 @@
                 localStorage.setItem('streamflow_current_tab', tabId);
                 updateStageReadinessIndicators();
                 renderStageReadinessCard(tabId, container);
+                if (typeof ensureTaskHints !== 'undefined') ensureTaskHints(container);
                 
                 if (typeof setupAnswerField !== 'undefined') {
                     document.querySelectorAll('[data-task-id]').forEach(setupAnswerField);
@@ -910,14 +911,128 @@
         }
 
         // ===== ПОДСКАЗКИ И РЕШЕНИЯ =====
+        function extractHintTerms(text) {
+            const lower = (text || '').toLowerCase();
+            const dictionary = [
+                'select', 'join', 'group by', 'having', 'order by', 'where',
+                'window', 'over', 'partition', 'row_number', 'rank',
+                'explain analyze', 'index', 'create index',
+                'docker-compose', 'dockerfile',
+                'requests', 'json', 'psycopg2', 'executemany',
+                'asyncio', 'aiohttp', 'retry', 'backoff',
+                'airflow', 'dag',
+                'spark', 'broadcast', 'salting', 'partitioning',
+                'kafka', 'consumer', 'offset', 'schema registry', 'watermark',
+                'cdc', 'merge', 'upsert', 'clickhouse',
+                'fact', 'dimension', 'stg', 'dds'
+            ];
+
+            return dictionary.filter(term => lower.includes(term)).slice(0, 8);
+        }
+
+        function buildHintSkeleton(answerText) {
+            const lines = (answerText || '')
+                .split('\n')
+                .map(line => line.trim())
+                .filter(line => line && !line.startsWith('--') && !line.startsWith('#'));
+
+            if (lines.length === 0) return '';
+
+            return lines.slice(0, 3).map((line, index) => {
+                let compact = line
+                    .replace(/\s+/g, ' ')
+                    .replace(/'[^']*'/g, "'...'")
+                    .replace(/"[^"]*"/g, '"..."')
+                    .replace(/\b\d+\b/g, 'N')
+                    .trim();
+
+                if (compact.length > 90) {
+                    compact = `${compact.slice(0, 90)}...`;
+                }
+
+                return `${index + 1}. ${compact}`;
+            }).join('\n');
+        }
+
+        function buildTaskHints(container) {
+            const expected = getExpectedAnswer(container);
+            const taskText = container.textContent || '';
+            const terms = extractHintTerms(`${taskText}\n${expected}`);
+            const skeleton = buildHintSkeleton(expected);
+
+            const level1 = terms.length > 0
+                ? `Начните с опорных элементов: ${terms.slice(0, 5).join(', ')}.`
+                : 'Сначала опишите логику решения по шагам: источник данных -> преобразование -> итог.';
+
+            const level2 = skeleton
+                ? `Каркас решения:\n${skeleton}`
+                : 'Соберите минимально рабочий вариант, затем добавьте обработку ошибок и проверку результата.';
+
+            const level3 = expected
+                ? 'Перед отправкой проверьте синтаксис, условия фильтрации/агрегации и формат итогового вывода.'
+                : 'Сравните ответ с формулировкой задачи: все ли поля, условия и ограничения покрыты.';
+
+            return [level1, level2, level3];
+        }
+
+        function ensureTaskHints(root = document) {
+            const taskBoxes = root.querySelectorAll('.task-box[data-task-id]');
+
+            taskBoxes.forEach(taskBox => {
+                const answerArea = taskBox.querySelector('.answer-input-area');
+                const checkButton = answerArea?.querySelector('.check-answer-btn');
+                if (!answerArea || !checkButton) return;
+
+                if (!answerArea.querySelector('.hint-actions')) {
+                    const actions = document.createElement('div');
+                    actions.className = 'hint-actions';
+
+                    [1, 2, 3].forEach(level => {
+                        const button = document.createElement('button');
+                        button.type = 'button';
+                        button.className = 'hint-btn';
+                        button.textContent = `Подсказка ${level}`;
+                        button.setAttribute('onclick', `showHint(this, ${level})`);
+                        actions.appendChild(button);
+                    });
+
+                    const result = answerArea.querySelector('.check-result');
+                    if (result) {
+                        answerArea.insertBefore(actions, result);
+                    } else {
+                        answerArea.appendChild(actions);
+                    }
+                }
+
+                if (taskBox.querySelectorAll('.hint-level').length === 0) {
+                    const hints = buildTaskHints(taskBox);
+                    hints.forEach((hintText, index) => {
+                        const hintBlock = document.createElement('div');
+                        hintBlock.className = 'hint-level';
+                        hintBlock.dataset.level = String(index + 1);
+                        hintBlock.textContent = hintText;
+                        answerArea.appendChild(hintBlock);
+                    });
+                }
+            });
+        }
+
         function showHint(btn, level) {
             const container = btn.closest('.card, .task-box');
             if (!container) return;
             const hints = container.querySelectorAll('.hint-level');
-            if (hints && hints.length >= level) {
-                hints[level - 1].classList.add('active');
-                hints[level - 1].style.display = 'block';
-            }
+            const hintButtons = container.querySelectorAll('.hint-btn');
+            if (!hints || hints.length === 0) return;
+
+            hints.forEach((hint, index) => {
+                const isVisible = index < level;
+                hint.classList.toggle('active', isVisible);
+                hint.style.display = isVisible ? 'block' : 'none';
+            });
+
+            hintButtons.forEach((button, index) => {
+                button.classList.toggle('active', index < level);
+            });
         }
 
         function showSQLSolution(btn) {

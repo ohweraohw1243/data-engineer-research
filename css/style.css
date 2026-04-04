@@ -647,6 +647,37 @@
             margin-bottom: 6px;
         }
 
+        .hint-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+
+        .hint-btn {
+            border: 1px solid rgba(247, 160, 74, 0.45);
+            background: rgba(247, 160, 74, 0.12);
+            color: #f9c06a;
+            border-radius: 6px;
+            padding: 7px 12px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.15s ease, background 0.2s ease, border-color 0.2s ease;
+        }
+
+        .hint-btn:hover {
+            background: rgba(247, 160, 74, 0.2);
+            border-color: rgba(247, 160, 74, 0.7);
+            transform: translateY(-1px);
+        }
+
+        .hint-btn.active {
+            background: rgba(247, 160, 74, 0.28);
+            border-color: rgba(247, 160, 74, 0.9);
+            color: #ffe0ab;
+        }
+
         .hint-level {
             display: none;
             background: var(--bg2);
@@ -656,6 +687,8 @@
             margin-top: 12px;
             color: var(--text-dim);
             font-size: 11px;
+            white-space: pre-line;
+            line-height: 1.5;
         }
 
         .hint-level.active {
