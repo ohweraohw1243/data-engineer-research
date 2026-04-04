@@ -672,7 +672,32 @@
             const normalized = normalizeCodingSectionSelectionOrder(selectionOrder, sections);
             const selectedSet = new Set(normalized);
             const sectionByKey = new Map(sections.map(section => [section.key, section]));
+            refreshCodingStageGenerationControls(root);
 
+
+        function getVisibleCodingStageHeadings(root) {
+            const sections = collectCodingSections(root);
+            const visibleHeadings = [];
+
+            sections.forEach(section => {
+                const container = section.container || section.nodes?.[0] || null;
+                if (!container || container.style.display === 'none') return;
+
+                container.querySelectorAll('h2').forEach(heading => {
+                    if (isStageHeadingElement(heading)) {
+                        visibleHeadings.push(heading);
+                    }
+                });
+            });
+
+            return visibleHeadings;
+        }
+
+        function refreshCodingStageGenerationControls(root) {
+            if (!root) return;
+            root.querySelectorAll('.coding-stage-actions').forEach(control => control.remove());
+            attachCodingStageGenerationControls(root);
+        }
             const parent = sections[0]?.container?.parentElement
                 || sections[0]?.nodes?.[0]?.parentElement
                 || null;
@@ -1227,8 +1252,7 @@
         function attachCodingStageGenerationControls(root) {
             if (!root) return;
 
-            const stageHeadings = Array.from(root.querySelectorAll('h2'))
-                .filter(isStageHeadingElement);
+            const stageHeadings = getVisibleCodingStageHeadings(root);
 
             stageHeadings.forEach(stageHeading => {
                 const existingControls = stageHeading.nextElementSibling;
