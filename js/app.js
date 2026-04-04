@@ -1611,6 +1611,7 @@
         function createGeneratedQuestionAccordionItem(item) {
             const question = normalizeTitleValue(item?.question || '');
             const answer = String(item?.answer || '').trim();
+            const safeAnswer = answer || 'Ответ временно недоступен. Нажмите "Добавить вопросы" еще раз, чтобы получить обновленный вариант.';
 
             const wrapper = document.createElement('div');
             wrapper.className = 'accordion-item generated-question-item';
@@ -1627,7 +1628,7 @@
                     <span class="accordion-toggle" style="transition: transform 0.3s; color: var(--accent1); font-size: 13px; font-weight: 500;">Показать ответ ▼</span>
                 </div>
                 <div class="accordion-content" style="display: none; padding: 0 16px 16px 16px; color: var(--text-muted); line-height: 1.6; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px;">
-                    <strong style="color: var(--accent1);">Ответ:</strong><br>${escapeHtml(answer).replace(/\n/g, '<br>')}
+                    <strong style="color: var(--accent1);">Ответ:</strong><br>${escapeHtml(safeAnswer).replace(/\n/g, '<br>')}
                 </div>
             `;
 
@@ -1848,11 +1849,13 @@
 
         function createGeneratedTaskCard(task, stageNumber, moduleName) {
             const taskId = `generated-stage${stageNumber}-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+            const safeSolution = String(task?.solution || '').trim()
+                || 'Эталон ответа временно недоступен. Нажмите "Добавить задачи" еще раз, чтобы получить новый вариант.';
             const card = document.createElement('div');
             card.className = 'task-box generated-task-box';
             card.setAttribute('data-task-id', taskId);
             card.setAttribute('data-task-hint', task.hint);
-            card.setAttribute('data-task-solution', task.solution);
+            card.setAttribute('data-task-solution', safeSolution);
             card.setAttribute('data-task-stage', String(stageNumber || 0));
             card.setAttribute('data-task-module', moduleName || '');
             card.style.background = 'rgba(255,255,255,0.05)';
@@ -1881,7 +1884,7 @@
 
                 <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
                     <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
-                    <pre style="background:#1e293b; padding:12px; border-radius:6px; margin-top: 12px; margin-bottom: 0; color:#e2e8f0; overflow-x: auto;"><code class="solution-code">${escapeHtml(task.solution)}</code></pre>
+                    <pre style="background:#1e293b; padding:12px; border-radius:6px; margin-top: 12px; margin-bottom: 0; color:#e2e8f0; overflow-x: auto;"><code class="solution-code">${escapeHtml(safeSolution)}</code></pre>
                 </details>
             `;
 
