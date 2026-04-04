@@ -672,32 +672,7 @@
             const normalized = normalizeCodingSectionSelectionOrder(selectionOrder, sections);
             const selectedSet = new Set(normalized);
             const sectionByKey = new Map(sections.map(section => [section.key, section]));
-            refreshCodingStageGenerationControls(root);
 
-
-        function getVisibleCodingStageHeadings(root) {
-            const sections = collectCodingSections(root);
-            const visibleHeadings = [];
-
-            sections.forEach(section => {
-                const container = section.container || section.nodes?.[0] || null;
-                if (!container || container.style.display === 'none') return;
-
-                container.querySelectorAll('h2').forEach(heading => {
-                    if (isStageHeadingElement(heading)) {
-                        visibleHeadings.push(heading);
-                    }
-                });
-            });
-
-            return visibleHeadings;
-        }
-
-        function refreshCodingStageGenerationControls(root) {
-            if (!root) return;
-            root.querySelectorAll('.coding-stage-actions').forEach(control => control.remove());
-            attachCodingStageGenerationControls(root);
-        }
             const parent = sections[0]?.container?.parentElement
                 || sections[0]?.nodes?.[0]?.parentElement
                 || null;
@@ -735,6 +710,34 @@
 
             saveStoredCodingSectionSelectionOrder(normalized);
             refreshCodingPracticeSelectorState(root, normalized, sections);
+        }
+
+        function getVisibleCodingStageHeadings(root) {
+            const sections = collectCodingSections(root);
+            const visibleHeadings = [];
+
+            sections.forEach(section => {
+                const container = section.container || section.nodes?.[0] || null;
+                if (!container || container.style.display === 'none') return;
+
+                container.querySelectorAll('h2').forEach(heading => {
+                    if (isStageHeadingElement(heading)) {
+                        visibleHeadings.push(heading);
+                    }
+                });
+            });
+
+            return visibleHeadings;
+        }
+
+        function refreshCodingStageGenerationControls(root) {
+            if (!root) return;
+            try {
+                root.querySelectorAll('.coding-stage-actions').forEach(control => control.remove());
+                attachCodingStageGenerationControls(root);
+            } catch (error) {
+                console.error('Не удалось обновить контролы генерации по разделам:', error);
+            }
         }
 
         function ensureCodingPracticeSelector(root) {
@@ -789,6 +792,7 @@
                         }
 
                         applyCodingSectionSelection(root, nextSelection);
+                        refreshCodingStageGenerationControls(root);
                     });
 
                     chips.appendChild(chip);
@@ -810,6 +814,7 @@
                 : normalizeCodingSectionSelectionOrder(storedSelection, sections);
 
             applyCodingSectionSelection(root, initialSelection);
+            refreshCodingStageGenerationControls(root);
         }
 
         function extractStageNumberFromHeading(headingText) {
@@ -1948,15 +1953,28 @@
                 const html = await loadTaskBankSectionText('coding', CODING_CONTENT_SOURCE);
                 root.innerHTML = html;
 
-                syncGeneratedTaskTitlesFromCodingDom(root);
-                ensureCodingPracticeSelector(root);
-                attachCodingStageGenerationControls(root);
-
-                if (typeof ensureTaskHints !== 'undefined') ensureTaskHints(root);
-                if (typeof setupAnswerField !== 'undefined') {
-                    root.querySelectorAll('[data-task-id]').forEach(setupAnswerField);
+                try {
+                    syncGeneratedTaskTitlesFromCodingDom(root);
+                    ensureCodingPracticeSelector(root);
+                } catch (error) {
+                    console.error('Ошибка инициализации фильтров/контекстов лайв-кодинга:', error);
                 }
-                if (typeof loadSavedAnswers !== 'undefined') loadSavedAnswers();
+
+                try {
+                    attachCodingStageGenerationControls(root);
+                } catch (error) {
+                    console.error('Ошибка инициализации контролов генерации лайв-кодинга:', error);
+                }
+
+                try {
+                    if (typeof ensureTaskHints !== 'undefined') ensureTaskHints(root);
+                    if (typeof setupAnswerField !== 'undefined') {
+                        root.querySelectorAll('[data-task-id]').forEach(setupAnswerField);
+                    }
+                    if (typeof loadSavedAnswers !== 'undefined') loadSavedAnswers();
+                } catch (error) {
+                    console.error('Ошибка инициализации ответов/подсказок лайв-кодинга:', error);
+                }
             } catch (error) {
                 console.error('Не удалось загрузить контент лайв-кодинга:', error);
                 root.innerHTML = '<div style="text-align:center; color: var(--red); margin-top: 24px;">Не удалось загрузить задания лайв-кодинга. Попробуйте обновить страницу.</div>';
