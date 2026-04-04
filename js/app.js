@@ -166,6 +166,7 @@
             // Fallback token (avoid committing real secrets to git)
             token: ''
         };
+        const LIVE_CODING_AI_REQUEST_ATTEMPTS = 4;
         const LIVE_CODING_GENERATOR_MODEL_FALLBACKS = ['gpt-4.1-mini', 'gpt-4o-mini'];
         const LIVE_CODING_GENERATOR_SYSTEM_PROMPT = 'Ты генератор практических задач для подготовки к собеседованию на позицию middle data engineer. Стек: PostgreSQL, PySpark, Kafka, Airflow, ClickHouse. Таблицы используй реалистичные: fact_orders, dim_user, daily_stats, streams, revenue, events. Отвечай ТОЛЬКО валидным JSON без markdown, без пояснений, без текста вне JSON.';
         const QUESTIONS_AI_GENERATED_STORAGE_KEY = 'streamflow_ai_questions_v1';
@@ -1816,7 +1817,12 @@
                 let usedLocalFallback = false;
 
                 if (token) {
-                    for (let attempt = 0; attempt < 3 && generated.length < QUESTIONS_AI_PACK_SIZE; attempt += 1) {
+                    let lastApiError = null;
+                    for (
+                        let attempt = 0;
+                        attempt < LIVE_CODING_AI_REQUEST_ATTEMPTS && generated.length < QUESTIONS_AI_PACK_SIZE;
+                        attempt += 1
+                    ) {
                         try {
                             const pack = await requestGeneratedQuestionsPack(generationContext, token);
                             const fresh = pack.filter(item => {
@@ -1829,9 +1835,13 @@
                             generated.push(...fresh);
                             generationContext.push(...fresh.map(item => item.question));
                         } catch (error) {
-                            console.warn('API генерации вопросов недоступен, переключаюсь на локальный fallback:', error);
-                            break;
+                            lastApiError = error;
+                            continue;
                         }
+                    }
+
+                    if (generated.length === 0 && lastApiError) {
+                        console.warn('AI генерация вопросов не удалась после повторов, включаю локальный fallback:', lastApiError);
                     }
                 }
 
@@ -1990,13 +2000,14 @@
                 let usedLocalFallback = false;
 
                 if (token) {
-                    for (let attempt = 0; attempt < 3; attempt += 1) {
+                    let lastApiError = null;
+                    for (let attempt = 0; attempt < LIVE_CODING_AI_REQUEST_ATTEMPTS; attempt += 1) {
                         let candidate = null;
                         try {
                             candidate = await requestGeneratedLiveCodingTask(stageLabel, moduleName, generationContext, token);
                         } catch (apiError) {
-                            console.warn('API генерации задачи недоступен, переключаюсь на локальный fallback:', apiError);
-                            break;
+                            lastApiError = apiError;
+                            continue;
                         }
 
                         const normalizedTitle = normalizeTitleValue(candidate.title).toLowerCase();
@@ -2004,6 +2015,10 @@
                             task = candidate;
                             break;
                         }
+                    }
+
+                    if (!task && lastApiError) {
+                        console.warn('AI генерация задачи не удалась после повторов, включаю локальный fallback:', lastApiError);
                     }
                 }
 
