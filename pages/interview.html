@@ -1,7 +1,7 @@
 <div class="page-content">
     <div class="page-header">
         <h1 class="page-title">Режим <span>Собеседование</span></h1>
-        <p class="page-desc">Симуляция middle DE интервью: сессия запускается сразу после генерации. В готовность идут только содержательные ответы, шаблоны вроде "123 123" не засчитываются.</p>
+        <p class="page-desc">Сессия на 45 минут: отвечаете на вопрос или пропускаете его. Каждый ответ проверяется в формате правильно/неправильно, а в конце вы получаете полный разбор с вашими и эталонными ответами.</p>
     </div>
 
     <div class="card" style="margin-bottom: 20px;">
@@ -15,9 +15,9 @@
         </div>
 
         <div class="interview-meta" style="margin-top: 12px;">
-            <span id="interview-progress-label">Качественные: 0/0</span>
-            <span id="interview-confidence-label">Уверенных качественных: 0</span>
-            <span id="interview-ready-label">Готовность: 0%</span>
+            <span id="interview-progress-label">Проверено: 0/0</span>
+            <span id="interview-confidence-label">Правильных: 0</span>
+            <span id="interview-ready-label">Неправильных: 0 | Пропущено: 0</span>
             <span id="interview-pool-label">Пул вопросов: ...</span>
         </div>
 
@@ -37,20 +37,20 @@
         <div class="answer-input-area" style="margin-top: 8px;">
             <label for="interview-answer">Ваш ответ:</label>
             <textarea id="interview-answer" rows="10" class="answer-textarea" placeholder="Ответьте так, как на реальном собеседовании: структура, trade-offs, риски, метрики."></textarea>
-            <div id="interview-answer-quality" class="interview-answer-quality is-empty">Оценка ответа появится после генерации сессии.</div>
+            <div id="interview-current-result" class="interview-current-result">Ответ пока не проверен.</div>
         </div>
 
         <div class="interview-actions">
-            <button id="interview-prev-btn" class="btn btn-secondary">Назад</button>
-            <button id="interview-next-btn" class="btn">Следующий</button>
-            <button id="interview-confidence-btn" class="btn btn-secondary">Отметить как уверенный ответ</button>
+            <button id="interview-check-btn" class="btn">Проверить и дальше</button>
+            <button id="interview-skip-btn" class="btn btn-secondary">Пропустить вопрос</button>
             <button id="interview-finish-btn" class="btn">Завершить и оценить</button>
         </div>
     </div>
 
     <div class="card">
-        <h3 class="card-title" style="font-size: 18px;">Итоги сессии</h3>
+        <h3 class="card-title" style="font-size: 18px;">Итоги и разбор</h3>
         <p id="interview-score" class="card-text">Пока нет результатов. Пройдите минимум 1 сессию.</p>
         <p id="interview-summary" class="card-text" style="margin-top: 10px; color: var(--text-dim);">Оценка условная и нужна как ориентир по знаниям, а не гарантия оффера.</p>
+        <div id="interview-review-list" style="margin-top: 16px;"></div>
     </div>
 </div>

@@ -510,7 +510,7 @@
             gap: 10px;
         }
 
-        .interview-answer-quality {
+        .interview-current-result {
             margin-top: 10px;
             font-size: 12px;
             padding: 10px 12px;
@@ -520,21 +520,105 @@
             color: var(--text-dim);
         }
 
-        .interview-answer-quality.is-empty {
-            border-color: rgba(148, 163, 184, 0.5);
-            color: #cbd5e1;
+        .interview-current-result.correct {
+            border-color: rgba(74, 240, 196, 0.45);
+            background: rgba(74, 240, 196, 0.12);
+            color: #86efac;
         }
 
-        .interview-answer-quality.is-weak {
+        .interview-current-result.incorrect {
             border-color: rgba(247, 74, 122, 0.5);
             color: #fda4af;
             background: rgba(247, 74, 122, 0.12);
         }
 
-        .interview-answer-quality.is-strong {
-            border-color: rgba(74, 240, 196, 0.5);
+        .interview-current-result.skipped {
+            border-color: rgba(247, 160, 74, 0.5);
+            background: rgba(247, 160, 74, 0.12);
+            color: #fcd34d;
+        }
+
+        .interview-review-item {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 12px;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .interview-review-item.correct {
+            border-color: rgba(74, 240, 196, 0.35);
+        }
+
+        .interview-review-item.incorrect {
+            border-color: rgba(247, 74, 122, 0.35);
+        }
+
+        .interview-review-item.skipped {
+            border-color: rgba(247, 160, 74, 0.35);
+        }
+
+        .interview-review-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            gap: 8px;
+        }
+
+        .interview-review-index {
+            font-size: 11px;
+            color: var(--text-dim);
+        }
+
+        .interview-review-status {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            color: var(--text-dim);
+        }
+
+        .interview-review-status.correct {
+            border-color: rgba(74, 240, 196, 0.45);
             color: #86efac;
-            background: rgba(74, 240, 196, 0.12);
+        }
+
+        .interview-review-status.incorrect {
+            border-color: rgba(247, 74, 122, 0.45);
+            color: #fda4af;
+        }
+
+        .interview-review-status.skipped {
+            border-color: rgba(247, 160, 74, 0.45);
+            color: #fcd34d;
+        }
+
+        .interview-review-question {
+            margin: 0 0 10px;
+            color: #fff;
+            font-size: 14px;
+            line-height: 1.45;
+        }
+
+        .interview-review-label {
+            margin: 0 0 6px;
+            font-size: 11px;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .interview-review-code {
+            margin: 0 0 10px;
+            padding: 10px;
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: #dbeafe;
+            font-size: 11px;
+            line-height: 1.45;
+            white-space: pre-wrap;
         }
 
         .time-window-card {

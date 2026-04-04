@@ -50,7 +50,6 @@
                 { id: 'stage1-explain-analyze', label: 'Чтение EXPLAIN ANALYZE' },
                 { id: 'stage1-index-strategy', label: 'Стратегия индексов под workload' },
                 { id: 'stage1-docker', label: 'Docker Compose и различие Image/Container' },
-                { id: 'stage1-dwh', label: 'Модель STG / DDS / Fact / Dimension' },
                 { id: 'stage1-scd2-merge', label: 'SCD2 и MERGE/UPSERT' }
             ],
             stage2: [
@@ -70,14 +69,11 @@
             stage4: [
                 { id: 'stage4-kafka-streaming', label: 'Kafka producer + DQ check' },
                 { id: 'stage4-consumer-commit', label: 'Consumer с manual commit' },
-                { id: 'stage4-schema-registry', label: 'Schema Registry контракт' },
                 { id: 'stage4-streaming-window', label: 'Streaming window + watermark' }
             ],
             stage5: [
                 { id: 'stage5-data-modeling', label: 'Star Schema DDL mini-проект' },
-                { id: 'stage5-lakehouse-design', label: 'Lakehouse System Design' },
-                { id: 'stage5-clickhouse-tuning', label: 'ClickHouse модель и тюнинг' },
-                { id: 'stage5-cdc-zeroetl', label: 'CDC и Zero-ETL архитектура' }
+                { id: 'stage5-clickhouse-tuning', label: 'ClickHouse модель и тюнинг' }
             ]
         };
 
@@ -92,30 +88,35 @@
         const ANSWER_STATUS_STORAGE_KEY = 'streamflow_answer_status';
 
         const FALLBACK_INTERVIEW_QUESTION_BANK = [
-            { id: 'int-s1-1', stage: 'stage1', prompt: 'Как вы оптимизируете запрос с Seq Scan на таблице 300M строк: какие индексы и как проверите результат?' },
-            { id: 'int-s1-2', stage: 'stage1', prompt: 'Объясните разницу между CTE, подзапросом и materialized view в контексте аналитики.' },
-            { id: 'int-s1-3', stage: 'stage1', prompt: 'Как проектировать факт и измерения для витрины продаж, чтобы не потерять историю изменений атрибутов?' },
-            { id: 'int-s1-4', stage: 'stage1', prompt: 'Где в DWH применим SCD2, а где достаточно SCD1? Дайте практический пример.' },
+            { id: 'int-fb-s1-1', stage: 'stage1', prompt: 'SQL: Топ-3 по category из streams(id, category, views).', answer: 'WITH ranked AS (SELECT *, ROW_NUMBER() OVER (PARTITION BY category ORDER BY views DESC) AS rn FROM streams) SELECT * FROM ranked WHERE rn <= 3;' },
+            { id: 'int-fb-s1-2', stage: 'stage1', prompt: 'SQL: Верните последний заказ каждого user_id через ROW_NUMBER().', answer: 'WITH ranked AS (SELECT *, ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at DESC) AS rn FROM orders) SELECT * FROM ranked WHERE rn = 1;' },
+            { id: 'int-fb-s1-3', stage: 'stage1', prompt: 'SQL: Сумма и количество заказов по странам, где сумма > 5000.', answer: 'SELECT u.country, COUNT(*) AS orders_cnt, SUM(o.amount) AS total_amount FROM orders o JOIN users u ON u.id = o.user_id GROUP BY u.country HAVING SUM(o.amount) > 5000 ORDER BY total_amount DESC;' },
+            { id: 'int-fb-s1-4', stage: 'stage1', prompt: 'SQL: Скользящее среднее views за 7 дней по daily_stats(date, views).', answer: 'SELECT date, views, AVG(views) OVER (ORDER BY date ROWS BETWEEN 6 PRECEDING AND CURRENT ROW) AS moving_avg_7d FROM daily_stats ORDER BY date;' },
+            { id: 'int-fb-s1-5', stage: 'stage1', prompt: 'SQL: running total amount по revenue(date, amount).', answer: 'SELECT date, amount, SUM(amount) OVER (ORDER BY date) AS running_total FROM revenue ORDER BY date;' },
 
-            { id: 'int-s2-1', stage: 'stage2', prompt: 'Как реализовать retry/backoff для внешнего API, чтобы не создать шторм запросов?' },
-            { id: 'int-s2-2', stage: 'stage2', prompt: 'Когда в Python использовать asyncio, а когда multiprocessing в data pipeline?' },
-            { id: 'int-s2-3', stage: 'stage2', prompt: 'Как бы вы построили idempotent ETL шаг загрузки в Postgres?' },
-            { id: 'int-s2-4', stage: 'stage2', prompt: 'Какие базовые проверки данных добавите перед записью в DWH?' },
+            { id: 'int-fb-s2-1', stage: 'stage2', prompt: 'Python: Получите bitcoin priceUsd из CoinCap через requests.', answer: 'import requests\nurl = "https://api.coincap.io/v2/assets/bitcoin"\nprice = requests.get(url).json()["data"]["priceUsd"]\nprint(price)' },
+            { id: 'int-fb-s2-2', stage: 'stage2', prompt: 'Python: aiohttp retry с exponential backoff на 5 попыток.', answer: 'for i in range(5):\n    try:\n        async with session.get(url) as resp:\n            if resp.status in (429, 500, 502, 503, 504):\n                raise RuntimeError()\n            return await resp.json()\n    except Exception:\n        if i == 4:\n            raise\n        await asyncio.sleep(2 ** i)' },
+            { id: 'int-fb-s2-3', stage: 'stage2', prompt: 'Python: pydantic модель TransactionEvent с amount > 0.', answer: 'from pydantic import BaseModel, Field\nfrom datetime import datetime\nclass TransactionEvent(BaseModel):\n    txn_id: int\n    user_id: str\n    amount: float = Field(gt=0)\n    event_ts: datetime' },
+            { id: 'int-fb-s2-4', stage: 'stage2', prompt: 'Python: Dockerfile для etl.py на python:3.10-slim.', answer: 'FROM python:3.10-slim\nWORKDIR /app\nCOPY requirements.txt .\nRUN pip install --no-cache-dir -r requirements.txt\nCOPY etl.py .\nCMD ["python", "etl.py"]' },
+            { id: 'int-fb-s2-5', stage: 'stage2', prompt: 'Python: executemany вставка users_data в dim_users(id, username).', answer: 'insert_query = "INSERT INTO dim_users (id, username) VALUES (%s, %s);"\ncursor.executemany(insert_query, users_data)\nconn.commit()' },
 
-            { id: 'int-s3-1', stage: 'stage3', prompt: 'Почему broadcast join ускоряет Spark job и когда он опасен?' },
-            { id: 'int-s3-2', stage: 'stage3', prompt: 'Как диагностировать data skew по Spark UI и как лечить salting/partitioning?' },
-            { id: 'int-s3-3', stage: 'stage3', prompt: 'Что именно смотреть в explain(formatted) у Spark DataFrame запроса?' },
-            { id: 'int-s3-4', stage: 'stage3', prompt: 'Чем отличается cache от persist и в каких шагах ETL это дает выигрыш?' },
+            { id: 'int-fb-s3-1', stage: 'stage3', prompt: 'PySpark: join большого и маленького справочника через broadcast.', answer: 'from pyspark.sql.functions import broadcast\nresult = df_sales.join(broadcast(df_currency), on="currency_code", how="left")' },
+            { id: 'int-fb-s3-2', stage: 'stage3', prompt: 'PySpark: включите AQE и покажите explain formatted.', answer: 'spark.conf.set("spark.sql.adaptive.enabled", "true")\njoined = df_big.join(df_ref, "user_id", "left")\njoined.explain("formatted")' },
+            { id: 'int-fb-s3-3', stage: 'stage3', prompt: 'PySpark: агрегируйте purchase amount по user_id и date.', answer: 'from pyspark.sql.functions import col, sum\nresult = df.filter(col("event_type") == "purchase").groupBy("user_id", "date").agg(sum("amount").alias("total_amount"))' },
+            { id: 'int-fb-s3-4', stage: 'stage3', prompt: 'PySpark: запишите result в parquet с partitionBy(date).', answer: 'result.write.partitionBy("date").mode("overwrite").parquet("output_data/")' },
+            { id: 'int-fb-s3-5', stage: 'stage3', prompt: 'PySpark: базовый salting-шаблон для борьбы с skew.', answer: 'salted = df.withColumn("salt", floor(rand() * 20))\npart_agg = salted.groupBy("city", "salt").agg(spark_sum("amount").alias("part_sum"))\nresult = part_agg.groupBy("city").agg(spark_sum("part_sum").alias("total_amount"))' },
 
-            { id: 'int-s4-1', stage: 'stage4', prompt: 'Как обеспечить atleast-once и приблизиться к exactly-once при обработке Kafka?' },
-            { id: 'int-s4-2', stage: 'stage4', prompt: 'Как организовать Schema Registry контракт, чтобы изменения схемы не ломали витрины?' },
-            { id: 'int-s4-3', stage: 'stage4', prompt: 'Что такое watermark в streaming и как он влияет на late events?' },
-            { id: 'int-s4-4', stage: 'stage4', prompt: 'Какие DQ проверки обязательны для потока транзакций в real-time?' },
+            { id: 'int-fb-s4-1', stage: 'stage4', prompt: 'Kafka Producer: отправляйте только amount > 0.', answer: 'for txn in transactions:\n    if txn["amount"] <= 0:\n        continue\n    producer.send("transactions", value=txn)\nproducer.flush()' },
+            { id: 'int-fb-s4-2', stage: 'stage4', prompt: 'Kafka Consumer: manual commit после обработки батча.', answer: 'consumer = KafkaConsumer("transactions", enable_auto_commit=False)\nbatch = []\nfor msg in consumer:\n    batch.append(msg)\n    if len(batch) >= 100:\n        consumer.commit()\n        batch = []' },
+            { id: 'int-fb-s4-3', stage: 'stage4', prompt: 'Spark Streaming: window 10 min + watermark 15 min.', answer: 'agg = parsed.withWatermark("event_time", "15 minutes").groupBy(window(col("event_time"), "10 minutes")).agg(spark_sum("amount").alias("total_amount"))' },
+            { id: 'int-fb-s4-4', stage: 'stage4', prompt: 'Kafka consumer должен читать из топика transactions в группе de-consumer.', answer: 'consumer = KafkaConsumer("transactions", bootstrap_servers=["localhost:9092"], group_id="de-consumer")' },
+            { id: 'int-fb-s4-5', stage: 'stage4', prompt: 'Schema compatibility правило для безопасной эволюции: режим BACKWARD.', answer: 'Compatibility: BACKWARD\nRule: add new fields only with default values and do not drop required fields.' },
 
-            { id: 'int-s5-1', stage: 'stage5', prompt: 'Спроектируйте high-level pipeline: S3 -> Kafka -> Spark -> ClickHouse -> BI.' },
-            { id: 'int-s5-2', stage: 'stage5', prompt: 'Как выстроить CDC pipeline и стратегию backfill без дублей в факте?' },
-            { id: 'int-s5-3', stage: 'stage5', prompt: 'Какие ключевые настройки MergeTree в ClickHouse важны для быстрых отчетов?' },
-            { id: 'int-s5-4', stage: 'stage5', prompt: 'Какие SLO/метрики вы поставите для продакшен data platform?' }
+            { id: 'int-fb-s5-1', stage: 'stage5', prompt: 'SQL DDL: ClickHouse MergeTree c TTL 180 days.', answer: 'CREATE TABLE fact_events (event_date Date, user_id UInt64, event_type LowCardinality(String), amount Float64) ENGINE = MergeTree PARTITION BY toYYYYMM(event_date) ORDER BY (event_date, user_id) TTL event_date + INTERVAL 180 DAY;' },
+            { id: 'int-fb-s5-2', stage: 'stage5', prompt: 'SQL DDL: Таблица dim_products(product_id, product_name, category, price).', answer: 'CREATE TABLE dim_products (product_id INT PRIMARY KEY, product_name VARCHAR(150), category VARCHAR(50), price DECIMAL(10,2));' },
+            { id: 'int-fb-s5-3', stage: 'stage5', prompt: 'SQL DDL: Таблица fact_sales с time_id, product_id, quantity, total_amount.', answer: 'CREATE TABLE fact_sales (sale_id INT PRIMARY KEY, time_id INT, product_id INT, quantity INT, total_amount DECIMAL(15,2));' },
+            { id: 'int-fb-s5-4', stage: 'stage5', prompt: 'SQL DDL: Таблица dim_time(time_id, sale_date).', answer: 'CREATE TABLE dim_time (time_id INT PRIMARY KEY, sale_date DATE);' },
+            { id: 'int-fb-s5-5', stage: 'stage5', prompt: 'SQL: Создайте индекс idx_orders_user_created_at для orders(user_id, created_at).', answer: 'CREATE INDEX idx_orders_user_created_at ON orders (user_id, created_at);' }
         ];
 
         const INTERVIEW_QUESTION_BANK_SOURCE = 'data/interview-questions.json';
@@ -129,10 +130,11 @@
             questions: [],
             currentIndex: 0,
             answers: {},
-            confident: {},
+            results: {},
             startedAt: null,
             durationMinutes: 45,
             isRunning: false,
+            isFinished: false,
             timerInterval: null
         };
 
@@ -177,18 +179,19 @@
                 : (Array.isArray(payload?.questions) ? payload.questions : []);
 
             const usedIds = new Set();
-            return source.filter(item => {
+            return source.map(item => {
                 if (!item || typeof item !== 'object') return false;
                 const id = typeof item.id === 'string' ? item.id.trim() : '';
                 const stage = typeof item.stage === 'string' ? item.stage.trim() : '';
                 const prompt = typeof item.prompt === 'string' ? item.prompt.trim() : '';
+                const answer = typeof item.answer === 'string' ? item.answer.trim() : '';
 
-                if (!id || !prompt || !INTERVIEW_STAGE_ORDER.includes(stage)) return false;
+                if (!id || !prompt || !answer || !INTERVIEW_STAGE_ORDER.includes(stage)) return false;
                 if (usedIds.has(id)) return false;
 
                 usedIds.add(id);
-                return true;
-            });
+                return { id, stage, prompt, answer };
+            }).filter(Boolean);
         }
 
         async function loadInterviewQuestionBank(forceReload = false) {
@@ -260,10 +263,11 @@
                     questions: interviewState.questions,
                     currentIndex: interviewState.currentIndex,
                     answers: interviewState.answers,
-                    confident: interviewState.confident,
+                    results: interviewState.results,
                     startedAt: interviewState.startedAt,
                     durationMinutes: interviewState.durationMinutes,
-                    isRunning: interviewState.isRunning
+                    isRunning: interviewState.isRunning,
+                    isFinished: interviewState.isFinished
                 };
                 localStorage.setItem('streamflow_interview_state', JSON.stringify(snapshot));
             } catch (error) {
@@ -279,155 +283,69 @@
                 interviewState.questions = Array.isArray(saved.questions) ? saved.questions : [];
                 interviewState.currentIndex = Number.isInteger(saved.currentIndex) ? saved.currentIndex : 0;
                 interviewState.answers = saved.answers && typeof saved.answers === 'object' ? saved.answers : {};
-                interviewState.confident = saved.confident && typeof saved.confident === 'object' ? saved.confident : {};
+                interviewState.results = saved.results && typeof saved.results === 'object' ? saved.results : {};
                 interviewState.startedAt = saved.startedAt || null;
                 interviewState.durationMinutes = saved.durationMinutes || 45;
                 interviewState.isRunning = Boolean(saved.isRunning);
+                interviewState.isFinished = Boolean(saved.isFinished);
                 interviewState.timerInterval = null;
             } catch (error) {
                 console.warn('Не удалось загрузить сессию собеседования:', error);
             }
         }
 
-        function evaluateInterviewAnswer(rawAnswer) {
-            const text = (rawAnswer || '').trim();
-            if (!text) {
-                return {
-                    status: 'empty',
-                    reason: 'Нет ответа'
-                };
-            }
-
-            if (/^(?:\d+\s*)+$/.test(text)) {
-                return {
-                    status: 'weak',
-                    reason: 'Только числа без объяснения'
-                };
-            }
-
-            const words = text
-                .toLowerCase()
-                .replace(/[^a-zа-я0-9_\-\s]/gi, ' ')
-                .split(/\s+/)
-                .filter(Boolean);
-
-            const uniqueWords = new Set(words);
-            const uniqueRatio = words.length > 0 ? uniqueWords.size / words.length : 0;
-
-            if (text.length < 55 || words.length < 9) {
-                return {
-                    status: 'weak',
-                    reason: 'Слишком коротко для уровня интервью'
-                };
-            }
-
-            if (words.length >= 8 && uniqueWords.size <= 3) {
-                return {
-                    status: 'weak',
-                    reason: 'Похоже на повтор одного шаблона'
-                };
-            }
-
-            if (uniqueRatio < 0.4) {
-                return {
-                    status: 'weak',
-                    reason: 'Низкая информативность ответа'
-                };
-            }
-
-            return {
-                status: 'strong',
-                reason: 'Содержательный ответ'
-            };
-        }
-
         function getCurrentInterviewQuestion() {
             return interviewState.questions[interviewState.currentIndex] || null;
         }
 
-        function syncInterviewAnswerQualityState() {
-            const qualityEl = document.getElementById('interview-answer-quality');
-            const confidenceBtn = document.getElementById('interview-confidence-btn');
-            const currentQuestion = getCurrentInterviewQuestion();
+        function escapeHtml(value) {
+            return (value || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
 
-            if (!qualityEl || !confidenceBtn) return;
-
-            qualityEl.className = 'interview-answer-quality';
-
-            if (!currentQuestion) {
-                qualityEl.classList.add('is-empty');
-                qualityEl.textContent = 'Оценка ответа появится после генерации сессии.';
-                confidenceBtn.disabled = true;
-                return;
+        function evaluateInterviewResponse(question, rawAnswer) {
+            const text = (rawAnswer || '').trim();
+            if (!text) {
+                return { status: 'empty', similarity: 0 };
             }
 
-            const assessment = evaluateInterviewAnswer(interviewState.answers[currentQuestion.id] || '');
-
-            if (assessment.status === 'empty') {
-                qualityEl.classList.add('is-empty');
-                qualityEl.textContent = 'Ответ не засчитан: поле пустое.';
-            } else if (assessment.status === 'weak') {
-                qualityEl.classList.add('is-weak');
-                qualityEl.textContent = `Ответ не засчитан: ${assessment.reason}.`;
-            } else {
-                qualityEl.classList.add('is-strong');
-                qualityEl.textContent = 'Ответ засчитан как содержательный.';
+            const normalizedUser = normalizeSQL(text.toLowerCase());
+            const normalizedExpected = normalizeSQL((question?.answer || '').toLowerCase());
+            if (!normalizedExpected) {
+                return { status: 'incorrect', similarity: 0 };
             }
 
-            const canMarkConfident = assessment.status === 'strong';
-            if (!canMarkConfident && interviewState.confident[currentQuestion.id]) {
-                interviewState.confident[currentQuestion.id] = false;
-                saveInterviewState();
-            }
+            const similarity = calculateSimilarity(normalizedUser, normalizedExpected);
+            const isCorrect = normalizedUser === normalizedExpected || (normalizedUser.length >= 16 && similarity >= 0.74);
 
-            confidenceBtn.disabled = !canMarkConfident;
-            confidenceBtn.title = canMarkConfident
-                ? ''
-                : 'Отметка уверенности доступна после содержательного ответа.';
-            confidenceBtn.textContent = interviewState.confident[currentQuestion.id]
-                ? 'Снять метку уверенности'
-                : 'Отметить как уверенный ответ';
+            return {
+                status: isCorrect ? 'correct' : 'incorrect',
+                similarity
+            };
         }
 
         function getInterviewStats() {
             const total = interviewState.questions.length;
-            const assessments = {};
-
-            interviewState.questions.forEach(question => {
-                assessments[question.id] = evaluateInterviewAnswer(interviewState.answers[question.id] || '');
-            });
-
-            const answered = interviewState.questions.filter(question => {
-                return assessments[question.id].status !== 'empty';
-            }).length;
-
-            const qualityAnswered = interviewState.questions.filter(question => {
-                return assessments[question.id].status === 'strong';
-            }).length;
-
-            const weakAnswers = interviewState.questions.filter(question => {
-                return assessments[question.id].status === 'weak';
-            }).length;
-
-            const confident = interviewState.questions.filter(question => {
-                return Boolean(interviewState.confident[question.id]) && assessments[question.id].status === 'strong';
-            }).length;
-
-            const coveragePercent = total > 0 ? Math.round((answered / total) * 100) : 0;
-            const qualityPercent = total > 0 ? Math.round((qualityAnswered / total) * 100) : 0;
-            const confidentPercent = total > 0 ? Math.round((confident / total) * 100) : 0;
-            const readinessScore = Math.round(qualityPercent * 0.8 + confidentPercent * 0.2);
+            const values = Object.values(interviewState.results || {});
+            const correct = values.filter(v => v === 'correct').length;
+            const incorrect = values.filter(v => v === 'incorrect').length;
+            const skipped = values.filter(v => v === 'skipped').length;
+            const processed = correct + incorrect + skipped;
+            const unchecked = Math.max(0, total - processed);
+            const scorePercent = total > 0 ? Math.round((correct / total) * 100) : 0;
 
             return {
                 total,
-                answered,
-                qualityAnswered,
-                weakAnswers,
-                confident,
-                coveragePercent,
-                qualityPercent,
-                confidentPercent,
-                readinessScore,
+                correct,
+                incorrect,
+                skipped,
+                processed,
+                unchecked,
+                scorePercent,
                 poolSize: interviewQuestionBank.length
             };
         }
@@ -469,9 +387,7 @@
 
                 if (remaining <= 0) {
                     stopInterviewTimer();
-                    interviewState.isRunning = false;
-                    saveInterviewState();
-                    finishInterviewSession();
+                    finishInterviewSession('timer');
                 }
             }, 1000);
         }
@@ -487,7 +403,8 @@
             interviewState.questions = buildInterviewQuestionSet(totalQuestions);
             interviewState.currentIndex = 0;
             interviewState.answers = {};
-            interviewState.confident = {};
+            interviewState.results = {};
+            interviewState.isFinished = false;
             stopInterviewTimer();
 
             if (settings.autoStart) {
@@ -509,14 +426,22 @@
             if (!scoreEl || !summaryEl) return;
 
             const stats = getInterviewStats();
-            scoreEl.textContent = `Качественно: ${stats.qualityAnswered}/${stats.total}, слабых: ${stats.weakAnswers}, уверенных: ${stats.confident}, готовность: ${stats.readinessScore}%.`;
+            scoreEl.textContent = `Правильных: ${stats.correct}/${stats.total}. Неправильных: ${stats.incorrect}. Пропущенных: ${stats.skipped}. Итог: ${stats.scorePercent}%.`;
 
             if (stats.total === 0) {
                 summaryEl.textContent = 'Сначала сгенерируйте сессию вопросов.';
-            } else if (stats.readinessScore >= 70) {
-                summaryEl.textContent = 'Хороший результат для тренировочного уровня. Добейте слабые ответы и повторите сессию на другом наборе вопросов.';
+                return;
+            }
+
+            if (!interviewState.isFinished) {
+                summaryEl.textContent = `Идет сессия: проверено ${stats.processed}/${stats.total}. Можно отвечать или пропускать вопросы.`;
+                return;
+            }
+
+            if (stats.scorePercent >= 70) {
+                summaryEl.textContent = 'Сессия закрыта успешно. Разберите неверные и снова прогоните набор.';
             } else {
-                summaryEl.textContent = 'Пока ниже целевого порога 70%. Нужны более структурированные ответы: решение, trade-offs, риски, метрики.';
+                summaryEl.textContent = 'Сессия завершена. Рекомендуется повторить блоки с ошибками и пройти новый прогон.';
             }
         }
 
@@ -528,13 +453,80 @@
             const progressBar = document.getElementById('interview-progress-bar');
             const poolLabel = document.getElementById('interview-pool-label');
 
-            if (progressLabel) progressLabel.textContent = `Качественные: ${stats.qualityAnswered}/${stats.total} (заполнено: ${stats.answered})`;
-            if (confidenceLabel) confidenceLabel.textContent = `Уверенных качественных: ${stats.confident}`;
-            if (readyLabel) readyLabel.textContent = `Готовность: ${stats.readinessScore}%`;
+            if (progressLabel) progressLabel.textContent = `Проверено: ${stats.processed}/${stats.total}`;
+            if (confidenceLabel) confidenceLabel.textContent = `Правильных: ${stats.correct}`;
+            if (readyLabel) readyLabel.textContent = `Неправильных: ${stats.incorrect} | Пропущено: ${stats.skipped}`;
             if (poolLabel) poolLabel.textContent = `Пул вопросов: ${stats.poolSize}`;
-            if (progressBar) progressBar.style.width = `${stats.qualityPercent}%`;
+            if (progressBar) {
+                const percent = stats.total > 0 ? Math.round((stats.processed / stats.total) * 100) : 0;
+                progressBar.style.width = `${percent}%`;
+            }
 
             renderInterviewSummary();
+        }
+
+        function renderInterviewCheckFeedback() {
+            const feedbackEl = document.getElementById('interview-current-result');
+            const question = getCurrentInterviewQuestion();
+            if (!feedbackEl || !question) return;
+
+            const status = interviewState.results[question.id];
+            feedbackEl.className = 'interview-current-result';
+
+            if (!status) {
+                feedbackEl.textContent = 'Ответ пока не проверен.';
+                return;
+            }
+
+            if (status === 'correct') {
+                feedbackEl.classList.add('correct');
+                feedbackEl.textContent = 'Статус: правильно.';
+                return;
+            }
+
+            if (status === 'incorrect') {
+                feedbackEl.classList.add('incorrect');
+                feedbackEl.textContent = 'Статус: неправильно. В конце сессии увидите эталон.';
+                return;
+            }
+
+            feedbackEl.classList.add('skipped');
+            feedbackEl.textContent = 'Статус: вопрос пропущен.';
+        }
+
+        function renderInterviewReview() {
+            const reviewEl = document.getElementById('interview-review-list');
+            if (!reviewEl) return;
+
+            if (!interviewState.isFinished || interviewState.questions.length === 0) {
+                reviewEl.innerHTML = '<p class="card-text" style="color: var(--text-dim);">После завершения сессии здесь появятся ваши ответы и эталоны.</p>';
+                return;
+            }
+
+            const rows = interviewState.questions.map((question, index) => {
+                const status = interviewState.results[question.id] || 'unchecked';
+                const statusLabel = status === 'correct'
+                    ? 'Правильно'
+                    : (status === 'incorrect' ? 'Неправильно' : (status === 'skipped' ? 'Пропущено' : 'Не проверено'));
+                const userAnswer = interviewState.answers[question.id] || '—';
+                const expected = question.answer || '—';
+
+                return `
+                    <div class="interview-review-item ${status}">
+                        <div class="interview-review-head">
+                            <span class="interview-review-index">#${index + 1}</span>
+                            <span class="interview-review-status ${status}">${statusLabel}</span>
+                        </div>
+                        <p class="interview-review-question">${escapeHtml(question.prompt)}</p>
+                        <p class="interview-review-label">Ваш ответ</p>
+                        <pre class="interview-review-code">${escapeHtml(userAnswer)}</pre>
+                        <p class="interview-review-label">Эталон</p>
+                        <pre class="interview-review-code">${escapeHtml(expected)}</pre>
+                    </div>
+                `;
+            });
+
+            reviewEl.innerHTML = rows.join('');
         }
 
         function renderInterviewQuestion() {
@@ -546,34 +538,34 @@
             const stageEl = document.getElementById('interview-stage-pill');
             const questionEl = document.getElementById('interview-question-text');
             const answerEl = document.getElementById('interview-answer');
-            const prevBtn = document.getElementById('interview-prev-btn');
-            const nextBtn = document.getElementById('interview-next-btn');
-            const confidenceBtn = document.getElementById('interview-confidence-btn');
+            const checkBtn = document.getElementById('interview-check-btn');
+            const skipBtn = document.getElementById('interview-skip-btn');
 
-            if (!counterEl || !stageEl || !questionEl || !answerEl || !prevBtn || !nextBtn || !confidenceBtn) return;
+            if (!counterEl || !stageEl || !questionEl || !answerEl || !checkBtn || !skipBtn) return;
 
             if (!currentQuestion) {
                 counterEl.textContent = 'Вопрос 0/0';
                 stageEl.textContent = 'Этап';
-                questionEl.textContent = 'Нажмите «Сгенерировать сессию», чтобы начать.';
+                questionEl.textContent = 'Нажмите «Сгенерировать и стартовать», чтобы начать.';
                 answerEl.value = '';
                 answerEl.disabled = true;
-                prevBtn.disabled = true;
-                nextBtn.disabled = true;
-                confidenceBtn.disabled = true;
-                syncInterviewAnswerQualityState();
+                checkBtn.disabled = true;
+                skipBtn.disabled = true;
+                renderInterviewCheckFeedback();
                 return;
             }
 
             counterEl.textContent = `Вопрос ${index + 1}/${total}`;
             stageEl.textContent = getStageDisplayName(currentQuestion.stage);
             questionEl.textContent = currentQuestion.prompt;
-            answerEl.disabled = false;
+
+            answerEl.disabled = interviewState.isFinished;
             answerEl.value = interviewState.answers[currentQuestion.id] || '';
 
-            prevBtn.disabled = index === 0;
-            nextBtn.disabled = index >= total - 1;
-            syncInterviewAnswerQualityState();
+            checkBtn.disabled = interviewState.isFinished;
+            skipBtn.disabled = interviewState.isFinished;
+
+            renderInterviewCheckFeedback();
         }
 
         function renderInterviewState() {
@@ -581,45 +573,70 @@
             renderInterviewQuestion();
             updateInterviewProgressUI();
             updateInterviewTimerDisplay();
+            renderInterviewReview();
         }
 
-        function goToNextInterviewQuestion() {
+        function advanceInterviewFlow() {
             if (interviewState.currentIndex < interviewState.questions.length - 1) {
                 interviewState.currentIndex += 1;
                 saveInterviewState();
                 renderInterviewState();
+            } else {
+                finishInterviewSession('completed');
             }
         }
 
-        function goToPrevInterviewQuestion() {
-            if (interviewState.currentIndex > 0) {
-                interviewState.currentIndex -= 1;
-                saveInterviewState();
-                renderInterviewState();
-            }
-        }
+        function checkCurrentInterviewAnswer() {
+            const question = getCurrentInterviewQuestion();
+            if (!question || interviewState.isFinished) return;
 
-        function toggleInterviewConfidence() {
-            const currentQuestion = interviewState.questions[interviewState.currentIndex];
-            if (!currentQuestion) return;
-
-            const assessment = evaluateInterviewAnswer(interviewState.answers[currentQuestion.id] || '');
-            if (assessment.status !== 'strong') {
-                showErrorMessage('Сначала дайте содержательный ответ, потом ставьте метку уверенности.');
+            const answerText = (interviewState.answers[question.id] || '').trim();
+            if (!answerText) {
+                showErrorMessage('Введите ответ или нажмите «Пропустить вопрос».');
                 return;
             }
 
-            interviewState.confident[currentQuestion.id] = !interviewState.confident[currentQuestion.id];
+            const assessment = evaluateInterviewResponse(question, answerText);
+            interviewState.results[question.id] = assessment.status;
             saveInterviewState();
-            renderInterviewState();
+
+            if (assessment.status === 'correct') {
+                showSuccessMessage('Ответ засчитан как правильный.');
+            } else {
+                showErrorMessage(`Ответ не совпал с эталоном (сходство ${Math.round(assessment.similarity * 100)}%). Переходим дальше.`);
+            }
+
+            advanceInterviewFlow();
         }
 
-        function finishInterviewSession() {
+        function skipCurrentInterviewQuestion() {
+            const question = getCurrentInterviewQuestion();
+            if (!question || interviewState.isFinished) return;
+            interviewState.results[question.id] = 'skipped';
+            saveInterviewState();
+            advanceInterviewFlow();
+        }
+
+        function finishInterviewSession(reason = 'manual') {
             interviewState.isRunning = false;
+            interviewState.isFinished = true;
             stopInterviewTimer();
+
+            // Все непроверенные вопросы считаем пропущенными к моменту завершения
+            interviewState.questions.forEach(question => {
+                if (!interviewState.results[question.id]) {
+                    interviewState.results[question.id] = 'skipped';
+                }
+            });
+
             saveInterviewState();
             renderInterviewState();
-            showSuccessMessage('Сессия собеседования завершена. Проверьте блок «Итоги сессии».');
+
+            if (reason === 'timer') {
+                showErrorMessage('Время вышло. Сессия завершена автоматически.');
+            } else {
+                showSuccessMessage('Сессия собеседования завершена. Ниже доступен полный разбор ответов.');
+            }
         }
 
         function resetInterviewSession() {
@@ -630,10 +647,11 @@
                 questions: [],
                 currentIndex: 0,
                 answers: {},
-                confident: {},
+                results: {},
                 startedAt: null,
                 durationMinutes: 45,
                 isRunning: false,
+                isFinished: false,
                 timerInterval: null
             };
 
@@ -672,26 +690,25 @@
 
                 interviewState.startedAt = Date.now();
                 interviewState.isRunning = true;
+                interviewState.isFinished = false;
                 stopInterviewTimer();
                 startInterviewTimer();
                 saveInterviewState();
                 renderInterviewState();
             });
+
             bindInterviewButton('interview-reset-btn', resetInterviewSession);
-            bindInterviewButton('interview-prev-btn', goToPrevInterviewQuestion);
-            bindInterviewButton('interview-next-btn', goToNextInterviewQuestion);
-            bindInterviewButton('interview-confidence-btn', toggleInterviewConfidence);
-            bindInterviewButton('interview-finish-btn', finishInterviewSession);
+            bindInterviewButton('interview-check-btn', checkCurrentInterviewAnswer);
+            bindInterviewButton('interview-skip-btn', skipCurrentInterviewQuestion);
+            bindInterviewButton('interview-finish-btn', () => finishInterviewSession('manual'));
 
             const answerEl = document.getElementById('interview-answer');
             if (answerEl && answerEl.dataset.bound !== 'true') {
                 answerEl.addEventListener('input', () => {
-                    const currentQuestion = interviewState.questions[interviewState.currentIndex];
-                    if (!currentQuestion) return;
+                    const currentQuestion = getCurrentInterviewQuestion();
+                    if (!currentQuestion || interviewState.isFinished) return;
                     interviewState.answers[currentQuestion.id] = answerEl.value;
                     saveInterviewState();
-                    syncInterviewAnswerQualityState();
-                    updateInterviewProgressUI();
                 });
                 answerEl.dataset.bound = 'true';
             }
@@ -704,7 +721,7 @@
                 updateInterviewProgressUI();
             });
 
-            if (interviewState.isRunning && getInterviewRemainingMs() > 0) {
+            if (!interviewState.isFinished && interviewState.isRunning && getInterviewRemainingMs() > 0) {
                 startInterviewTimer();
             } else {
                 interviewState.isRunning = false;
