@@ -182,6 +182,7 @@
         let interviewQuestionBank = [...FALLBACK_INTERVIEW_QUESTION_BANK];
         let interviewQuestionBankLoaded = false;
         let interviewQuestionBankPromise = null;
+        let isGeneratingStarterPack = false;
 
         let interviewState = {
             questions: [],
@@ -1723,7 +1724,9 @@
                 return true;
             } catch (error) {
                 console.error('Ошибка генерации задачи:', error);
-                showErrorMessage('Не удалось сгенерировать задачу, попробуй ещё раз');
+                if (!options.silentFailure) {
+                    showErrorMessage('Не удалось сгенерировать задачу, попробуй ещё раз');
+                }
                 return false;
             } finally {
                 setGenerateTaskButtonLoading(triggerButton, false);
@@ -1732,6 +1735,9 @@
 
         async function generateStarterTasksForVisibleStages(root, triggerButton = null) {
             if (!root) return;
+            if (isGeneratingStarterPack) {
+                return;
+            }
 
             const stageHeadings = getVisibleCodingStageHeadings(root);
             if (stageHeadings.length === 0) {
@@ -1748,6 +1754,7 @@
                 }
             }
 
+            isGeneratingStarterPack = true;
             setGenerateTaskButtonLoading(triggerButton, true);
 
             let generatedCount = 0;
@@ -1765,14 +1772,22 @@
 
                     plannedCount += remainingCount;
 
-                    for (let i = 0; i < remainingCount; i += 1) {
-                        const moduleName = moduleNames[i % moduleNames.length];
-                        const moduleSelect = { value: moduleName };
+                    const maxAttempts = Math.max(remainingCount * 5, remainingCount + moduleNames.length);
+                    let attempts = 0;
+                    let moduleCursor = 0;
 
+                    while (currentCount < targetCount && attempts < maxAttempts) {
+                        const moduleName = moduleNames[moduleCursor % moduleNames.length];
+                        moduleCursor += 1;
+                        attempts += 1;
+
+                        const moduleSelect = { value: moduleName };
                         const created = await handleStageTaskGeneration(root, stageHeading, moduleSelect, null, {
                             silentSuccess: true,
+                            silentFailure: true,
                             disableAutoScroll: true
                         });
+
                         if (created) {
                             generatedCount += 1;
                             currentCount += 1;
@@ -1781,10 +1796,12 @@
                 }
                 applyCodingAiModeVisibility(root);
 
-                if (generatedCount > 0) {
-                    showSuccessMessage(`Стартовый AI-набор готов: ${generatedCount} задач.`);
-                } else if (plannedCount === 0) {
+                if (plannedCount === 0) {
                     showSuccessMessage('Для выбранных этапов полный стартовый набор уже сформирован.');
+                } else if (generatedCount >= plannedCount) {
+                    showSuccessMessage(`Стартовый AI-набор готов: ${generatedCount} задач.`);
+                } else if (generatedCount > 0) {
+                    showErrorMessage(`Сгенерировано ${generatedCount} из ${plannedCount}. Можно нажать кнопку еще раз для добора.`);
                 } else {
                     showErrorMessage('Не удалось сгенерировать полный стартовый набор. Попробуйте еще раз.');
                 }
@@ -1792,6 +1809,7 @@
                 console.error('Ошибка генерации стартового AI-набора:', error);
                 showErrorMessage('Не удалось сгенерировать стартовый набор задач.');
             } finally {
+                isGeneratingStarterPack = false;
                 setGenerateTaskButtonLoading(triggerButton, false);
             }
         }
