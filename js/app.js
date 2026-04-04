@@ -337,6 +337,7 @@
         let interviewQuestionBankLoaded = false;
         let interviewQuestionBankPromise = null;
         let isGeneratingStarterPack = false;
+        let isGeneratingCustomPack = false;
 
         let interviewState = {
             questions: [],
@@ -592,7 +593,7 @@
                 return;
             }
 
-            note.textContent = 'AI-first активен: нажмите «Сгенерировать стартовый набор», чтобы получить полный набор задач этапа по всем модулям.';
+            note.textContent = 'AI-first активен: используйте стартовый набор или верхний генератор (этап, модуль, количество задач).';
         }
 
         function getStoredGeneratedTaskTitles() {
@@ -927,7 +928,7 @@
             if (!root) return;
             try {
                 root.querySelectorAll('.coding-stage-actions').forEach(control => control.remove());
-                attachCodingStageGenerationControls(root);
+                ensureCodingAiModeControls(root);
             } catch (error) {
                 console.error('Не удалось обновить контролы генерации по разделам:', error);
             }
@@ -1867,7 +1868,6 @@
 
             card.innerHTML = `
                 <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">🆕 ${escapeHtml(task.title)}</h4>
-                <p style="margin-bottom: 10px; color:#cbd5e1;"><strong>Модуль:</strong> ${escapeHtml(moduleName)}</p>
                 <p style="margin-bottom: 10px; color:#cbd5e1;"><strong>Сложность:</strong> ${escapeHtml(difficultyLabel)}</p>
                 <p style="margin-bottom: 12px;">${escapeHtml(task.description)}</p>
                 ${task.tables ? `<p style="margin-bottom: 16px;"><strong>Таблицы/данные:</strong> <code>${escapeHtml(task.tables)}</code></p>` : ''}
@@ -2079,6 +2079,171 @@
             }
         }
 
+        function getVisibleStageOptionsForGeneration(root) {
+            const stageHeadings = getVisibleCodingStageHeadings(root);
+            const options = [];
+            const seenStageNumbers = new Set();
+
+            stageHeadings.forEach(stageHeading => {
+                const stageScope = getStageSectionScope(stageHeading);
+                const stageNumber = Number(stageScope.stageNumber || 0);
+                if (!stageNumber || seenStageNumbers.has(stageNumber)) return;
+
+                seenStageNumbers.add(stageNumber);
+                options.push({
+                    value: String(stageNumber),
+                    label: `Этап ${stageNumber} (${stageScope.stageLabel || 'General'})`,
+                    heading: stageHeading,
+                    modules: stageScope.moduleNames.length > 0 ? stageScope.moduleNames : ['Общий модуль']
+                });
+            });
+
+            return options;
+        }
+
+        function populateTopGenerationModuleOptions(stageSelect, moduleSelect, stageOptions) {
+            if (!stageSelect || !moduleSelect) return;
+
+            const selectedStage = String(stageSelect.value || 'all');
+            const previousModule = String(moduleSelect.value || 'all');
+            moduleSelect.innerHTML = '';
+
+            if (selectedStage === 'all') {
+                const option = document.createElement('option');
+                option.value = 'all';
+                option.textContent = 'Все модули выбранных этапов';
+                moduleSelect.appendChild(option);
+                moduleSelect.value = 'all';
+                moduleSelect.disabled = true;
+                return;
+            }
+
+            const selectedStageOption = (Array.isArray(stageOptions) ? stageOptions : [])
+                .find(item => item.value === selectedStage);
+            const modules = selectedStageOption?.modules?.length > 0
+                ? selectedStageOption.modules
+                : ['Общий модуль'];
+
+            const allOption = document.createElement('option');
+            allOption.value = 'all';
+            allOption.textContent = 'Все модули этапа';
+            moduleSelect.appendChild(allOption);
+
+            modules.forEach(moduleName => {
+                const option = document.createElement('option');
+                option.value = moduleName;
+                option.textContent = moduleName;
+                moduleSelect.appendChild(option);
+            });
+
+            moduleSelect.disabled = false;
+            if (Array.from(moduleSelect.options).some(option => option.value === previousModule)) {
+                moduleSelect.value = previousModule;
+            } else {
+                moduleSelect.value = 'all';
+            }
+        }
+
+        async function generateTasksFromTopControls(root, panel, triggerButton) {
+            if (!root || !panel) return;
+            if (isGeneratingStarterPack || isGeneratingCustomPack) return;
+
+            const stageSelect = panel.querySelector('.coding-global-stage-select');
+            const moduleSelect = panel.querySelector('.coding-global-module-select');
+            const countInput = panel.querySelector('.coding-global-count-input');
+
+            if (!stageSelect || !moduleSelect || !countInput) {
+                showErrorMessage('Не удалось прочитать параметры генерации.');
+                return;
+            }
+
+            const stageOptions = getVisibleStageOptionsForGeneration(root);
+            if (stageOptions.length === 0) {
+                showErrorMessage('Нет выбранных этапов для генерации.');
+                return;
+            }
+
+            let plannedCount = Number.parseInt(String(countInput.value || '1'), 10);
+            if (!Number.isFinite(plannedCount)) plannedCount = 1;
+            plannedCount = Math.max(1, Math.min(30, plannedCount));
+            countInput.value = String(plannedCount);
+
+            const selectedStage = String(stageSelect.value || 'all');
+            const selectedModule = String(moduleSelect.value || 'all');
+            const token = String(getGitHubModelsToken() || '').trim();
+
+            const targets = [];
+
+            if (selectedStage === 'all') {
+                const moduleCursorByStage = new Map();
+                for (let i = 0; i < plannedCount; i += 1) {
+                    const stageOption = stageOptions[i % stageOptions.length];
+                    const modules = stageOption.modules.length > 0 ? stageOption.modules : ['Общий модуль'];
+                    const cursor = moduleCursorByStage.get(stageOption.value) || 0;
+                    const moduleName = modules[cursor % modules.length];
+
+                    moduleCursorByStage.set(stageOption.value, cursor + 1);
+                    targets.push({ heading: stageOption.heading, moduleName });
+                }
+            } else {
+                const stageOption = stageOptions.find(item => item.value === selectedStage);
+                if (!stageOption) {
+                    showErrorMessage('Выбранный этап недоступен для генерации.');
+                    return;
+                }
+
+                const modules = stageOption.modules.length > 0 ? stageOption.modules : ['Общий модуль'];
+                for (let i = 0; i < plannedCount; i += 1) {
+                    const moduleName = selectedModule === 'all'
+                        ? modules[i % modules.length]
+                        : selectedModule;
+                    targets.push({ heading: stageOption.heading, moduleName });
+                }
+            }
+
+            isGeneratingCustomPack = true;
+            setGenerateTaskButtonLoading(triggerButton, true);
+
+            let generatedCount = 0;
+            try {
+                for (const target of targets) {
+                    const created = await handleStageTaskGeneration(
+                        root,
+                        target.heading,
+                        { value: target.moduleName },
+                        null,
+                        {
+                            silentSuccess: true,
+                            silentFailure: true,
+                            skipTokenPrompt: true,
+                            preferredToken: token,
+                            disableAutoScroll: true
+                        }
+                    );
+
+                    if (created) {
+                        generatedCount += 1;
+                    }
+                }
+
+                applyCodingAiModeVisibility(root);
+
+                if (generatedCount === 0) {
+                    showErrorMessage('Не удалось добавить задачи. Попробуйте еще раз.');
+                } else if (generatedCount < targets.length) {
+                    showErrorMessage(`Добавлено задач: ${generatedCount} из ${targets.length}. Можно повторить для добора.`);
+                } else {
+                    showSuccessMessage(`Добавлено задач: ${generatedCount}.`);
+                }
+            } catch (error) {
+                console.error('Ошибка массовой генерации задач:', error);
+                showErrorMessage('Ошибка при массовой генерации задач.');
+            } finally {
+                isGeneratingCustomPack = false;
+                setGenerateTaskButtonLoading(triggerButton, false);
+            }
+        }
+
         function ensureCodingAiModeControls(root) {
             if (!root) return;
 
@@ -2093,6 +2258,11 @@
 
                 panel.innerHTML = `
                     <button type="button" class="btn btn-secondary coding-ai-starter-btn">Сгенерировать стартовый набор (все модули)</button>
+                    <button type="button" class="btn btn-secondary token-config-btn coding-global-token-btn">Указать токен</button>
+                    <select class="coding-module-select coding-global-stage-select"></select>
+                    <select class="coding-module-select coding-global-module-select"></select>
+                    <input type="number" class="coding-count-input coding-global-count-input" min="1" max="30" step="1" value="1" />
+                    <button type="button" class="btn generate-task-btn coding-global-generate-btn">Добавить задачи</button>
                     <p class="coding-ai-mode-note"></p>
                 `;
 
@@ -2101,12 +2271,56 @@
             }
 
             const starterButton = panel.querySelector('.coding-ai-starter-btn');
+            const tokenButton = panel.querySelector('.coding-global-token-btn');
+            const stageSelect = panel.querySelector('.coding-global-stage-select');
+            const moduleSelect = panel.querySelector('.coding-global-module-select');
+            const generateButton = panel.querySelector('.coding-global-generate-btn');
+            const countInput = panel.querySelector('.coding-global-count-input');
 
-            if (!starterButton) return;
+            if (!starterButton || !tokenButton || !stageSelect || !moduleSelect || !generateButton || !countInput) return;
+
+            const stageOptions = getVisibleStageOptionsForGeneration(root);
+            const previousStage = String(stageSelect.value || 'all');
+            stageSelect.innerHTML = '';
+
+            const allStagesOption = document.createElement('option');
+            allStagesOption.value = 'all';
+            allStagesOption.textContent = 'Все выбранные этапы';
+            stageSelect.appendChild(allStagesOption);
+
+            stageOptions.forEach(optionData => {
+                const option = document.createElement('option');
+                option.value = optionData.value;
+                option.textContent = optionData.label;
+                stageSelect.appendChild(option);
+            });
+
+            if (Array.from(stageSelect.options).some(option => option.value === previousStage)) {
+                stageSelect.value = previousStage;
+            } else {
+                stageSelect.value = 'all';
+            }
+
+            populateTopGenerationModuleOptions(stageSelect, moduleSelect, stageOptions);
+            updateTokenSettingsButtonState(tokenButton);
 
             if (panel.dataset.bound !== 'true') {
                 starterButton.addEventListener('click', () => {
                     generateStarterTasksForVisibleStages(root, starterButton);
+                });
+
+                tokenButton.addEventListener('click', () => {
+                    openGitHubTokenSettings(tokenButton);
+                    updateTokenSettingsButtonState(tokenButton);
+                });
+
+                stageSelect.addEventListener('change', () => {
+                    const options = getVisibleStageOptionsForGeneration(root);
+                    populateTopGenerationModuleOptions(stageSelect, moduleSelect, options);
+                });
+
+                generateButton.addEventListener('click', () => {
+                    generateTasksFromTopControls(root, panel, generateButton);
                 });
 
                 panel.dataset.bound = 'true';
@@ -2830,12 +3044,6 @@
                     ensureCodingPracticeSelector(root);
                 } catch (error) {
                     console.error('Ошибка инициализации фильтров/контекстов лайв-кодинга:', error);
-                }
-
-                try {
-                    attachCodingStageGenerationControls(root);
-                } catch (error) {
-                    console.error('Ошибка инициализации контролов генерации лайв-кодинга:', error);
                 }
 
                 try {
