@@ -437,7 +437,7 @@
                 return;
             }
 
-            note.textContent = 'AI-first активен: нажмите «Сгенерировать стартовый набор», чтобы получить новые задачи.';
+            note.textContent = 'AI-first активен: нажмите «Сгенерировать стартовый набор», чтобы получить задачи для всех модулей.';
         }
 
         function getStoredGeneratedTaskTitles() {
@@ -1740,21 +1740,22 @@
             let generatedCount = 0;
             try {
                 for (const stageHeading of stageHeadings) {
-                    const controls = stageHeading.nextElementSibling?.classList?.contains('coding-stage-actions')
-                        ? stageHeading.nextElementSibling
-                        : null;
+                    const stageScope = getStageSectionScope(stageHeading);
+                    const moduleNames = stageScope.moduleNames.length > 0
+                        ? stageScope.moduleNames
+                        : ['Общий модуль'];
 
-                    const moduleSelect = controls?.querySelector('.coding-module-select') || {
-                        value: getStageSectionScope(stageHeading).moduleNames[0] || 'Общий модуль'
-                    };
+                    for (const moduleName of moduleNames) {
+                        const moduleSelect = { value: moduleName };
 
-                    for (let i = 0; i < LIVE_CODING_STARTER_TASKS_PER_STAGE; i += 1) {
-                        const created = await handleStageTaskGeneration(root, stageHeading, moduleSelect, null, {
-                            silentSuccess: true,
-                            disableAutoScroll: true
-                        });
-                        if (created) {
-                            generatedCount += 1;
+                        for (let i = 0; i < LIVE_CODING_STARTER_TASKS_PER_STAGE; i += 1) {
+                            const created = await handleStageTaskGeneration(root, stageHeading, moduleSelect, null, {
+                                silentSuccess: true,
+                                disableAutoScroll: true
+                            });
+                            if (created) {
+                                generatedCount += 1;
+                            }
                         }
                     }
                 }
@@ -1784,7 +1785,7 @@
                 panel.className = 'coding-ai-mode-controls';
 
                 panel.innerHTML = `
-                    <button type="button" class="btn btn-secondary coding-ai-starter-btn">Сгенерировать стартовый набор</button>
+                    <button type="button" class="btn btn-secondary coding-ai-starter-btn">Сгенерировать стартовый набор (все модули)</button>
                     <p class="coding-ai-mode-note"></p>
                 `;
 
