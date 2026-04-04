@@ -294,6 +294,36 @@
             }
         }
 
+        function syncInterviewQuestionsWithBank() {
+            if (!Array.isArray(interviewState.questions) || interviewState.questions.length === 0) {
+                return;
+            }
+
+            const bankMap = new Map(interviewQuestionBank.map(q => [q.id, q]));
+            let updated = false;
+
+            interviewState.questions = interviewState.questions.map(question => {
+                const latest = bankMap.get(question.id);
+                if (!latest) return question;
+
+                if (question.prompt !== latest.prompt || question.answer !== latest.answer || question.stage !== latest.stage) {
+                    updated = true;
+                    return {
+                        ...question,
+                        prompt: latest.prompt,
+                        answer: latest.answer,
+                        stage: latest.stage
+                    };
+                }
+
+                return question;
+            });
+
+            if (updated) {
+                saveInterviewState();
+            }
+        }
+
         function getCurrentInterviewQuestion() {
             return interviewState.questions[interviewState.currentIndex] || null;
         }
@@ -718,7 +748,9 @@
             loadInterviewState();
             ensureInterviewBindings();
             loadInterviewQuestionBank().then(() => {
+                syncInterviewQuestionsWithBank();
                 updateInterviewProgressUI();
+                renderInterviewState();
             });
 
             if (!interviewState.isFinished && interviewState.isRunning && getInterviewRemainingMs() > 0) {
