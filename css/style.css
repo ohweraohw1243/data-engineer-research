@@ -374,6 +374,57 @@
             background: rgba(74, 240, 196, 0.1);
         }
 
+        .coding-stage-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin: -8px 0 16px;
+        }
+
+        .coding-module-select {
+            background: var(--bg2);
+            border: 1px solid var(--border2);
+            color: #d7e2f8;
+            border-radius: 6px;
+            padding: 8px 10px;
+            font-size: 12px;
+            min-width: 220px;
+        }
+
+        .coding-module-select:focus {
+            outline: none;
+            border-color: var(--accent2);
+            box-shadow: 0 0 0 2px rgba(108, 142, 247, 0.15);
+        }
+
+        .generate-task-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            min-width: 144px;
+        }
+
+        .generate-task-btn.is-loading {
+            pointer-events: none;
+        }
+
+        .btn-spinner {
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(10, 12, 16, 0.4);
+            border-top-color: transparent;
+            border-radius: 999px;
+            animation: buttonSpin 0.8s linear infinite;
+        }
+
+        @keyframes buttonSpin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
         /* Progress Bar */
         .progress-bar {
             background: var(--border2);

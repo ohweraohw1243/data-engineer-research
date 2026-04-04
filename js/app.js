@@ -126,6 +126,22 @@
         const INTERVIEW_QUESTION_BANK_SOURCE = 'data/interview-questions.json';
         const INTERVIEW_MIN_BANK_SIZE = 25;
         const INTERVIEW_STAGE_ORDER = ['stage1', 'stage2', 'stage3', 'stage4', 'stage5'];
+        const LIVE_CODING_GENERATED_TITLES_STORAGE_KEY = 'streamflow_generated_task_titles_v1';
+        const LIVE_CODING_STAGE_MODEL_LABELS = {
+            1: 'SQL',
+            2: 'Python',
+            3: 'Spark',
+            4: 'Kafka',
+            5: 'Sys Design'
+        };
+        const LIVE_CODING_GENERATOR_CONFIG = {
+            apiUrl: 'https://models.inference.ai.azure.com/chat/completions',
+            model: 'gpt-4o',
+            requestTimeoutMs: 45000,
+            // Fallback token (avoid committing real secrets to git)
+            token: ''
+        };
+        const LIVE_CODING_GENERATOR_SYSTEM_PROMPT = 'Ты генератор практических задач для подготовки к собеседованию на позицию middle data engineer. Стек: PostgreSQL, PySpark, Kafka, Airflow, ClickHouse. Таблицы используй реалистичные: fact_orders, dim_user, daily_stats, streams, revenue, events. Отвечай ТОЛЬКО валидным JSON без markdown, без пояснений, без текста вне JSON.';
         let taskBankManifest = null;
         let taskBankManifestPromise = null;
         let interviewQuestionBank = [...FALLBACK_INTERVIEW_QUESTION_BANK];
@@ -257,6 +273,428 @@
             return Number.isFinite(configuredMinItems) && configuredMinItems > 0
                 ? Math.floor(configuredMinItems)
                 : fallbackMinItems;
+        }
+
+        function getGitHubModelsToken() {
+            const runtimeToken = typeof window !== 'undefined'
+                ? (window.STREAMFLOW_CONFIG?.GITHUB_TOKEN || '')
+                : '';
+
+            const envToken = (typeof process !== 'undefined'
+                && process
+                && process.env
+                && typeof process.env.GITHUB_TOKEN === 'string')
+                ? process.env.GITHUB_TOKEN
+                : '';
+
+            let localToken = '';
+            try {
+                localToken = localStorage.getItem('streamflow_github_token') || '';
+            } catch (error) {
+                localToken = '';
+            }
+
+            return String(runtimeToken || envToken || localToken || LIVE_CODING_GENERATOR_CONFIG.token || '').trim();
+        }
+
+        function normalizeTitleValue(rawTitle) {
+            return String(rawTitle || '')
+                .replace(/\s+/g, ' ')
+                .trim();
+        }
+
+        function getStoredGeneratedTaskTitles() {
+            try {
+                const parsed = JSON.parse(localStorage.getItem(LIVE_CODING_GENERATED_TITLES_STORAGE_KEY) || '[]');
+                if (!Array.isArray(parsed)) return [];
+                return parsed
+                    .map(normalizeTitleValue)
+                    .filter(Boolean)
+                    .slice(-300);
+            } catch (error) {
+                return [];
+            }
+        }
+
+        function saveStoredGeneratedTaskTitles(titles) {
+            const uniqueTitles = Array.from(new Set((titles || [])
+                .map(normalizeTitleValue)
+                .filter(Boolean)));
+
+            localStorage.setItem(
+                LIVE_CODING_GENERATED_TITLES_STORAGE_KEY,
+                JSON.stringify(uniqueTitles.slice(-300))
+            );
+        }
+
+        function rememberGeneratedTaskTitle(title) {
+            const normalized = normalizeTitleValue(title);
+            if (!normalized) return;
+            const current = getStoredGeneratedTaskTitles();
+            if (!current.includes(normalized)) {
+                current.push(normalized);
+                saveStoredGeneratedTaskTitles(current);
+            }
+        }
+
+        function syncGeneratedTaskTitlesFromCodingDom(root) {
+            if (!root) return;
+
+            const domTitles = Array.from(root.querySelectorAll('.task-box h4'))
+                .map(el => normalizeTitleValue(el.textContent))
+                .filter(Boolean);
+
+            const merged = getStoredGeneratedTaskTitles().concat(domTitles);
+            saveStoredGeneratedTaskTitles(merged);
+        }
+
+        function isStageHeadingElement(node) {
+            return Boolean(
+                node
+                && node.tagName === 'H2'
+                && /Практические\s+Задачи\s*\(Этап\s*\d+\)/i.test(node.textContent || '')
+            );
+        }
+
+        function extractStageNumberFromHeading(headingText) {
+            const match = String(headingText || '').match(/Этап\s*(\d+)/i);
+            return match ? Number(match[1]) : 0;
+        }
+
+        function getStageSectionScope(stageHeading) {
+            const stageNumber = extractStageNumberFromHeading(stageHeading?.textContent || '');
+            const nodes = [];
+
+            let pointer = stageHeading?.nextElementSibling || null;
+            while (pointer && !isStageHeadingElement(pointer)) {
+                nodes.push(pointer);
+                pointer = pointer.nextElementSibling;
+            }
+
+            const moduleNames = [];
+            const taskBoxes = [];
+
+            nodes.forEach(node => {
+                if (node.tagName === 'H3') {
+                    moduleNames.push(normalizeTitleValue(node.textContent));
+                }
+
+                node.querySelectorAll?.('h3').forEach(mod => {
+                    const title = normalizeTitleValue(mod.textContent);
+                    if (title) moduleNames.push(title);
+                });
+
+                if (node.classList?.contains('task-box')) {
+                    taskBoxes.push(node);
+                }
+                node.querySelectorAll?.('.task-box').forEach(box => taskBoxes.push(box));
+            });
+
+            const uniqueTaskBoxes = Array.from(new Set(taskBoxes));
+            const uniqueModuleNames = Array.from(new Set(moduleNames.filter(Boolean)));
+
+            return {
+                stageNumber,
+                stageLabel: LIVE_CODING_STAGE_MODEL_LABELS[stageNumber] || 'SQL',
+                nodes,
+                moduleNames: uniqueModuleNames,
+                taskBoxes: uniqueTaskBoxes,
+                lastTaskBox: uniqueTaskBoxes[uniqueTaskBoxes.length - 1] || null
+            };
+        }
+
+        function resolveStageInsertionContainer(stageScope, fallbackRoot) {
+            if (stageScope?.lastTaskBox?.parentElement) {
+                return stageScope.lastTaskBox.parentElement;
+            }
+
+            const spaceContainer = stageScope?.nodes?.find(node =>
+                node.classList && node.classList.contains('space-y-6')
+            );
+
+            if (spaceContainer) {
+                return spaceContainer;
+            }
+
+            return fallbackRoot || document.getElementById('coding-content-root');
+        }
+
+        function setGenerateTaskButtonLoading(button, isLoading) {
+            if (!button) return;
+
+            if (!button.dataset.defaultLabel) {
+                button.dataset.defaultLabel = button.textContent || 'Новая задача';
+            }
+
+            if (isLoading) {
+                button.disabled = true;
+                button.classList.add('is-loading');
+                button.innerHTML = '<span class="btn-spinner" aria-hidden="true"></span><span>Генерация...</span>';
+                return;
+            }
+
+            button.disabled = false;
+            button.classList.remove('is-loading');
+            button.textContent = button.dataset.defaultLabel;
+        }
+
+        function buildLiveCodingUserPrompt(stageLabel, moduleName, shownTitles) {
+            const titleList = Array.isArray(shownTitles) && shownTitles.length > 0
+                ? JSON.stringify(shownTitles.slice(-120), null, 0)
+                : '[]';
+
+            return `Сгенерируй 1 новую задачу. Этап: ${stageLabel}. Модуль: ${moduleName}.\nУже были задачи: ${titleList}. Не повторяй их.\nВерни строго этот JSON:\n{\n  "title": "string",\n  "description": "string",\n  "tables": "string",\n  "placeholder": "string",\n  "hint": "string",\n  "solution": "string",\n  "difficulty": "easy | medium | hard"\n}`;
+        }
+
+        function extractJsonObjectFromModelText(rawText) {
+            const text = String(rawText || '').trim();
+            if (!text) {
+                throw new Error('Пустой ответ модели');
+            }
+
+            const withoutFences = text
+                .replace(/^```json\s*/i, '')
+                .replace(/^```\s*/i, '')
+                .replace(/\s*```$/i, '')
+                .trim();
+
+            const firstBrace = withoutFences.indexOf('{');
+            const lastBrace = withoutFences.lastIndexOf('}');
+            if (firstBrace === -1 || lastBrace === -1 || lastBrace < firstBrace) {
+                throw new Error('В ответе модели не найден JSON-объект');
+            }
+
+            const jsonChunk = withoutFences.slice(firstBrace, lastBrace + 1);
+            return JSON.parse(jsonChunk);
+        }
+
+        function normalizeGeneratedTaskPayload(payload) {
+            if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+                throw new Error('Неверный формат задачи');
+            }
+
+            const title = normalizeTitleValue(payload.title);
+            const description = String(payload.description || '').trim();
+            const tables = String(payload.tables || '').trim();
+            const placeholder = String(payload.placeholder || '').trim();
+            const hint = String(payload.hint || '').trim();
+            const solution = String(payload.solution || '').trim();
+            const rawDifficulty = String(payload.difficulty || '').trim().toLowerCase();
+            const difficulty = ['easy', 'medium', 'hard'].includes(rawDifficulty) ? rawDifficulty : 'medium';
+
+            if (!title || !description || !solution) {
+                throw new Error('JSON задачи не содержит обязательных полей');
+            }
+
+            return {
+                title,
+                description,
+                tables,
+                placeholder: placeholder || 'Напишите решение здесь...',
+                hint: hint || 'Сначала опишите короткий план решения, затем реализуйте его.',
+                solution,
+                difficulty
+            };
+        }
+
+        function extractModelContent(responseData) {
+            const direct = responseData?.choices?.[0]?.message?.content;
+            if (typeof direct === 'string' && direct.trim()) {
+                return direct;
+            }
+
+            if (Array.isArray(direct)) {
+                const joined = direct
+                    .map(item => item?.text || item?.content || '')
+                    .join('')
+                    .trim();
+                if (joined) return joined;
+            }
+
+            if (typeof responseData?.output_text === 'string' && responseData.output_text.trim()) {
+                return responseData.output_text;
+            }
+
+            throw new Error('Не удалось извлечь текст из ответа модели');
+        }
+
+        async function requestGeneratedLiveCodingTask(stageLabel, moduleName, shownTitles, token) {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), LIVE_CODING_GENERATOR_CONFIG.requestTimeoutMs);
+
+            try {
+                const response = await fetch(LIVE_CODING_GENERATOR_CONFIG.apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'Authorization': `Bearer ${token}`,
+                        'api-key': token
+                    },
+                    body: JSON.stringify({
+                        model: LIVE_CODING_GENERATOR_CONFIG.model,
+                        temperature: 0.9,
+                        max_tokens: 1200,
+                        response_format: { type: 'json_object' },
+                        messages: [
+                            { role: 'system', content: LIVE_CODING_GENERATOR_SYSTEM_PROMPT },
+                            { role: 'user', content: buildLiveCodingUserPrompt(stageLabel, moduleName, shownTitles) }
+                        ]
+                    }),
+                    signal: controller.signal
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`GitHub Models API: ${response.status} ${errorText.slice(0, 240)}`);
+                }
+
+                const payload = await response.json();
+                const content = extractModelContent(payload);
+                return normalizeGeneratedTaskPayload(extractJsonObjectFromModelText(content));
+            } finally {
+                clearTimeout(timeout);
+            }
+        }
+
+        function getStageAccentColor(stageNumber) {
+            if (stageNumber === 1 || stageNumber === 2) return 'var(--accent1)';
+            if (stageNumber === 3) return 'var(--accent3)';
+            if (stageNumber === 4) return '#a855f7';
+            if (stageNumber === 5) return '#ef4444';
+            return 'var(--accent2)';
+        }
+
+        function createGeneratedTaskCard(task, stageNumber, moduleName) {
+            const taskId = `generated-stage${stageNumber}-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+            const card = document.createElement('div');
+            card.className = 'task-box generated-task-box';
+            card.setAttribute('data-task-id', taskId);
+            card.setAttribute('data-task-hint', task.hint);
+            card.style.background = 'rgba(255,255,255,0.05)';
+            card.style.padding = '20px';
+            card.style.borderRadius = '8px';
+            card.style.borderLeft = `4px solid ${getStageAccentColor(stageNumber)}`;
+
+            const difficultyLabel = task.difficulty === 'hard'
+                ? 'Hard'
+                : task.difficulty === 'easy'
+                    ? 'Easy'
+                    : 'Medium';
+
+            card.innerHTML = `
+                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">🆕 ${escapeHtml(task.title)}</h4>
+                <p style="margin-bottom: 10px; color:#cbd5e1;"><strong>Модуль:</strong> ${escapeHtml(moduleName)}</p>
+                <p style="margin-bottom: 10px; color:#cbd5e1;"><strong>Сложность:</strong> ${escapeHtml(difficultyLabel)}</p>
+                <p style="margin-bottom: 12px;">${escapeHtml(task.description)}</p>
+                ${task.tables ? `<p style="margin-bottom: 16px;"><strong>Таблицы/данные:</strong> <code>${escapeHtml(task.tables)}</code></p>` : ''}
+
+                <div class="answer-input-area">
+                    <label>Ваше решение:</label>
+                    <textarea rows="10" class="answer-textarea" placeholder="${escapeHtml(task.placeholder)}"></textarea>
+                    <button class="check-answer-btn" onclick="checkAnswer(this)">Проверить мое решение</button>
+                    <div class="check-result"></div>
+                </div>
+
+                <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
+                    <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
+                    <pre style="background:#1e293b; padding:12px; border-radius:6px; margin-top: 12px; margin-bottom: 0; color:#e2e8f0; overflow-x: auto;"><code class="solution-code">${escapeHtml(task.solution)}</code></pre>
+                </details>
+            `;
+
+            return card;
+        }
+
+        function appendGeneratedTaskToStage(root, stageHeading, task, moduleName) {
+            const stageScope = getStageSectionScope(stageHeading);
+            const targetContainer = resolveStageInsertionContainer(stageScope, root);
+            const card = createGeneratedTaskCard(task, stageScope.stageNumber, moduleName);
+            targetContainer.appendChild(card);
+
+            if (typeof setupAnswerField !== 'undefined') {
+                setupAnswerField(card);
+            }
+            if (typeof ensureTaskHints !== 'undefined') {
+                ensureTaskHints(card);
+            }
+
+            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return card;
+        }
+
+        async function handleStageTaskGeneration(root, stageHeading, moduleSelect, triggerButton) {
+            const stageScope = getStageSectionScope(stageHeading);
+            if (!stageScope.stageNumber) {
+                showErrorMessage('Не удалось определить этап для генерации задачи.');
+                return;
+            }
+
+            const stageLabel = stageScope.stageLabel;
+            const moduleName = normalizeTitleValue(moduleSelect?.value || stageScope.moduleNames[0] || 'Общий модуль');
+            const token = getGitHubModelsToken();
+
+            if (!token) {
+                showErrorMessage('Не найден GITHUB_TOKEN. Добавьте токен в STREAMFLOW_CONFIG, localStorage (streamflow_github_token) или конфиг.');
+                return;
+            }
+
+            syncGeneratedTaskTitlesFromCodingDom(root);
+            const shownTitles = getStoredGeneratedTaskTitles();
+
+            setGenerateTaskButtonLoading(triggerButton, true);
+            try {
+                const task = await requestGeneratedLiveCodingTask(stageLabel, moduleName, shownTitles, token);
+                appendGeneratedTaskToStage(root, stageHeading, task, moduleName);
+                rememberGeneratedTaskTitle(task.title);
+                showSuccessMessage('Новая задача добавлена.');
+            } catch (error) {
+                console.error('Ошибка генерации задачи:', error);
+                showErrorMessage('Не удалось сгенерировать задачу, попробуй ещё раз');
+            } finally {
+                setGenerateTaskButtonLoading(triggerButton, false);
+            }
+        }
+
+        function attachCodingStageGenerationControls(root) {
+            if (!root) return;
+
+            const stageHeadings = Array.from(root.querySelectorAll('h2'))
+                .filter(isStageHeadingElement);
+
+            stageHeadings.forEach(stageHeading => {
+                const existingControls = stageHeading.nextElementSibling;
+                if (existingControls && existingControls.classList?.contains('coding-stage-actions')) {
+                    return;
+                }
+
+                const stageScope = getStageSectionScope(stageHeading);
+                const modules = stageScope.moduleNames.length > 0 ? stageScope.moduleNames : ['Общий модуль'];
+
+                const controls = document.createElement('div');
+                controls.className = 'coding-stage-actions';
+
+                const moduleSelect = document.createElement('select');
+                moduleSelect.className = 'coding-module-select';
+
+                modules.forEach(moduleName => {
+                    const option = document.createElement('option');
+                    option.value = moduleName;
+                    option.textContent = moduleName;
+                    moduleSelect.appendChild(option);
+                });
+
+                const generateButton = document.createElement('button');
+                generateButton.type = 'button';
+                generateButton.className = 'btn generate-task-btn';
+                generateButton.textContent = 'Новая задача';
+                generateButton.addEventListener('click', () => {
+                    handleStageTaskGeneration(root, stageHeading, moduleSelect, generateButton);
+                });
+
+                controls.appendChild(moduleSelect);
+                controls.appendChild(generateButton);
+                stageHeading.insertAdjacentElement('afterend', controls);
+            });
         }
 
         async function loadTaskBankSectionText(sectionName, fallbackSource, forceReload = false) {
@@ -908,6 +1346,9 @@
                 const html = await loadTaskBankSectionText('coding', CODING_CONTENT_SOURCE);
                 root.innerHTML = html;
 
+                syncGeneratedTaskTitlesFromCodingDom(root);
+                attachCodingStageGenerationControls(root);
+
                 if (typeof ensureTaskHints !== 'undefined') ensureTaskHints(root);
                 if (typeof setupAnswerField !== 'undefined') {
                     root.querySelectorAll('[data-task-id]').forEach(setupAnswerField);
@@ -1371,6 +1812,11 @@
         }
 
         function buildTaskHint(container) {
+            const explicitHint = normalizeTitleValue(container?.getAttribute?.('data-task-hint') || '');
+            if (explicitHint) {
+                return explicitHint;
+            }
+
             const taskText = container.textContent || '';
             const terms = extractHintTerms(taskText);
 
