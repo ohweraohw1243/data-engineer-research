@@ -355,8 +355,7 @@
         let isGeneratingStarterPack = false;
         let isGeneratingCustomPack = false;
         let liveCodingRequestGate = {
-            nextAllowedAt: 0,
-            lastRequestAt: 0
+            models: {}
         };
 
         let interviewState = {
@@ -653,12 +652,39 @@
             root.querySelectorAll('.task-source-inline').forEach(node => node.remove());
         }
 
-        function getLiveCodingRateLimitRemainingMs() {
-            const nextAllowedAt = Number(liveCodingRequestGate?.nextAllowedAt || 0);
+        function getLiveCodingRateLimitRemainingMs(model = null) {
+            if (!model) {
+                return 0;
+            }
+            const modelState = liveCodingRequestGate.models[model] || {};
+            const nextAllowedAt = Number(modelState.nextAllowedAt || 0);
             if (!Number.isFinite(nextAllowedAt) || nextAllowedAt <= 0) {
                 return 0;
             }
             return Math.max(0, nextAllowedAt - Date.now());
+        }
+
+        function updateLiveCodingRateLimitRemainingMs(model, cooldownMs) {
+            if (!model) return;
+            const modelState = liveCodingRequestGate.models[model] || { nextAllowedAt: 0, lastRequestAt: 0 };
+            modelState.nextAllowedAt = Math.max(
+                Number(modelState.nextAllowedAt || 0),
+                Date.now() + cooldownMs
+            );
+            liveCodingRequestGate.models[model] = modelState;
+        }
+
+        function setLiveCodingLastRequestAt(model) {
+            if (!model) return;
+            const modelState = liveCodingRequestGate.models[model] || { nextAllowedAt: 0, lastRequestAt: 0 };
+            modelState.lastRequestAt = Date.now();
+            liveCodingRequestGate.models[model] = modelState;
+        }
+
+        function getLiveCodingLastRequestAt(model) {
+            if (!model) return 0;
+            const modelState = liveCodingRequestGate.models[model] || {};
+            return Number(modelState.lastRequestAt || 0);
         }
 
         function parseRetryAfterToMs(retryAfterValue) {
@@ -736,9 +762,10 @@
             }
 
             if (normalized.includes('429') || normalized.includes('rate limit') || normalized.includes('too many requests') || isLiveCodingRateLimitError(error)) {
+                // Approximate from the error property or default to a reasonable minute
                 const waitMs = Math.max(
                     Number(error?.retryAfterMs || 0),
-                    getLiveCodingRateLimitRemainingMs()
+                    LIVE_CODING_AI_RATE_LIMIT_COOLDOWN_MS
                 );
                 const waitSeconds = waitMs > 0
                     ? Math.max(15, Math.ceil(waitMs / 1000))
@@ -746,7 +773,7 @@
 
                 return {
                     code: 'rate-limit',
-                    userMessage: `Лимит запросов к AI исчерпан. Подождите около ${waitSeconds} сек и повторите.`
+                    userMessage: `Лимит запросов к AI исчерпан для всех доступных моделей. Подождите около ${waitSeconds} сек и повторите.`
                 };
             }
 
@@ -1761,11 +1788,6 @@
                 throw new Error('Токен GitHub Models не задан');
             }
 
-            const cooldownRemainingMs = getLiveCodingRateLimitRemainingMs();
-            if (cooldownRemainingMs > 0) {
-                throw createLiveCodingRateLimitError(cooldownRemainingMs);
-            }
-
             const fallbackModels = Array.isArray(options.modelFallbacks)
                 ? options.modelFallbacks
                 : LIVE_CODING_GENERATOR_MODEL_FALLBACKS;
@@ -1807,6 +1829,12 @@
             let providerAttempts = 0;
 
             for (const model of modelCandidates) {
+                const cooldownRemainingMs = getLiveCodingRateLimitRemainingMs(model);
+                if (cooldownRemainingMs > 0) {
+                    lastError = createLiveCodingRateLimitError(cooldownRemainingMs);
+                    continue;
+                }
+
                 for (const variant of requestVariants) {
                     if (providerAttempts >= maxProviderAttempts) {
                         break;
@@ -1817,13 +1845,13 @@
                     const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
                     try {
-                        const elapsedSinceLastRequest = Date.now() - Number(liveCodingRequestGate.lastRequestAt || 0);
+                        const elapsedSinceLastRequest = Date.now() - getLiveCodingLastRequestAt(model);
                         const waitBeforeRequestMs = LIVE_CODING_AI_MIN_REQUEST_INTERVAL_MS - elapsedSinceLastRequest;
                         if (waitBeforeRequestMs > 0) {
                             await new Promise(resolve => setTimeout(resolve, waitBeforeRequestMs));
                         }
 
-                        liveCodingRequestGate.lastRequestAt = Date.now();
+                        setLiveCodingLastRequestAt(model);
 
                         const headers = {
                             'Content-Type': 'application/json',
@@ -1857,13 +1885,10 @@
                             if (response.status === 429) {
                                 const retryAfterMs = parseRetryAfterToMs(response.headers.get('retry-after'));
                                 const cooldownMs = buildRateLimitCooldownMs(retryAfterMs);
-                                liveCodingRequestGate.nextAllowedAt = Math.max(
-                                    Number(liveCodingRequestGate.nextAllowedAt || 0),
-                                    Date.now() + cooldownMs
-                                );
+                                updateLiveCodingRateLimitRemainingMs(model, cooldownMs);
 
                                 const apiError = createLiveCodingRateLimitError(cooldownMs);
-                                apiError.isTerminal = true;
+                                // Is NOT terminal anymore, so we can try fallback model!
                                 throw apiError;
                             }
 
