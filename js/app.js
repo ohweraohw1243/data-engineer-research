@@ -1357,45 +1357,6 @@
             };
         }
 
-        function buildLocalFallbackQuestionPack(existingPrompts = [], desiredCount = QUESTIONS_AI_PACK_SIZE) {
-            const existing = new Set(
-                normalizeTaskTitleList(existingPrompts).map(value => value.toLowerCase())
-            );
-
-            const result = [];
-            const pool = shuffleList(QUESTIONS_LOCAL_FALLBACK_POOL);
-
-            pool.forEach(item => {
-                if (result.length >= desiredCount) return;
-
-                const question = normalizeTitleValue(item.question);
-                const key = question.toLowerCase();
-                if (!question || existing.has(key)) return;
-
-                existing.add(key);
-                result.push({
-                    category: normalizeQuestionsCategory(item.category),
-                    question,
-                    answer: String(item.answer || '').trim()
-                });
-            });
-
-            while (result.length < desiredCount) {
-                const idx = result.length + 1;
-                const category = QUESTIONS_AI_CATEGORY_ORDER[result.length % QUESTIONS_AI_CATEGORY_ORDER.length];
-                const generatedQuestion = makeUniqueTitle(`Практический вопрос ${idx} по теме ${category}`, existing);
-                existing.add(generatedQuestion.toLowerCase());
-
-                result.push({
-                    category,
-                    question: generatedQuestion,
-                    answer: 'Разберите решение по шагам: постановка цели, модель данных/интерфейс, проверка качества, контроль ошибок и мониторинг после запуска.'
-                });
-            }
-
-            return result;
-        }
-
         function getStageSectionScope(stageHeading) {
             const stageNumber = extractStageNumberFromHeading(stageHeading?.textContent || '');
             const nodes = [];
@@ -2035,6 +1996,7 @@
 
                 const unique = [];
                 const used = new Set();
+                let filteredAny = false;
 
                 parsed.forEach(item => {
                     if (!item || typeof item !== 'object') return;
@@ -2044,11 +2006,21 @@
                     const category = normalizeQuestionsCategory(item.category || item.topic || '');
                     const key = question.toLowerCase();
 
+                    // Исключаем автоматически сгенерированные заглушки-вопросы из старых версий
+                    if (key.includes('практический вопрос') && key.includes('по теме')) {
+                        filteredAny = true;
+                        return;
+                    }
+
                     if (!question || !answer || used.has(key)) return;
 
                     used.add(key);
                     unique.push({ category, question, answer });
                 });
+
+                if (filteredAny) {
+                    saveStoredGeneratedQuestions(unique);
+                }
 
                 return unique.slice(-300);
             } catch (error) {
@@ -3743,7 +3715,7 @@
                 modeContentRoot.dataset.questionsMode = normalizedMode;
                 modeContentRoot.innerHTML = '<div style="text-align:center; color: var(--text-dim); margin-top: 24px;">Загрузка вопросов...</div>';
 
-                const sectionName = normalizedMode === 'ai' ? 'questions' : 'questions-local';
+                const sectionName = normalizedMode === 'ai' ? 'questions-ai' : 'questions-local';
                 const source = normalizedMode === 'ai'
                     ? QUESTIONS_CONTENT_AI_SOURCE
                     : QUESTIONS_CONTENT_LOCAL_SOURCE;
