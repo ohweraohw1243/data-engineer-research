@@ -164,13 +164,13 @@
         const LIVE_CODING_GENERATOR_CONFIG = {
             apiUrl: 'https://models.inference.ai.azure.com/chat/completions',
             model: 'gpt-4o',
-            requestTimeoutMs: 18000,
+            requestTimeoutMs: 22000,
             // Fallback token (avoid committing real secrets to git)
             token: ''
         };
-        const LIVE_CODING_AI_REQUEST_ATTEMPTS = 2;
+        const LIVE_CODING_AI_REQUEST_ATTEMPTS = 3;
         const QUESTIONS_AI_REQUEST_ATTEMPTS = 4;
-        const LIVE_CODING_MAX_CONSECUTIVE_FAILURES = 2;
+        const LIVE_CODING_MAX_CONSECUTIVE_FAILURES = 3;
         const LIVE_CODING_GENERATOR_MODEL_FALLBACKS = ['gpt-4o-mini'];
         const LIVE_CODING_GENERATOR_SYSTEM_PROMPT = 'Ты генератор практических задач для подготовки к собеседованию на позицию middle data engineer. Стек: PostgreSQL, PySpark, Kafka, Airflow, ClickHouse. Таблицы используй реалистичные: fact_orders, dim_user, daily_stats, streams, revenue, events. Отвечай ТОЛЬКО валидным JSON без markdown, без пояснений, без текста вне JSON.';
         const QUESTIONS_AI_GENERATED_STORAGE_KEY = 'streamflow_ai_questions_v1';
@@ -660,6 +660,64 @@
                 sourceRow.classList.toggle('is-local', sourceKey !== 'ai');
                 sourceRow.innerHTML = `<strong>Источник:</strong> ${escapeHtml(sourceLabel)}`;
             });
+        }
+
+        function describeLiveCodingGenerationError(error) {
+            const message = String(error?.message || error || '').trim();
+            const normalized = message.toLowerCase();
+
+            if (!normalized) {
+                return {
+                    code: 'unknown',
+                    userMessage: 'Сервис AI временно недоступен. Повторите попытку чуть позже.'
+                };
+            }
+
+            if (normalized.includes('401') || normalized.includes('403') || normalized.includes('токен')) {
+                return {
+                    code: 'token',
+                    userMessage: 'Проблема с токеном: проверьте валидность и сохраните токен заново.'
+                };
+            }
+
+            if (normalized.includes('429') || normalized.includes('rate limit') || normalized.includes('too many requests')) {
+                return {
+                    code: 'rate-limit',
+                    userMessage: 'Лимит запросов к AI исчерпан. Подождите 30-60 секунд и повторите.'
+                };
+            }
+
+            if (normalized.includes('таймаут') || normalized.includes('aborterror') || normalized.includes('timeout')) {
+                return {
+                    code: 'timeout',
+                    userMessage: 'AI отвечает слишком долго. Повторите генерацию или уменьшите размер пакета.'
+                };
+            }
+
+            if (normalized.includes('уникальн')) {
+                return {
+                    code: 'duplicates',
+                    userMessage: 'AI вернул дубли задач. Смените этап/модуль или повторите попытку.'
+                };
+            }
+
+            if (['500', '502', '503', '504'].some(code => normalized.includes(`api: ${code}`) || normalized.includes(` ${code}`))) {
+                return {
+                    code: 'server',
+                    userMessage: 'Сервер AI временно недоступен. Повторите чуть позже.'
+                };
+            }
+
+            return {
+                code: 'generic',
+                userMessage: 'Ошибка AI API. Повторите попытку через несколько секунд.'
+            };
+        }
+
+        function saveLiveCodingFailureState(failureState, error) {
+            if (!failureState || typeof failureState !== 'object') return;
+            failureState.lastError = error || null;
+            failureState.lastReason = describeLiveCodingGenerationError(error);
         }
 
         function getStoredGeneratedTaskTitles() {
@@ -1516,6 +1574,7 @@
                             const apiError = new Error(
                                 `GitHub Models API: ${response.status}; model=${model}; json=${variant.forceJsonObject ? '1' : '0'}; apiKey=${variant.includeApiKey ? '1' : '0'}; ${errorText.slice(0, 220)}`
                             );
+                            apiError.statusCode = response.status;
                             if (response.status === 401 || response.status === 403) {
                                 apiError.isTerminal = true;
                             }
@@ -1558,8 +1617,8 @@
                 model: LIVE_CODING_GENERATOR_CONFIG.model,
                 temperature: 0.9,
                 maxTokens: 1000,
-                timeoutMs: 18000,
-                maxProviderAttempts: 2,
+                timeoutMs: 22000,
+                maxProviderAttempts: 3,
                 modelFallbacks: LIVE_CODING_GENERATOR_MODEL_FALLBACKS
             });
 
@@ -2074,12 +2133,14 @@
                 if (!options.silentFailure) {
                     showErrorMessage('AI-генерация доступна только в режиме "С ИИ".');
                 }
+                saveLiveCodingFailureState(options.failureState, new Error('AI-генерация доступна только в режиме "С ИИ".'));
                 return false;
             }
 
             const stageScope = getStageSectionScope(stageHeading);
             if (!stageScope.stageNumber) {
                 showErrorMessage('Не удалось определить этап для генерации задачи.');
+                saveLiveCodingFailureState(options.failureState, new Error('Не удалось определить этап для генерации задачи.'));
                 return false;
             }
 
@@ -2095,6 +2156,7 @@
                 if (!options.silentFailure) {
                     showErrorMessage('Токен не задан. Укажите токен GitHub Models и повторите генерацию.');
                 }
+                saveLiveCodingFailureState(options.failureState, new Error('Токен не задан.'));
                 return false;
             }
 
@@ -2161,8 +2223,10 @@
                 return true;
             } catch (error) {
                 console.error('Ошибка генерации задачи:', error);
+                const failureReason = describeLiveCodingGenerationError(error);
+                saveLiveCodingFailureState(options.failureState, error);
                 if (!options.silentFailure) {
-                    showErrorMessage('Не удалось сгенерировать AI-задачу, попробуйте еще раз.');
+                    showErrorMessage(failureReason.userMessage);
                 }
                 return false;
             } finally {
@@ -2200,6 +2264,7 @@
             const generationStats = { ai: 0 };
             let consecutiveFailures = 0;
             let stoppedByApiFailures = false;
+            const failureState = { lastError: null, lastReason: null };
             try {
                 for (const stageHeading of stageHeadings) {
                     const stageScope = getStageSectionScope(stageHeading);
@@ -2229,6 +2294,7 @@
                             skipTokenPrompt: true,
                             preferredToken: token,
                             generationStats,
+                            failureState,
                             disableAutoScroll: true
                         });
 
@@ -2251,11 +2317,14 @@
                 }
                 applyCodingAiModeVisibility(root);
                 const sourceSummary = ` (AI: ${generationStats.ai})`;
+                const reasonSuffix = failureState.lastReason?.userMessage
+                    ? ` Причина: ${failureState.lastReason.userMessage}`
+                    : '';
 
                 if (stoppedByApiFailures && generatedCount > 0) {
-                    showErrorMessage(`Генерация остановлена после серии ошибок API, добавлено ${generatedCount} из ${plannedCount}${sourceSummary}. Повторите позже.`);
+                    showErrorMessage(`Генерация остановлена после серии ошибок API, добавлено ${generatedCount} из ${plannedCount}${sourceSummary}.${reasonSuffix}`);
                 } else if (stoppedByApiFailures) {
-                    showErrorMessage('Генерация остановлена после серии ошибок API. Проверьте токен и попробуйте еще раз.');
+                    showErrorMessage(`Генерация остановлена после серии ошибок API.${reasonSuffix}`);
                 } else if (plannedCount === 0) {
                     showSuccessMessage('Для выбранных этапов полный стартовый набор уже сформирован.');
                 } else if (generatedCount >= plannedCount) {
@@ -2413,6 +2482,7 @@
             const generationStats = { ai: 0 };
             let consecutiveFailures = 0;
             let stoppedByApiFailures = false;
+            const failureState = { lastError: null, lastReason: null };
             try {
                 for (const target of targets) {
                     const created = await handleStageTaskGeneration(
@@ -2426,6 +2496,7 @@
                             skipTokenPrompt: true,
                             preferredToken: token,
                             generationStats,
+                            failureState,
                             disableAutoScroll: true
                         }
                     );
@@ -2444,11 +2515,14 @@
 
                 applyCodingAiModeVisibility(root);
                 const sourceSummary = ` (AI: ${generationStats.ai})`;
+                const reasonSuffix = failureState.lastReason?.userMessage
+                    ? ` Причина: ${failureState.lastReason.userMessage}`
+                    : '';
 
                 if (stoppedByApiFailures && generatedCount > 0) {
-                    showErrorMessage(`Генерация остановлена после серии ошибок API. Добавлено задач: ${generatedCount}${sourceSummary}.`);
+                    showErrorMessage(`Генерация остановлена после серии ошибок API. Добавлено задач: ${generatedCount}${sourceSummary}.${reasonSuffix}`);
                 } else if (stoppedByApiFailures) {
-                    showErrorMessage('Генерация остановлена после серии ошибок API. Попробуйте повторить позже.');
+                    showErrorMessage(`Генерация остановлена после серии ошибок API.${reasonSuffix}`);
                 } else if (generatedCount === 0) {
                     showErrorMessage('Не удалось добавить задачи. Попробуйте еще раз.');
                 } else if (generatedCount < targets.length) {
