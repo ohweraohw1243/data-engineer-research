@@ -3830,6 +3830,106 @@
             }
         }
 
+        // ==== ADMIN SECTION ====
+        async function initAdminSection() {
+            const authWarning = document.getElementById('admin-auth-warning');
+            const adminContent = document.getElementById('admin-content');
+            
+            if (!authWarning || !adminContent) return;
+
+            if (typeof checkIsAdmin === 'undefined') {
+                authWarning.style.display = 'block';
+                authWarning.textContent = 'Ошибка: Supabase не подключен.';
+                return;
+            }
+
+            const isAdmin = await checkIsAdmin();
+            if (!isAdmin) {
+                authWarning.style.display = 'block';
+                adminContent.style.display = 'none';
+                return;
+            }
+
+            authWarning.style.display = 'none';
+            adminContent.style.display = 'block';
+
+            // Инициализация редакторов если Monaco доступен
+            if (typeof require !== 'undefined') {
+                require(['vs/editor/editor.main'], function() {
+                    const descTarget = document.getElementById('admin-task-desc');
+                    const solTarget = document.getElementById('admin-task-solution');
+                    if(descTarget && typeof injectMonacoEditor === 'function') injectMonacoEditor(descTarget);
+                    if(solTarget && typeof injectMonacoEditor === 'function') injectMonacoEditor(solTarget);
+                });
+            }
+
+            await loadAdminTasks();
+        }
+
+        async function loadAdminTasks() {
+            const listDiv = document.getElementById('admin-tasks-list');
+            if (!listDiv) return;
+
+            const tasks = await getGlobalTasks();
+            
+            if (!tasks || tasks.length === 0) {
+                listDiv.innerHTML = '<p style="color:var(--text-dim)">Задач пока нет. Добавьте первую!</p>';
+                return;
+            }
+
+            listDiv.innerHTML = tasks.map(t => `
+                <div style="background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.05); padding: 16px; border-radius: 8px;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom: 8px;">
+                        <strong style="color: #fff;">${escapeHtml(t.title)}</strong>
+                        <span style="color: var(--accent1); font-size:12px;">${escapeHtml(t.stage)}</span>
+                    </div>
+                    <div style="color: var(--text-dim); margin-bottom: 12px; font-size:14px; white-space:pre-wrap;">${escapeHtml(Math.min(t.description.length, 100) === 100 ? t.description.slice(0, 100) + '...' : t.description)}</div>
+                </div>
+            `).join('');
+        }
+
+        async function adminSubmitTask() {
+            const title = document.getElementById('admin-task-title')?.value;
+            const stage = document.getElementById('admin-task-stage')?.value;
+            const desc = document.getElementById('admin-task-desc')?.value;
+            const sol = document.getElementById('admin-task-solution')?.value;
+            const statusDiv = document.getElementById('admin-submit-status');
+
+            if (!title || !desc || !sol) {
+                statusDiv.style.color = '#ef4444';
+                statusDiv.textContent = 'Пожалуйста, заполните все поля.';
+                return;
+            }
+
+            statusDiv.style.color = '#60a5fa';
+            statusDiv.textContent = 'Сохранение...';
+
+            const { data, error } = await addGlobalTask(title, stage, desc, sol);
+            
+            if (error) {
+                statusDiv.style.color = '#ef4444';
+                statusDiv.textContent = 'Ошибка: ' + error.message;
+            } else {
+                statusDiv.style.color = '#4ade80';
+                statusDiv.textContent = 'Успешно сохранено!';
+                // Сброс формы
+                document.getElementById('admin-task-title').value = '';
+                
+                try {
+                    const descWrapper = document.getElementById('admin-task-desc').nextElementSibling;
+                    const solWrapper = document.getElementById('admin-task-solution').nextElementSibling;
+                    if(descWrapper && descWrapper.classList.contains('monaco-editor-wrapper')) {
+                        document.getElementById('admin-task-desc').value = '';
+                        document.getElementById('admin-task-solution').value = '';
+                    }
+                } catch(e) {}
+                
+                setTimeout(() => {
+                    statusDiv.textContent = '';
+                    loadAdminTasks();
+                }, 2000);
+            }
+        }
         async function initCodingSection() {
             const root = document.getElementById('coding-content-root');
             if (!root) return;
@@ -4295,6 +4395,7 @@
                 if (tabId === 'questions') await initQuestionsSection();
                 if (tabId === 'coding') await initCodingSection();
                 if (tabId === 'profile') { if(typeof initProfileSection === 'function') { await initProfileSection(); } }
+                if (tabId === 'admin') { if(typeof initAdminSection === 'function') { await initAdminSection(); } }
                 if (typeof updateAnswerProgress !== 'undefined') updateAnswerProgress();
                 saveProgress();
                 
@@ -4990,6 +5091,31 @@
                     setupAnswerField(container);
                 });
                 
+                // Подгружаем комьюнити-задачи в локальный пул
+                if (typeof getGlobalTasks === 'function') {
+                    getGlobalTasks().then(tasks => {
+                        tasks.forEach(t => {
+                            let stageNum = 1;
+                            if (t.stage.includes('Python')) stageNum = 2;
+                            if (t.stage.includes('Spark')) stageNum = 3;
+                            if (t.stage.includes('Kafka')) stageNum = 4;
+                            
+                            if (!LIVE_CODING_LOCAL_FALLBACK_TASK_POOL[stageNum]) {
+                                LIVE_CODING_LOCAL_FALLBACK_TASK_POOL[stageNum] = [];
+                            }
+                            
+                            LIVE_CODING_LOCAL_FALLBACK_TASK_POOL[stageNum].push({
+                                title: `[CMS] ${t.title}`,
+                                description: t.description,
+                                placeholder: 'Напишите решение...',
+                                solution: t.solution,
+                                difficulty: 'medium'
+                            });
+                        });
+                        console.log('Community tasks loaded into Local pool:', tasks.length);
+                    }).catch(err => console.error('Failed fetching community tasks', err));
+                }
+
                 let currTab = 'home';
                 const hash = window.location.hash.replace('#/', '');
                 if (hash && document.querySelector(`.nav-item[data-tab="${hash}"]`)) {
@@ -5007,6 +5133,16 @@
                         switchTab(h, { skipStageCheck: true, skipHistory: true });
                     }
                 });
+
+                // Проверяем админские права для сайдбара
+                if (typeof checkIsAdmin === 'function') {
+                    checkIsAdmin().then(isAdmin => {
+                        if (isAdmin) {
+                            const adminBtn = document.getElementById('nav-admin-btn');
+                            if (adminBtn) adminBtn.style.display = 'flex';
+                        }
+                    });
+                }
 
             } catch (error) {
                 console.error('Ошибка при инициализации:', error);

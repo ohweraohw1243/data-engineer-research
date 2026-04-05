@@ -1,0 +1,53 @@
+<div class="page-content">
+    <div class="page-header">
+        <h1 class="page-title">Панель <span>Администратора</span></h1>
+        <p class="page-desc" style="color:var(--text-muted); line-height:1.6;">Управление публичным банком задач через Supabase (CMS).</p>
+    </div>
+
+    <div id="admin-auth-warning" style="display: none; padding: 20px; background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; border-radius: 8px; color: #ef4444; text-align: center;">
+        Доступ запрещен. Войдите с правами администратора в личном кабинете.
+    </div>
+
+    <div id="admin-content" style="display: none; margin-top: 20px;">
+        <div style="background: var(--bg-card); border: 1px solid rgba(255,255,255,0.05); padding: 24px; border-radius: 12px; margin-bottom: 24px;">
+            <h2 style="font-size: 20px; font-weight: 600; color: #fff; margin-bottom: 16px;">Добавить новую задачу в общий банк</h2>
+            
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                <div>
+                    <label style="display:block; color: var(--text-dim); margin-bottom: 4px;">Заголовок задачи</label>
+                    <input type="text" id="admin-task-title" class="answer-textarea" style="width: 100%; height: 40px;" placeholder="Название (например: Топ-3 зарплат по отделам)">
+                </div>
+                
+                <div>
+                    <label style="display:block; color: var(--text-dim); margin-bottom: 4px;">Этап / Технология</label>
+                    <select id="admin-task-stage" class="answer-textarea" style="width: 100%; height: 40px; background: var(--bg-modal); color: #fff;">
+                        <option value="SQL">Этап 1: SQL</option>
+                        <option value="Python">Этап 2: Python</option>
+                        <option value="Spark">Этап 3: Spark</option>
+                        <option value="Kafka">Этап 4: Kafka</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label style="display:block; color: var(--text-dim); margin-bottom: 4px;">Условие (markdown/текст)</label>
+                    <textarea id="admin-task-desc" class="answer-textarea" rows="4" placeholder="Опишите, что нужно сделать..."></textarea>
+                </div>
+
+                <div>
+                    <label style="display:block; color: var(--text-dim); margin-bottom: 4px;">Эталонное решение (код)</label>
+                    <textarea id="admin-task-solution" class="answer-textarea" rows="5" placeholder="SELECT * FROM table..."></textarea>
+                </div>
+
+                <div style="margin-top: 8px;">
+                    <button class="btn btn-primary" onclick="adminSubmitTask()" style="width: 100%;">Сохранить в базу</button>
+                    <div id="admin-submit-status" style="margin-top: 12px; text-align: center; color: #4ade80;"></div>
+                </div>
+            </div>
+        </div>
+
+        <h2 style="font-size: 20px; font-weight: 600; color: #fff; margin-bottom: 16px;">Глобальные задачи из Supabase</h2>
+        <div id="admin-tasks-list" class="space-y-4">
+            <p style="color: var(--text-dim);">Загрузка задач...</p>
+        </div>
+    </div>
+</div>

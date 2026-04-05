@@ -70,3 +70,42 @@ async function markTaskAsSolved(taskId, taskType) {
         { user_id: user.id, task_id: taskId, task_type: taskType }
     ]);
 }
+
+// ==== ADMIN PANEL API ====
+const ADMIN_EMAILS = ['daniilvolkov110@gmail.com', 'daniilvolkov@yandex.ru', 'some-email@example.com']; // Пользователь может поменять на свой
+
+async function checkIsAdmin() {
+    const user = await getCurrentUser();
+    if (!user) return false;
+    return ADMIN_EMAILS.includes(user.email) || user.email?.includes('daniilvolkov'); // Привязка к создателю
+}
+
+async function addGlobalTask(title, stage, description, solution) {
+    const user = await getCurrentUser();
+    if (!user) return { error: 'Not authorized' };
+    
+    // Пытаемся записать в таблицу global_tasks
+    // В Supabase нужно заранее создать таблицу: 
+    // global_tasks (id uuid, created_at, title text, stage text, description text, solution text, user_id uuid)
+    const { data, error } = await supabaseClient.from('global_tasks').insert([
+        { 
+            title, 
+            stage, 
+            description, 
+            solution, 
+            user_id: user.id 
+        }
+    ]);
+    return { data, error };
+}
+
+async function getGlobalTasks() {
+    if (!supabaseClient) return [];
+    // Если таблица не существует, вернет ошибку, мы ее проигнорируем для начала
+    const { data, error } = await supabaseClient.from('global_tasks').select('*').order('created_at', { ascending: false });
+    if (error) {
+        console.warn('Table global_tasks might not exist yet:', error.message);
+        return [];
+    }
+    return data || [];
+}
