@@ -168,16 +168,20 @@
             // Fallback token (avoid committing real secrets to git)
             token: ''
         };
-        const LIVE_CODING_AI_REQUEST_ATTEMPTS = 3;
+        const LIVE_CODING_AI_REQUEST_ATTEMPTS = 2;
         const QUESTIONS_AI_REQUEST_ATTEMPTS = 4;
         const LIVE_CODING_MAX_CONSECUTIVE_FAILURES = 3;
         const LIVE_CODING_GENERATOR_MODEL_FALLBACKS = ['gpt-4o-mini'];
-        const LIVE_CODING_CANDIDATES_PER_REQUEST = 3;
+        const LIVE_CODING_CANDIDATES_PER_REQUEST = 2;
         const LIVE_CODING_PROMPT_HISTORY_LIMITS = {
-            globalTitles: 60,
-            stageTitles: 40,
-            moduleTitles: 24
+            globalTitles: 36,
+            stageTitles: 24,
+            moduleTitles: 14
         };
+        const LIVE_CODING_AI_MIN_REQUEST_INTERVAL_MS = 1200;
+        const LIVE_CODING_AI_RATE_LIMIT_COOLDOWN_MS = 30000;
+        const LIVE_CODING_AI_RATE_LIMIT_MAX_COOLDOWN_MS = 120000;
+        const LIVE_CODING_AI_RETRY_AFTER_BUFFER_MS = 1500;
         const LIVE_CODING_GENERATOR_SYSTEM_PROMPT = 'Ты генератор практических задач для подготовки к собеседованию на позицию middle data engineer. Стек: PostgreSQL, PySpark, Kafka, Airflow, ClickHouse. Таблицы используй реалистичные: fact_orders, dim_user, daily_stats, streams, revenue, events. Отвечай ТОЛЬКО валидным JSON без markdown, без пояснений, без текста вне JSON.';
         const QUESTIONS_AI_GENERATED_STORAGE_KEY = 'streamflow_ai_questions_v1';
         const QUESTIONS_AI_PACK_SIZE = 10;
@@ -350,6 +354,10 @@
         let interviewQuestionBankPromise = null;
         let isGeneratingStarterPack = false;
         let isGeneratingCustomPack = false;
+        let liveCodingRequestGate = {
+            nextAllowedAt: 0,
+            lastRequestAt: 0
+        };
 
         let interviewState = {
             questions: [],
@@ -645,6 +653,70 @@
             root.querySelectorAll('.task-source-inline').forEach(node => node.remove());
         }
 
+        function getLiveCodingRateLimitRemainingMs() {
+            const nextAllowedAt = Number(liveCodingRequestGate?.nextAllowedAt || 0);
+            if (!Number.isFinite(nextAllowedAt) || nextAllowedAt <= 0) {
+                return 0;
+            }
+            return Math.max(0, nextAllowedAt - Date.now());
+        }
+
+        function parseRetryAfterToMs(retryAfterValue) {
+            const rawValue = String(retryAfterValue || '').trim();
+            if (!rawValue) {
+                return 0;
+            }
+
+            const parsedSeconds = Number(rawValue);
+            if (Number.isFinite(parsedSeconds) && parsedSeconds >= 0) {
+                return Math.floor(parsedSeconds * 1000);
+            }
+
+            const parsedDate = Date.parse(rawValue);
+            if (Number.isFinite(parsedDate)) {
+                return Math.max(0, parsedDate - Date.now());
+            }
+
+            return 0;
+        }
+
+        function buildRateLimitCooldownMs(retryAfterMs = 0) {
+            const parsedRetryAfterMs = Number(retryAfterMs);
+            const retryAfterWithBuffer = Number.isFinite(parsedRetryAfterMs) && parsedRetryAfterMs > 0
+                ? parsedRetryAfterMs + LIVE_CODING_AI_RETRY_AFTER_BUFFER_MS
+                : LIVE_CODING_AI_RATE_LIMIT_COOLDOWN_MS;
+
+            return Math.max(
+                LIVE_CODING_AI_RATE_LIMIT_COOLDOWN_MS,
+                Math.min(LIVE_CODING_AI_RATE_LIMIT_MAX_COOLDOWN_MS, Math.floor(retryAfterWithBuffer))
+            );
+        }
+
+        function createLiveCodingRateLimitError(retryAfterMs = 0) {
+            const waitMs = buildRateLimitCooldownMs(retryAfterMs);
+            const waitSeconds = Math.max(1, Math.ceil(waitMs / 1000));
+            const error = new Error(`GitHub Models API: 429; retry-after=${waitSeconds}s`);
+
+            error.statusCode = 429;
+            error.retryAfterMs = waitMs;
+            error.isRateLimit = true;
+
+            return error;
+        }
+
+        function isLiveCodingRateLimitError(error) {
+            if (!error) {
+                return false;
+            }
+
+            if (Number(error.statusCode) === 429 || error.isRateLimit) {
+                return true;
+            }
+
+            const normalized = String(error.message || '').toLowerCase();
+            return normalized.includes('429') || normalized.includes('rate limit') || normalized.includes('too many requests');
+        }
+
         function describeLiveCodingGenerationError(error) {
             const message = String(error?.message || error || '').trim();
             const normalized = message.toLowerCase();
@@ -663,10 +735,18 @@
                 };
             }
 
-            if (normalized.includes('429') || normalized.includes('rate limit') || normalized.includes('too many requests')) {
+            if (normalized.includes('429') || normalized.includes('rate limit') || normalized.includes('too many requests') || isLiveCodingRateLimitError(error)) {
+                const waitMs = Math.max(
+                    Number(error?.retryAfterMs || 0),
+                    getLiveCodingRateLimitRemainingMs()
+                );
+                const waitSeconds = waitMs > 0
+                    ? Math.max(15, Math.ceil(waitMs / 1000))
+                    : 45;
+
                 return {
                     code: 'rate-limit',
-                    userMessage: 'Лимит запросов к AI исчерпан. Подождите 30-60 секунд и повторите.'
+                    userMessage: `Лимит запросов к AI исчерпан. Подождите около ${waitSeconds} сек и повторите.`
                 };
             }
 
@@ -1681,6 +1761,11 @@
                 throw new Error('Токен GitHub Models не задан');
             }
 
+            const cooldownRemainingMs = getLiveCodingRateLimitRemainingMs();
+            if (cooldownRemainingMs > 0) {
+                throw createLiveCodingRateLimitError(cooldownRemainingMs);
+            }
+
             const fallbackModels = Array.isArray(options.modelFallbacks)
                 ? options.modelFallbacks
                 : LIVE_CODING_GENERATOR_MODEL_FALLBACKS;
@@ -1692,9 +1777,12 @@
             ));
 
             const requestVariants = [
-                { includeApiKey: true, forceJsonObject: true },
-                { includeApiKey: false, forceJsonObject: true }
+                { includeApiKey: true, forceJsonObject: true }
             ];
+
+            if (options.allowApiKeyFallbackVariant === true) {
+                requestVariants.push({ includeApiKey: false, forceJsonObject: true });
+            }
 
             if (options.allowNonJsonVariant === true) {
                 requestVariants.push({ includeApiKey: true, forceJsonObject: false });
@@ -1713,7 +1801,7 @@
             const maxProviderAttemptsRaw = Number(options.maxProviderAttempts);
             const maxProviderAttempts = Number.isFinite(maxProviderAttemptsRaw) && maxProviderAttemptsRaw > 0
                 ? Math.floor(maxProviderAttemptsRaw)
-                : 3;
+                : Math.max(1, modelCandidates.length * requestVariants.length);
 
             let lastError = null;
             let providerAttempts = 0;
@@ -1729,6 +1817,14 @@
                     const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
                     try {
+                        const elapsedSinceLastRequest = Date.now() - Number(liveCodingRequestGate.lastRequestAt || 0);
+                        const waitBeforeRequestMs = LIVE_CODING_AI_MIN_REQUEST_INTERVAL_MS - elapsedSinceLastRequest;
+                        if (waitBeforeRequestMs > 0) {
+                            await new Promise(resolve => setTimeout(resolve, waitBeforeRequestMs));
+                        }
+
+                        liveCodingRequestGate.lastRequestAt = Date.now();
+
                         const headers = {
                             'Content-Type': 'application/json',
                             'Accept': 'application/json',
@@ -1758,6 +1854,19 @@
                         });
 
                         if (!response.ok) {
+                            if (response.status === 429) {
+                                const retryAfterMs = parseRetryAfterToMs(response.headers.get('retry-after'));
+                                const cooldownMs = buildRateLimitCooldownMs(retryAfterMs);
+                                liveCodingRequestGate.nextAllowedAt = Math.max(
+                                    Number(liveCodingRequestGate.nextAllowedAt || 0),
+                                    Date.now() + cooldownMs
+                                );
+
+                                const apiError = createLiveCodingRateLimitError(cooldownMs);
+                                apiError.isTerminal = true;
+                                throw apiError;
+                            }
+
                             const errorText = await response.text();
                             const apiError = new Error(
                                 `GitHub Models API: ${response.status}; model=${model}; json=${variant.forceJsonObject ? '1' : '0'}; apiKey=${variant.includeApiKey ? '1' : '0'}; ${errorText.slice(0, 220)}`
@@ -1781,6 +1890,10 @@
                             ? new Error(`Таймаут запроса к GitHub Models (${timeoutMs} мс)`)
                             : error;
 
+                        if (isLiveCodingRateLimitError(lastError)) {
+                            throw lastError;
+                        }
+
                         if (error?.isTerminal) {
                             throw error;
                         }
@@ -1802,16 +1915,19 @@
             const candidateCount = Number.isFinite(candidateCountRaw)
                 ? Math.max(1, Math.min(5, Math.floor(candidateCountRaw)))
                 : LIVE_CODING_CANDIDATES_PER_REQUEST;
+            const maxTokens = candidateCount >= 3
+                ? 1200
+                : (candidateCount === 2 ? 980 : 760);
 
             const result = await requestGitHubModelsContent(token, [
                 { role: 'system', content: LIVE_CODING_GENERATOR_SYSTEM_PROMPT },
                 { role: 'user', content: buildLiveCodingUserPrompt(stageLabel, moduleName, generationContext) }
             ], {
                 model: LIVE_CODING_GENERATOR_CONFIG.model,
-                temperature: 0.8,
-                maxTokens: 1300,
-                timeoutMs: 22000,
-                maxProviderAttempts: 2,
+                temperature: 0.75,
+                maxTokens,
+                timeoutMs: 20000,
+                maxProviderAttempts: 1,
                 modelFallbacks: LIVE_CODING_GENERATOR_MODEL_FALLBACKS
             });
 
@@ -2377,11 +2493,16 @@
                 let lastApiError = null;
 
                 for (let attempt = 0; attempt < LIVE_CODING_AI_REQUEST_ATTEMPTS; attempt += 1) {
+                    generationContext.candidateCount = Math.max(1, LIVE_CODING_CANDIDATES_PER_REQUEST - attempt);
+
                     let candidates = null;
                     try {
                         candidates = await requestGeneratedLiveCodingTask(stageLabel, moduleName, generationContext, token);
                     } catch (apiError) {
                         lastApiError = apiError;
+                        if (apiError?.isTerminal || isLiveCodingRateLimitError(apiError)) {
+                            break;
+                        }
                         continue;
                     }
 
@@ -2520,7 +2641,8 @@
                             consecutiveFailures = 0;
                         } else {
                             consecutiveFailures += 1;
-                            if (consecutiveFailures >= LIVE_CODING_MAX_CONSECUTIVE_FAILURES) {
+                            const isRateLimited = failureState.lastReason?.code === 'rate-limit';
+                            if (isRateLimited || consecutiveFailures >= LIVE_CODING_MAX_CONSECUTIVE_FAILURES) {
                                 stoppedByApiFailures = true;
                                 break;
                             }
@@ -2722,7 +2844,8 @@
                         consecutiveFailures = 0;
                     } else {
                         consecutiveFailures += 1;
-                        if (consecutiveFailures >= LIVE_CODING_MAX_CONSECUTIVE_FAILURES) {
+                        const isRateLimited = failureState.lastReason?.code === 'rate-limit';
+                        if (isRateLimited || consecutiveFailures >= LIVE_CODING_MAX_CONSECUTIVE_FAILURES) {
                             stoppedByApiFailures = true;
                             break;
                         }
