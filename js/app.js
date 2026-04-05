@@ -164,12 +164,14 @@
         const LIVE_CODING_GENERATOR_CONFIG = {
             apiUrl: 'https://models.inference.ai.azure.com/chat/completions',
             model: 'gpt-4o',
-            requestTimeoutMs: 45000,
+            requestTimeoutMs: 18000,
             // Fallback token (avoid committing real secrets to git)
             token: ''
         };
-        const LIVE_CODING_AI_REQUEST_ATTEMPTS = 4;
-        const LIVE_CODING_GENERATOR_MODEL_FALLBACKS = ['gpt-4.1-mini', 'gpt-4o-mini'];
+        const LIVE_CODING_AI_REQUEST_ATTEMPTS = 2;
+        const QUESTIONS_AI_REQUEST_ATTEMPTS = 4;
+        const LIVE_CODING_MAX_CONSECUTIVE_FAILURES = 2;
+        const LIVE_CODING_GENERATOR_MODEL_FALLBACKS = ['gpt-4o-mini'];
         const LIVE_CODING_GENERATOR_SYSTEM_PROMPT = 'Ты генератор практических задач для подготовки к собеседованию на позицию middle data engineer. Стек: PostgreSQL, PySpark, Kafka, Airflow, ClickHouse. Таблицы используй реалистичные: fact_orders, dim_user, daily_stats, streams, revenue, events. Отвечай ТОЛЬКО валидным JSON без markdown, без пояснений, без текста вне JSON.';
         const QUESTIONS_AI_GENERATED_STORAGE_KEY = 'streamflow_ai_questions_v1';
         const QUESTIONS_AI_PACK_SIZE = 10;
@@ -630,6 +632,34 @@
             }
 
             note.textContent = 'Режим "С ИИ": локальный fallback отключен, генерируются только AI-задачи.';
+        }
+
+        function ensureCodingTaskSourceLabels(root) {
+            if (!root) return;
+
+            root.querySelectorAll('.task-box').forEach(taskBox => {
+                const sourceKey = String(taskBox.dataset.taskSource || '').trim().toLowerCase() === 'ai'
+                    ? 'ai'
+                    : 'local';
+
+                const sourceLabel = sourceKey === 'ai' ? 'AI' : 'Локальный';
+                let sourceRow = taskBox.querySelector('.task-source-inline');
+
+                if (!sourceRow) {
+                    sourceRow = document.createElement('p');
+                    sourceRow.className = 'task-source-inline';
+                    const heading = taskBox.querySelector('h4');
+                    if (heading) {
+                        heading.insertAdjacentElement('afterend', sourceRow);
+                    } else {
+                        taskBox.prepend(sourceRow);
+                    }
+                }
+
+                sourceRow.classList.toggle('is-ai', sourceKey === 'ai');
+                sourceRow.classList.toggle('is-local', sourceKey !== 'ai');
+                sourceRow.innerHTML = `<strong>Источник:</strong> ${escapeHtml(sourceLabel)}`;
+            });
         }
 
         function getStoredGeneratedTaskTitles() {
@@ -1405,31 +1435,52 @@
                 throw new Error('Токен GitHub Models не задан');
             }
 
+            const fallbackModels = Array.isArray(options.modelFallbacks)
+                ? options.modelFallbacks
+                : LIVE_CODING_GENERATOR_MODEL_FALLBACKS;
             const preferredModel = String(options.model || LIVE_CODING_GENERATOR_CONFIG.model || '').trim();
             const modelCandidates = Array.from(new Set(
-                [preferredModel].concat(LIVE_CODING_GENERATOR_MODEL_FALLBACKS)
+                [preferredModel].concat(fallbackModels)
                     .map(value => String(value || '').trim())
                     .filter(Boolean)
             ));
 
             const requestVariants = [
                 { includeApiKey: true, forceJsonObject: true },
-                { includeApiKey: false, forceJsonObject: true },
-                { includeApiKey: true, forceJsonObject: false },
-                { includeApiKey: false, forceJsonObject: false }
+                { includeApiKey: false, forceJsonObject: true }
             ];
+
+            if (options.allowNonJsonVariant === true) {
+                requestVariants.push({ includeApiKey: true, forceJsonObject: false });
+            }
 
             const normalizedMessages = Array.isArray(messages) ? messages : [];
             if (normalizedMessages.length === 0) {
                 throw new Error('Пустой список сообщений для запроса к модели');
             }
 
+            const timeoutMsRaw = Number(options.timeoutMs);
+            const timeoutMs = Number.isFinite(timeoutMsRaw) && timeoutMsRaw >= 5000
+                ? Math.floor(timeoutMsRaw)
+                : LIVE_CODING_GENERATOR_CONFIG.requestTimeoutMs;
+
+            const maxProviderAttemptsRaw = Number(options.maxProviderAttempts);
+            const maxProviderAttempts = Number.isFinite(maxProviderAttemptsRaw) && maxProviderAttemptsRaw > 0
+                ? Math.floor(maxProviderAttemptsRaw)
+                : 3;
+
             let lastError = null;
+            let providerAttempts = 0;
 
             for (const model of modelCandidates) {
                 for (const variant of requestVariants) {
+                    if (providerAttempts >= maxProviderAttempts) {
+                        break;
+                    }
+                    providerAttempts += 1;
+
                     const controller = new AbortController();
-                    const timeout = setTimeout(() => controller.abort(), LIVE_CODING_GENERATOR_CONFIG.requestTimeoutMs);
+                    const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
                     try {
                         const headers = {
@@ -1462,9 +1513,13 @@
 
                         if (!response.ok) {
                             const errorText = await response.text();
-                            throw new Error(
+                            const apiError = new Error(
                                 `GitHub Models API: ${response.status}; model=${model}; json=${variant.forceJsonObject ? '1' : '0'}; apiKey=${variant.includeApiKey ? '1' : '0'}; ${errorText.slice(0, 220)}`
                             );
+                            if (response.status === 401 || response.status === 403) {
+                                apiError.isTerminal = true;
+                            }
+                            throw apiError;
                         }
 
                         const payload = await response.json();
@@ -1475,10 +1530,20 @@
                             variant
                         };
                     } catch (error) {
-                        lastError = error;
+                        lastError = error?.name === 'AbortError'
+                            ? new Error(`Таймаут запроса к GitHub Models (${timeoutMs} мс)`)
+                            : error;
+
+                        if (error?.isTerminal) {
+                            throw error;
+                        }
                     } finally {
                         clearTimeout(timeout);
                     }
+                }
+
+                if (providerAttempts >= maxProviderAttempts) {
+                    break;
                 }
             }
 
@@ -1492,7 +1557,10 @@
             ], {
                 model: LIVE_CODING_GENERATOR_CONFIG.model,
                 temperature: 0.9,
-                maxTokens: 1200
+                maxTokens: 1000,
+                timeoutMs: 18000,
+                maxProviderAttempts: 2,
+                modelFallbacks: LIVE_CODING_GENERATOR_MODEL_FALLBACKS
             });
 
             return normalizeGeneratedTaskPayload(extractJsonObjectFromModelText(result.content));
@@ -1856,7 +1924,7 @@
                     let lastApiError = null;
                     for (
                         let attempt = 0;
-                        attempt < LIVE_CODING_AI_REQUEST_ATTEMPTS && generated.length < QUESTIONS_AI_PACK_SIZE;
+                        attempt < QUESTIONS_AI_REQUEST_ATTEMPTS && generated.length < QUESTIONS_AI_PACK_SIZE;
                         attempt += 1
                     ) {
                         try {
@@ -1932,7 +2000,7 @@
             const taskId = `generated-stage${stageNumber}-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
             const safeSolution = String(task?.solution || '').trim()
                 || 'Эталон ответа временно недоступен. Нажмите "Добавить задачи" еще раз, чтобы получить новый вариант.';
-            const sourceLabel = String(task?.source || '').toLowerCase() === 'ai' ? 'AI' : 'Локально';
+            const sourceKey = String(task?.source || '').toLowerCase() === 'ai' ? 'ai' : 'local';
             const card = document.createElement('div');
             card.className = 'task-box generated-task-box';
             card.setAttribute('data-task-id', taskId);
@@ -1940,6 +2008,7 @@
             card.setAttribute('data-task-solution', safeSolution);
             card.setAttribute('data-task-stage', String(stageNumber || 0));
             card.setAttribute('data-task-module', moduleName || '');
+            card.setAttribute('data-task-source', sourceKey);
             card.style.background = 'rgba(255,255,255,0.05)';
             card.style.padding = '20px';
             card.style.borderRadius = '8px';
@@ -1954,7 +2023,6 @@
             card.innerHTML = `
                 <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">🆕 ${escapeHtml(task.title)}</h4>
                 <p style="margin-bottom: 10px; color:#cbd5e1;"><strong>Сложность:</strong> ${escapeHtml(difficultyLabel)}</p>
-                <p style="margin-bottom: 10px; color:#9fb0d8;"><strong>Источник:</strong> ${escapeHtml(sourceLabel)}</p>
                 <p style="margin-bottom: 12px;">${escapeHtml(task.description)}</p>
                 ${task.tables ? `<p style="margin-bottom: 16px;"><strong>Таблицы/данные:</strong> <code>${escapeHtml(task.tables)}</code></p>` : ''}
 
@@ -1992,6 +2060,8 @@
             if (typeof ensureTaskHints !== 'undefined') {
                 ensureTaskHints(card);
             }
+
+            ensureCodingTaskSourceLabels(root);
 
             if (options.scrollIntoView !== false) {
                 card.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -2128,6 +2198,8 @@
             let generatedCount = 0;
             let plannedCount = 0;
             const generationStats = { ai: 0 };
+            let consecutiveFailures = 0;
+            let stoppedByApiFailures = false;
             try {
                 for (const stageHeading of stageHeadings) {
                     const stageScope = getStageSectionScope(stageHeading);
@@ -2163,13 +2235,28 @@
                         if (created) {
                             generatedCount += 1;
                             currentCount += 1;
+                            consecutiveFailures = 0;
+                        } else {
+                            consecutiveFailures += 1;
+                            if (consecutiveFailures >= LIVE_CODING_MAX_CONSECUTIVE_FAILURES) {
+                                stoppedByApiFailures = true;
+                                break;
+                            }
                         }
+                    }
+
+                    if (stoppedByApiFailures) {
+                        break;
                     }
                 }
                 applyCodingAiModeVisibility(root);
                 const sourceSummary = ` (AI: ${generationStats.ai})`;
 
-                if (plannedCount === 0) {
+                if (stoppedByApiFailures && generatedCount > 0) {
+                    showErrorMessage(`Генерация остановлена после серии ошибок API, добавлено ${generatedCount} из ${plannedCount}${sourceSummary}. Повторите позже.`);
+                } else if (stoppedByApiFailures) {
+                    showErrorMessage('Генерация остановлена после серии ошибок API. Проверьте токен и попробуйте еще раз.');
+                } else if (plannedCount === 0) {
                     showSuccessMessage('Для выбранных этапов полный стартовый набор уже сформирован.');
                 } else if (generatedCount >= plannedCount) {
                     showSuccessMessage(`Стартовый AI-набор готов: ${generatedCount} задач${sourceSummary}.`);
@@ -2274,7 +2361,7 @@
 
             let plannedCount = Number.parseInt(String(countInput.value || '1'), 10);
             if (!Number.isFinite(plannedCount)) plannedCount = 1;
-            plannedCount = Math.max(1, Math.min(30, plannedCount));
+            plannedCount = Math.max(1, Math.min(20, plannedCount));
             countInput.value = String(plannedCount);
 
             const selectedStage = String(stageSelect.value || 'all');
@@ -2324,6 +2411,8 @@
 
             let generatedCount = 0;
             const generationStats = { ai: 0 };
+            let consecutiveFailures = 0;
+            let stoppedByApiFailures = false;
             try {
                 for (const target of targets) {
                     const created = await handleStageTaskGeneration(
@@ -2343,13 +2432,24 @@
 
                     if (created) {
                         generatedCount += 1;
+                        consecutiveFailures = 0;
+                    } else {
+                        consecutiveFailures += 1;
+                        if (consecutiveFailures >= LIVE_CODING_MAX_CONSECUTIVE_FAILURES) {
+                            stoppedByApiFailures = true;
+                            break;
+                        }
                     }
                 }
 
                 applyCodingAiModeVisibility(root);
                 const sourceSummary = ` (AI: ${generationStats.ai})`;
 
-                if (generatedCount === 0) {
+                if (stoppedByApiFailures && generatedCount > 0) {
+                    showErrorMessage(`Генерация остановлена после серии ошибок API. Добавлено задач: ${generatedCount}${sourceSummary}.`);
+                } else if (stoppedByApiFailures) {
+                    showErrorMessage('Генерация остановлена после серии ошибок API. Попробуйте повторить позже.');
+                } else if (generatedCount === 0) {
                     showErrorMessage('Не удалось добавить задачи. Попробуйте еще раз.');
                 } else if (generatedCount < targets.length) {
                     showErrorMessage(`Добавлено задач: ${generatedCount} из ${targets.length}${sourceSummary}. Можно повторить для добора.`);
@@ -2383,12 +2483,16 @@
                 panel.className = 'coding-ai-mode-controls';
 
                 panel.innerHTML = `
-                    <button type="button" class="btn btn-secondary coding-ai-starter-btn">Сгенерировать стартовый набор (все модули)</button>
-                    <button type="button" class="btn btn-secondary token-config-btn coding-global-token-btn">Указать токен</button>
-                    <select class="coding-module-select coding-global-stage-select"></select>
-                    <select class="coding-module-select coding-global-module-select"></select>
-                    <input type="number" class="coding-count-input coding-global-count-input" min="1" max="30" step="1" value="1" />
-                    <button type="button" class="btn generate-task-btn coding-global-generate-btn">Добавить задачи</button>
+                    <div class="coding-controls-primary">
+                        <button type="button" class="btn btn-secondary token-config-btn coding-global-token-btn">Токен</button>
+                        <button type="button" class="btn btn-secondary coding-ai-starter-btn">Стартовый набор</button>
+                    </div>
+                    <div class="coding-controls-secondary">
+                        <select class="coding-module-select coding-global-stage-select"></select>
+                        <select class="coding-module-select coding-global-module-select"></select>
+                        <input type="number" class="coding-count-input coding-global-count-input" min="1" max="20" step="1" value="1" />
+                        <button type="button" class="btn generate-task-btn coding-global-generate-btn">Сгенерировать</button>
+                    </div>
                     <p class="coding-ai-mode-note"></p>
                 `;
 
@@ -2453,15 +2557,6 @@
             }
 
             applyCodingAiModeVisibility(root);
-
-            if (
-                getGitHubModelsToken()
-                && !hasGeneratedCodingTasks(root)
-                && panel.dataset.autostarted !== 'true'
-            ) {
-                panel.dataset.autostarted = 'true';
-                generateStarterTasksForVisibleStages(root, starterButton);
-            }
         }
 
         function attachCodingStageGenerationControls(root) {
@@ -3235,6 +3330,7 @@
                             modeContentRoot.querySelectorAll('[data-task-id]').forEach(setupAnswerField);
                         }
                         if (typeof loadSavedAnswers !== 'undefined') loadSavedAnswers();
+                        ensureCodingTaskSourceLabels(modeContentRoot);
                     } catch (error) {
                         console.error('Ошибка инициализации ответов/подсказок лайв-кодинга:', error);
                     }

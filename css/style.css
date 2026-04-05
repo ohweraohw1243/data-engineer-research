@@ -386,11 +386,11 @@
             display: flex;
             flex-direction: column;
             gap: 10px;
-            margin: 0 0 16px;
-            padding: 12px;
+            margin: 0 0 12px;
+            padding: 10px 12px;
             border: 1px solid var(--border);
             border-radius: 8px;
-            background: rgba(255, 255, 255, 0.02);
+            background: rgba(255, 255, 255, 0.018);
         }
 
         .coding-mode-label {
@@ -432,7 +432,7 @@
             flex-direction: column;
             align-items: stretch;
             gap: 10px;
-            margin: -12px 0 22px;
+            margin: 0 0 14px;
             padding: 12px;
             border: 1px solid var(--border);
             border-radius: 8px;
@@ -505,14 +505,28 @@
 
         .coding-ai-mode-controls {
             display: flex;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 12px;
-            margin: -12px 0 20px;
-            padding: 12px;
+            flex-direction: column;
+            align-items: stretch;
+            gap: 8px;
+            margin: 0 0 18px;
+            padding: 10px 12px;
             border: 1px solid var(--border);
             border-radius: 8px;
             background: rgba(255, 255, 255, 0.02);
+        }
+
+        .coding-controls-primary,
+        .coding-controls-secondary {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .coding-controls-secondary {
+            padding-top: 2px;
+            border-top: 1px dashed rgba(255, 255, 255, 0.08);
+            margin-top: 2px;
         }
 
         .coding-ai-mode-toggle {
@@ -532,7 +546,7 @@
         }
 
         .coding-ai-starter-btn {
-            min-width: 236px;
+            min-width: 168px;
         }
 
         .coding-ai-mode-note {
@@ -549,7 +563,7 @@
             border-radius: 6px;
             padding: 8px 10px;
             font-size: 12px;
-            min-width: 220px;
+            min-width: 196px;
         }
 
         .coding-count-input {
@@ -574,11 +588,11 @@
             align-items: center;
             justify-content: center;
             gap: 8px;
-            min-width: 144px;
+            min-width: 132px;
         }
 
         .token-config-btn {
-            min-width: 138px;
+            min-width: 104px;
         }
 
         .token-config-btn.token-ready {
@@ -621,6 +635,32 @@
             margin: 0;
             font-size: 11px;
             color: #9aa8c4;
+        }
+
+        .task-source-inline {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin: 0 0 10px;
+            padding: 3px 8px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 600;
+            border: 1px solid var(--border2);
+            color: #b8c7e6;
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .task-source-inline.is-ai {
+            border-color: rgba(74, 240, 196, 0.4);
+            color: #d9fff4;
+            background: rgba(74, 240, 196, 0.12);
+        }
+
+        .task-source-inline.is-local {
+            border-color: rgba(108, 142, 247, 0.4);
+            color: #dfe6ff;
+            background: rgba(108, 142, 247, 0.14);
         }
 
         .questions-ai-generated-heading {
@@ -1188,6 +1228,12 @@
 
             .coding-mode-actions {
                 flex-direction: column;
+            }
+
+            .coding-controls-primary,
+            .coding-controls-secondary {
+                flex-direction: column;
+                align-items: stretch;
             }
 
             .coding-module-select,
