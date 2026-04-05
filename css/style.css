@@ -1109,6 +1109,52 @@
             color: #ffe0ab;
         }
 
+        /* ИИ Ментор (синий/голубой) */
+        .hint-btn.hint-ai {
+            border-color: rgba(56, 189, 248, 0.5);
+            background: rgba(56, 189, 248, 0.1);
+            color: #38bdf8;
+        }
+        .hint-btn.hint-ai:hover {
+            background: rgba(56, 189, 248, 0.2);
+            border-color: rgba(56, 189, 248, 0.8);
+        }
+
+        /* Выполнить код (зеленый) */
+        .hint-btn.hint-run {
+            border-color: rgba(74, 222, 128, 0.5);
+            background: rgba(74, 222, 128, 0.1);
+            color: #4ade80;
+        }
+        .hint-btn.hint-run:hover {
+            background: rgba(74, 222, 128, 0.2);
+            border-color: rgba(74, 222, 128, 0.8);
+        }
+
+        /* Поделиться (фиолетовый) */
+        .hint-btn.hint-share {
+            border-color: rgba(167, 139, 250, 0.5);
+            background: rgba(167, 139, 250, 0.1);
+            color: #a78bfa;
+        }
+        .hint-btn.hint-share:hover {
+            background: rgba(167, 139, 250, 0.2);
+            border-color: rgba(167, 139, 250, 0.8);
+        }
+
+        /* Избранное (звезда) */
+        .fav-btn {
+            background: transparent;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            vertical-align: middle;
+            transition: transform 0.2s;
+        }
+        .fav-btn:hover {
+            transform: scale(1.2);
+        }
+
         .hint-level {
             display: none;
             background: var(--bg2);

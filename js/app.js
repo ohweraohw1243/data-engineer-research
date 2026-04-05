@@ -4585,8 +4585,10 @@
                     const actions = document.createElement('div');
                     actions.className = 'hint-actions';
                     actions.style.display = 'flex';
+                    actions.style.flexWrap = 'wrap';
                     actions.style.gap = '8px';
                     actions.style.alignItems = 'center';
+                    actions.style.marginTop = '12px';
 
                     const button = document.createElement('button');
                     button.type = 'button';
@@ -4597,34 +4599,25 @@
 
                     const aiBtn = document.createElement('button');
                     aiBtn.type = 'button';
-                    aiBtn.className = 'hint-btn ai-mentor-btn';
+                    aiBtn.className = 'hint-btn hint-ai ai-mentor-btn';
                     aiBtn.innerHTML = '🤖 ИИ Ментор';
                     aiBtn.setAttribute('onclick', 'askAIMentor(this)');
                     
                     // Highlight the AI button slightly
-                    aiBtn.style.background = 'rgba(56, 189, 248, 0.1)';
-                    aiBtn.style.color = '#38bdf8';
-                    aiBtn.style.borderColor = 'rgba(56, 189, 248, 0.5)';
                     actions.appendChild(aiBtn);
 
                     const runBtn = document.createElement('button');
                     runBtn.type = 'button';
-                    runBtn.className = 'hint-btn run-code-btn';
+                    runBtn.className = 'hint-btn hint-run run-code-btn';
                     runBtn.innerHTML = '▶️ Выполнить код';
                     runBtn.setAttribute('onclick', 'executeTaskCode(this)');
-                    runBtn.style.background = 'rgba(74, 222, 128, 0.1)';
-                    runBtn.style.color = '#4ade80';
-                    runBtn.style.borderColor = 'rgba(74, 222, 128, 0.5)';
                     actions.appendChild(runBtn);
                     
                     const shareBtn = document.createElement('button');
                     shareBtn.type = 'button';
-                    shareBtn.className = 'hint-btn share-code-btn';
+                    shareBtn.className = 'hint-btn hint-share share-code-btn';
                     shareBtn.innerHTML = '🔗 Поделиться';
                     shareBtn.setAttribute('onclick', 'shareCodeSnippet(this)');
-                    shareBtn.style.background = 'rgba(167, 139, 250, 0.1)';
-                    shareBtn.style.color = '#a78bfa';
-                    shareBtn.style.borderColor = 'rgba(167, 139, 250, 0.5)';
                     actions.appendChild(shareBtn);
 
                     const result = answerArea.querySelector('.check-result');
@@ -5720,11 +5713,8 @@ function injectRunButton(container) {
     if (!container.querySelector('.run-code-btn')) {
         const runBtn = document.createElement('button');
         runBtn.type = 'button';
-        runBtn.className = 'hint-btn run-code-btn';
+        runBtn.className = 'hint-btn hint-run run-code-btn';
         runBtn.innerHTML = '▶️ Выполнить';
-        runBtn.style.background = 'rgba(74, 222, 128, 0.1)';
-        runBtn.style.color = '#4ade80';
-        runBtn.style.borderColor = 'rgba(74, 222, 128, 0.5)';
         runBtn.setAttribute('onclick', 'executeTaskCode(this)');
         actions.appendChild(runBtn);
     }
@@ -6029,7 +6019,20 @@ function injectFavoriteButtons(root = document) {
         const container = h4.closest('.task-box, .card');
         if (!container || !container.hasAttribute('data-task-id')) return;
         
-        const wrapper = h4.parentElement;
+        let wrapper = h4.parentElement;
+        
+        // Fix: Do not make the entire task card a flex container! Wrap the H4.
+        if (wrapper.classList.contains('task-box') || wrapper.classList.contains('card')) {
+            const newHeader = document.createElement('div');
+            newHeader.style.display = 'flex';
+            newHeader.style.justifyContent = 'space-between';
+            newHeader.style.alignItems = 'flex-start';
+            newHeader.dataset.hasFav = "true";
+            wrapper.insertBefore(newHeader, h4);
+            newHeader.appendChild(h4);
+            wrapper = newHeader;
+        }
+
         if (!wrapper.querySelector('.fav-btn') && !wrapper.dataset.hasFav) {
             wrapper.dataset.hasFav = "true";
             const taskId = container.getAttribute('data-task-id');
@@ -6043,6 +6046,7 @@ function injectFavoriteButtons(root = document) {
             btn.style.fontSize = '20px';
             btn.style.cursor = 'pointer';
             
+            // Flex applied to wrapper (the newHeader or existing inner wrapper)
             if (wrapper.style.display !== 'flex') {
                 wrapper.style.display = 'flex';
                 wrapper.style.justifyContent = 'space-between';
