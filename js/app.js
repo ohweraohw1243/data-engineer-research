@@ -5966,7 +5966,7 @@ function injectFavoriteButtons(root = document) {
     headers.forEach(header => {
         // Проверяем, нет ли уже кнопки
         if (!header.querySelector('.fav-btn')) {
-            const titleSpan = header.querySelector('span'); // первый span обычно это текст
+            const titleSpan = header.querySelector('span:not(.accordion-toggle)'); // первый span обычно это текст
             if (!titleSpan) return;
             
             const questionText = titleSpan.textContent.trim();
@@ -5999,11 +5999,12 @@ function injectFavoriteButtons(root = document) {
             }
 
             // Обернем titleSpan и кнопку во flex контейнер
-            if (titleSpan.parentElement.tagName !== 'DIV' || !titleSpan.parentElement.style.display.includes('flex')) {
+            if (!titleSpan.parentElement.classList.contains('accordion-title-wrapper')) {
                 const wrapper = document.createElement('div');
+                wrapper.className = 'accordion-title-wrapper';
                 wrapper.style.display = 'flex';
                 wrapper.style.alignItems = 'center';
-                wrapper.style.gap = '8px';
+                wrapper.style.gap = '12px';
                 header.insertBefore(wrapper, titleSpan);
                 wrapper.appendChild(titleSpan);
                 wrapper.appendChild(btn);
