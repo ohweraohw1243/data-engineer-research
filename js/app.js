@@ -3783,6 +3783,20 @@
                     avatar.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="%2324292e"/><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" fill="%23fff"/></svg>';
                 }
 
+                // ============= ОБЛАЧНАЯ СИНХРОНИЗАЦИЯ: КОД ============= 
+                // Восстанавливаем решения из Supabase
+                if (typeof fetchProfileFromCloud === 'function') {
+                    fetchProfileFromCloud().then(profile => {
+                        if (profile && profile.saved_answers) {
+                            const localAnswers = JSON.parse(localStorage.getItem('userAnswers') || '{}');
+                            const merged = { ...profile.saved_answers, ...localAnswers };
+                            localStorage.setItem('userAnswers', JSON.stringify(merged));
+                            loadSavedAnswers(); // Если вкладка уже открыта, подсосет данные в Monaco/Textarea
+                        }
+                    });
+                }
+                // ========================================================
+
                 loadProfileStats();
             } else {
                 authSection.style.display = 'block';
@@ -4862,6 +4876,11 @@
                 const answers = JSON.parse(localStorage.getItem('userAnswers') || '{}');
                 answers[taskId] = textarea.value;
                 localStorage.setItem('userAnswers', JSON.stringify(answers));
+                
+                // Связь нового и старого: Облачная синхронизация решений кода
+                if (typeof syncAnswersToCloud === 'function') {
+                    syncAnswersToCloud(answers);
+                }
             };
 
             const clearCheckedStateOnEdit = () => {

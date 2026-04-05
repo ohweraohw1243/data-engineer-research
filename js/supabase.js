@@ -109,3 +109,68 @@ async function getGlobalTasks() {
     }
     return data || [];
 }
+
+// ==== USER AI TASKS SYNC ====
+async function saveUserAITask(taskData) {
+    if (!supabaseClient) return;
+    const user = await getCurrentUser();
+    if (!user) return; // Гости генерируют только в localStorage
+
+    // taskData ожидается как объект: { title/prompt, task_type('coding'/'question'), stage, description/content, solution/answer }
+    const { error } = await supabaseClient.from('user_ai_tasks').insert([
+        { user_id: user.id, ...taskData }
+    ]);
+    if (error) console.error('Ошибка сохранения ИИ-задачи в облако:', error.message);
+}
+
+async function getUserAITasks() {
+    if (!supabaseClient) return [];
+    const user = await getCurrentUser();
+    if (!user) return [];
+
+    const { data, error } = await supabaseClient.from('user_ai_tasks')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true });
+
+    if (error) {
+        console.warn('Таблица user_ai_tasks еще не создана:', error.message);
+        return [];
+    }
+    return data || [];
+}
+
+// ==== SYNC LOCAL PROGRESS ====
+let cloudSyncTimeout = null;
+
+async function syncAnswersToCloud(answersObj) {
+    if (!supabaseClient) return;
+    const user = await getCurrentUser();
+    if (!user) return; // Гостей не синхронизируем
+    
+    // Дебаунс, чтобы не ДДОСить БД при каждом нажатии клавиши
+    clearTimeout(cloudSyncTimeout);
+    cloudSyncTimeout = setTimeout(async () => {
+        const { error } = await supabaseClient
+            .from('user_profiles')
+            .upsert({ user_id: user.id, saved_answers: answersObj, updated_at: new Date().toISOString() });
+        
+        if (error) console.error('Ошибка синхронизации решений в облако:', error.message);
+        else console.log('Решения сохранены в облаке ☁️');
+    }, 2000);
+}
+
+async function fetchProfileFromCloud() {
+    if (!supabaseClient) return null;
+    const user = await getCurrentUser();
+    if (!user) return null;
+
+    const { data, error } = await supabaseClient
+        .from('user_profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+        
+    if (error) return null;
+    return data;
+}
