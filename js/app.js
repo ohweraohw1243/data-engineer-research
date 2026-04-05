@@ -120,7 +120,7 @@
         ];
 
         const TASK_BANK_MANIFEST_SOURCE = 'data/tasks-manifest.json';
-        const TASK_BANK_CACHE_BUST = '3';
+        const TASK_BANK_CACHE_BUST = '4';
         const QUESTIONS_CONTENT_SOURCE = 'data/questions-content.html';
         const CODING_CONTENT_AI_SOURCE = 'data/coding-content-ai.html';
         const CODING_CONTENT_LOCAL_SOURCE = 'data/coding-content.html';
@@ -141,7 +141,7 @@
         };
         const LIVE_CODING_STAGE_CONTEXT_RULES = {
             1: {
-                focus: 'SQL аналитика, PostgreSQL, оконные функции, индексы, DWH SQL шаблоны',
+                focus: 'SQL аналитика в PostgreSQL: JOIN, GROUP BY/HAVING, CTE, подзапросы, CASE, оконные функции, индексы, EXPLAIN ANALYZE, DWH SQL шаблоны',
                 avoid: 'Python-скрипты, Spark API, Kafka топики, системный дизайн сервисов'
             },
             2: {
@@ -636,30 +636,7 @@
 
         function ensureCodingTaskSourceLabels(root) {
             if (!root) return;
-
-            root.querySelectorAll('.task-box').forEach(taskBox => {
-                const sourceKey = String(taskBox.dataset.taskSource || '').trim().toLowerCase() === 'ai'
-                    ? 'ai'
-                    : 'local';
-
-                const sourceLabel = sourceKey === 'ai' ? 'AI' : 'Локальный';
-                let sourceRow = taskBox.querySelector('.task-source-inline');
-
-                if (!sourceRow) {
-                    sourceRow = document.createElement('p');
-                    sourceRow.className = 'task-source-inline';
-                    const heading = taskBox.querySelector('h4');
-                    if (heading) {
-                        heading.insertAdjacentElement('afterend', sourceRow);
-                    } else {
-                        taskBox.prepend(sourceRow);
-                    }
-                }
-
-                sourceRow.classList.toggle('is-ai', sourceKey === 'ai');
-                sourceRow.classList.toggle('is-local', sourceKey !== 'ai');
-                sourceRow.innerHTML = `<strong>Источник:</strong> ${escapeHtml(sourceLabel)}`;
-            });
+            root.querySelectorAll('.task-source-inline').forEach(node => node.remove());
         }
 
         function describeLiveCodingGenerationError(error) {
@@ -1407,8 +1384,17 @@
             const stageRule = generationContext.stageRule || {};
             const focusRule = String(stageRule.focus || '').trim();
             const avoidRule = String(stageRule.avoid || '').trim();
+            const stageLabelLower = String(stageLabel || '').toLowerCase();
+            const moduleNameLower = String(moduleName || '').toLowerCase();
+            const isStageOneSql = stageLabelLower.includes('sql') || moduleNameLower.includes('sql');
+            const windowTaskCount = moduleTitles.filter(title => /окон|window|row_number|dense_rank|rank\s*\(/i.test(title)).length;
+            const moduleDiversificationRule = isStageOneSql
+                ? (windowTaskCount >= 1
+                    ? 'В этом модуле уже были задачи на оконные функции: сгенерируй новую задачу БЕЗ оконных функций, с акцентом на JOIN/GROUP BY/CTE/индексах/EXPLAIN.'
+                    : 'Для этапа SQL обеспечь разнообразие: чередуй JOIN, GROUP BY/HAVING, CTE, подзапросы, индексы и EXPLAIN; не своди задачи только к оконным функциям.')
+                : 'Соблюдай разнообразие техник внутри модуля и избегай однотипных задач подряд.';
 
-            return `Сгенерируй 1 новую практическую задачу для middle data engineer.\nЭтап: ${stageLabel}. Модуль: ${moduleName}.\n\nПравила контекста этапа:\n- Focus: ${focusRule || 'только темы выбранного этапа'}\n- Avoid: ${avoidRule || 'не использовать темы других этапов'}\n\nУже были задачи в этом этапе: ${stageTitleList}.\nУже были задачи в этом модуле: ${moduleTitleList}.\nВсе показанные задачи (глобально): ${titleList}.\n\nКритично:\n- Не повторяй ни названия, ни идею задач из списков выше.\n- Задача должна быть строго в контексте выбранного этапа и выбранного модуля.\n- solution должен быть непустой, прикладной и проверяемый (SQL/Python/псевдокод по теме), минимум 4 строки.\n- hint должен быть конкретным шагом к решению, не общая фраза.\n\nВерни строго этот JSON:\n{\n  "title": "string",\n  "description": "string",\n  "tables": "string",\n  "placeholder": "string",\n  "hint": "string",\n  "solution": "string",\n  "difficulty": "easy | medium | hard"\n}`;
+            return `Сгенерируй 1 новую практическую задачу для middle data engineer.\nЭтап: ${stageLabel}. Модуль: ${moduleName}.\n\nПравила контекста этапа:\n- Focus: ${focusRule || 'только темы выбранного этапа'}\n- Avoid: ${avoidRule || 'не использовать темы других этапов'}\n\nУже были задачи в этом этапе: ${stageTitleList}.\nУже были задачи в этом модуле: ${moduleTitleList}.\nВсе показанные задачи (глобально): ${titleList}.\n\nКритично:\n- Не повторяй ни названия, ни идею задач из списков выше.\n- Задача должна быть строго в контексте выбранного этапа и выбранного модуля.\n- ${moduleDiversificationRule}\n- solution должен быть непустой, прикладной и проверяемый (SQL/Python/псевдокод по теме), минимум 4 строки.\n- hint должен быть конкретным шагом к решению, не общая фраза.\n\nВерни строго этот JSON:\n{\n  "title": "string",\n  "description": "string",\n  "tables": "string",\n  "placeholder": "string",\n  "hint": "string",\n  "solution": "string",\n  "difficulty": "easy | medium | hard"\n}`;
         }
 
         function extractJsonObjectFromModelText(rawText) {
@@ -3962,6 +3948,43 @@
             }
         }
 
+        function getExpectedAnswerRaw(container) {
+            const generatedSolution = String(container?.getAttribute?.('data-task-solution') || '').trim();
+            if (generatedSolution) {
+                return generatedSolution;
+            }
+
+            const explicitSolution = container.querySelector('.solution-code')?.textContent?.trim();
+            if (explicitSolution) {
+                return explicitSolution;
+            }
+
+            const detailsCode = container.querySelector('details code')?.textContent?.trim();
+            if (detailsCode) {
+                return detailsCode;
+            }
+
+            const detailsText = container.querySelector('details p')?.textContent?.trim();
+            if (detailsText) {
+                return detailsText;
+            }
+
+            return '';
+        }
+
+        function buildExpectedAnswerHtml(expectedAnswerRaw) {
+            const safe = String(expectedAnswerRaw || '').trim();
+            if (!safe) return '';
+            return `<br><strong>Эталон от AI:</strong><pre class="expected-answer-preview">${escapeHtml(safe)}</pre>`;
+        }
+
+        function revealExpectedAnswer(container) {
+            const details = container?.querySelector?.('details');
+            if (details) {
+                details.open = true;
+            }
+        }
+
         // ===== ПРОВЕРКА ОТВЕТОВ =====
         function checkAnswer(btn) {
             const container = btn.closest('.card, .task-box');
@@ -3969,6 +3992,7 @@
             const taskId = container.getAttribute('data-task-id');
             const textarea = container.querySelector('.answer-textarea');
             const resultDiv = container.querySelector('.check-result');
+            const expectedAnswerRaw = getExpectedAnswerRaw(container);
             const expectedAnswer = getExpectedAnswer(container);
             const userAnswer = textarea?.value?.trim().toLowerCase() || '';
 
@@ -4028,9 +4052,10 @@
             // Проверка на частичное совпадение (основные компоненты)
             if (normalizedExpected && similarity >= 0.65 && normalizedUser.length >= 60) {
                 showResultMessage(resultDiv, 'partial', 
-                    `⚠️ Похоже! Сходство ${Math.round(similarity * 100)}%. Но есть небольшие различия.<br>Подсказка: Проверьте синтаксис, названия функций и порядок условий.`);
+                    `⚠️ Похоже! Сходство ${Math.round(similarity * 100)}%. Но есть небольшие различия.<br>Подсказка: Проверьте синтаксис, названия функций и порядок условий.${buildExpectedAnswerHtml(expectedAnswerRaw)}`);
                 textarea.style.borderColor = 'var(--accent3)';
                 setAnswerStatus(taskId, 'partial');
+                revealExpectedAnswer(container);
                 updateAnswerProgress();
                 return;
             }
@@ -4039,43 +4064,26 @@
             const keywordsFound = findKeywords(userAnswer);
             if (keywordsFound.length >= 3 && normalizedUser.length >= 80) {
                 showResultMessage(resultDiv, 'partial', 
-                    `⚠️ Направление правильное! Вы используете ${keywordsFound.join(', ')}.<br>Но нужно еще доработать логику. Нажмите "Показать решение" для подсказки.`);
+                    `⚠️ Направление правильное! Вы используете ${keywordsFound.join(', ')}.<br>Но нужно еще доработать логику.${buildExpectedAnswerHtml(expectedAnswerRaw)}`);
                 textarea.style.borderColor = 'var(--accent3)';
                 setAnswerStatus(taskId, 'partial');
+                revealExpectedAnswer(container);
                 updateAnswerProgress();
                 return;
             }
 
             // Ответ неправильный
             showResultMessage(resultDiv, 'incorrect',
-                '❌ Это не совпадает с правильным ответом.<br>💡 Подсказка: Нажмите "Подсказка" чтобы узнать подход к решению.');
+                `❌ Это не совпадает с правильным ответом.<br>💡 Подсказка: Нажмите "Подсказка" чтобы узнать подход к решению.${buildExpectedAnswerHtml(expectedAnswerRaw)}`);
             textarea.style.borderColor = 'var(--red)';
             setAnswerStatus(taskId, 'incorrect');
+            revealExpectedAnswer(container);
             updateAnswerProgress();
         }
 
         function getExpectedAnswer(container) {
-            const generatedSolution = String(container?.getAttribute?.('data-task-solution') || '').trim();
-            if (generatedSolution) {
-                return generatedSolution.toLowerCase();
-            }
-
-            const explicitSolution = container.querySelector('.solution-code')?.textContent?.trim();
-            if (explicitSolution) {
-                return explicitSolution.toLowerCase();
-            }
-
-            const detailsCode = container.querySelector('details code')?.textContent?.trim();
-            if (detailsCode) {
-                return detailsCode.toLowerCase();
-            }
-
-            const detailsText = container.querySelector('details p')?.textContent?.trim();
-            if (detailsText) {
-                return detailsText.toLowerCase();
-            }
-
-            return '';
+            const expected = getExpectedAnswerRaw(container);
+            return expected ? expected.toLowerCase() : '';
         }
 
         function showResultMessage(resultDiv, type, message) {

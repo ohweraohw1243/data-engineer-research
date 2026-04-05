@@ -1063,6 +1063,21 @@
             margin-bottom: 6px;
         }
 
+        .expected-answer-preview {
+            margin-top: 8px;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: rgba(10, 12, 16, 0.35);
+            color: #e4ebff;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 11px;
+            line-height: 1.5;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
         .hint-actions {
             display: flex;
             gap: 8px;
