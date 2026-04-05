@@ -165,15 +165,15 @@
         };
         const LIVE_CODING_GENERATOR_CONFIG = {
             apiUrl: 'https://models.inference.ai.azure.com/chat/completions',
-            model: 'gpt-4o',
-            requestTimeoutMs: 22000,
+            model: 'gpt-4o-mini',
+            requestTimeoutMs: 25000,
             // Fallback token (avoid committing real secrets to git)
             token: ''
         };
         const LIVE_CODING_AI_REQUEST_ATTEMPTS = 2;
         const QUESTIONS_AI_REQUEST_ATTEMPTS = 4;
         const LIVE_CODING_MAX_CONSECUTIVE_FAILURES = 3;
-        const LIVE_CODING_GENERATOR_MODEL_FALLBACKS = ['gpt-4o-mini'];
+        const LIVE_CODING_GENERATOR_MODEL_FALLBACKS = ['gpt-4o'];
         const LIVE_CODING_CANDIDATES_PER_REQUEST = 2;
         const LIVE_CODING_PROMPT_HISTORY_LIMITS = {
             globalTitles: 36,
@@ -186,7 +186,7 @@
         const LIVE_CODING_AI_RETRY_AFTER_BUFFER_MS = 1500;
         const LIVE_CODING_GENERATOR_SYSTEM_PROMPT = 'Ты генератор практических задач для подготовки к собеседованию на позицию middle data engineer. Стек: PostgreSQL, PySpark, Kafka, Airflow, ClickHouse. Таблицы используй реалистичные: fact_orders, dim_user, daily_stats, streams, revenue, events. Отвечай ТОЛЬКО валидным JSON без markdown, без пояснений, без текста вне JSON.';
         const QUESTIONS_AI_GENERATED_STORAGE_KEY = 'streamflow_ai_questions_v1';
-        const QUESTIONS_AI_PACK_SIZE = 10;
+        const QUESTIONS_AI_PACK_SIZE = 20;
         const QUESTIONS_AI_CATEGORY_ORDER = [
             'SQL и Базы Данных',
             'Python и PySpark',
@@ -2139,7 +2139,7 @@
             ], {
                 model: LIVE_CODING_GENERATOR_CONFIG.model,
                 temperature: 0.85,
-                maxTokens: 2000
+                maxTokens: 4000
             });
 
             return normalizeGeneratedQuestionPack(extractJsonObjectFromModelText(result.content));
