@@ -121,7 +121,8 @@
 
         const TASK_BANK_MANIFEST_SOURCE = 'data/tasks-manifest.json';
         const TASK_BANK_CACHE_BUST = '4';
-        const QUESTIONS_CONTENT_SOURCE = 'data/questions-content.html';
+        const QUESTIONS_CONTENT_AI_SOURCE = 'data/questions-content-ai.html';
+        const QUESTIONS_CONTENT_LOCAL_SOURCE = 'data/questions-content.html';
         const CODING_CONTENT_AI_SOURCE = 'data/coding-content-ai.html';
         const CODING_CONTENT_LOCAL_SOURCE = 'data/coding-content.html';
         const INTERVIEW_QUESTION_BANK_SOURCE = 'data/interview-questions.json';
@@ -131,6 +132,7 @@
         const LIVE_CODING_GITHUB_TOKEN_STORAGE_KEY = 'streamflow_github_token';
         const LIVE_CODING_SECTION_SELECTION_STORAGE_KEY = 'streamflow_coding_section_selection_v2';
         const LIVE_CODING_MODE_STORAGE_KEY = 'streamflow_coding_mode_v1';
+        const QUESTIONS_MODE_STORAGE_KEY = 'streamflow_questions_mode_v1';
         const LIVE_CODING_STARTER_FALLBACK_TASKS_PER_STAGE = 6;
         const LIVE_CODING_STAGE_MODEL_LABELS = {
             1: 'SQL',
@@ -609,6 +611,27 @@
             }
         }
 
+        function normalizeQuestionsMode(rawMode) {
+            const mode = String(rawMode || '').trim().toLowerCase();
+            return mode === 'ai' ? 'ai' : 'local';
+        }
+
+        function getStoredQuestionsMode() {
+            try {
+                return normalizeQuestionsMode(localStorage.getItem(QUESTIONS_MODE_STORAGE_KEY));
+            } catch (error) {
+                return 'local';
+            }
+        }
+
+        function saveStoredQuestionsMode(mode) {
+            try {
+                localStorage.setItem(QUESTIONS_MODE_STORAGE_KEY, normalizeQuestionsMode(mode));
+            } catch (error) {
+                // noop
+            }
+        }
+
         function isCodingAiMode(root = null) {
             const rootMode = String(root?.dataset?.codingMode || '').trim().toLowerCase();
             if (rootMode === 'ai' || rootMode === 'local') {
@@ -616,6 +639,15 @@
             }
 
             return getStoredCodingMode() === 'ai';
+        }
+
+        function isQuestionsAiMode(root = null) {
+            const rootMode = String(root?.dataset?.questionsMode || '').trim().toLowerCase();
+            if (rootMode === 'ai' || rootMode === 'local') {
+                return rootMode === 'ai';
+            }
+
+            return getStoredQuestionsMode() === 'ai';
         }
 
         function hasGeneratedCodingTasks(root) {
@@ -3666,17 +3698,82 @@
             const root = document.getElementById('questions-content-root');
             if (!root) return;
 
-            root.innerHTML = '<div style="text-align:center; color: var(--text-dim); margin-top: 24px;">Загрузка вопросов...</div>';
+            root.innerHTML = `
+                <div class="coding-mode-switcher">
+                    <p class="coding-mode-label">Выберите формат вопросов:</p>
+                    <div class="coding-mode-actions">
+                        <button type="button" class="btn btn-secondary coding-mode-btn questions-mode-btn" data-questions-mode="local">Без ИИ (локальные вопросы)</button>
+                        <button type="button" class="btn btn-secondary coding-mode-btn questions-mode-btn" data-questions-mode="ai">С ИИ (только AI-вопросы)</button>
+                    </div>
+                    <p class="coding-mode-hint questions-mode-hint"></p>
+                </div>
+                <div class="questions-mode-content-root" id="questions-dynamic-root">
+                    <div style="text-align:center; color: var(--text-dim); margin-top: 24px;">Загрузка вопросов...</div>
+                </div>
+            `;
 
-            try {
-                const html = await loadTaskBankSectionText('questions', QUESTIONS_CONTENT_SOURCE);
-                root.innerHTML = html;
-                hydrateStoredGeneratedQuestions(root);
-                refreshQuestionsAiControls(root);
-            } catch (error) {
-                console.error('Не удалось загрузить контент вопросов:', error);
-                root.innerHTML = '<div style="text-align:center; color: var(--red); margin-top: 24px;">Не удалось загрузить вопросы. Попробуйте обновить страницу.</div>';
+            const modeButtons = Array.from(root.querySelectorAll('.questions-mode-btn'));
+            const modeHint = root.querySelector('.questions-mode-hint');
+            const modeContentRoot = root.querySelector('.questions-mode-content-root');
+
+            if (!modeHint || !modeContentRoot || modeButtons.length === 0) {
+                root.innerHTML = '<div style="text-align:center; color: var(--red); margin-top: 24px;">Не удалось инициализировать режимы вопросов.</div>';
+                return;
             }
+
+            const applyModeButtonState = mode => {
+                const normalizedMode = normalizeQuestionsMode(mode);
+                modeButtons.forEach(button => {
+                    const buttonMode = normalizeQuestionsMode(button.dataset.questionsMode);
+                    const isActive = buttonMode === normalizedMode;
+                    button.classList.toggle('is-active', isActive);
+                    button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+                });
+
+                modeHint.textContent = normalizedMode === 'ai'
+                    ? 'Среда "С ИИ": ваша личная база вопросов. Если здесь пусто — выберите нужную категорию и сгенерируйте.'
+                    : 'Среда "Без ИИ": статические вопросы. Генерация недоступна.';
+            };
+
+            const loadQuestionsMode = async mode => {
+                const normalizedMode = normalizeQuestionsMode(mode);
+                saveStoredQuestionsMode(normalizedMode);
+                applyModeButtonState(normalizedMode);
+
+                modeContentRoot.dataset.questionsMode = normalizedMode;
+                modeContentRoot.innerHTML = '<div style="text-align:center; color: var(--text-dim); margin-top: 24px;">Загрузка вопросов...</div>';
+
+                const sectionName = normalizedMode === 'ai' ? 'questions' : 'questions-local';
+                const source = normalizedMode === 'ai'
+                    ? QUESTIONS_CONTENT_AI_SOURCE
+                    : QUESTIONS_CONTENT_LOCAL_SOURCE;
+
+                try {
+                    const html = await loadTaskBankSectionText(sectionName, source);
+                    modeContentRoot.innerHTML = html;
+                    modeContentRoot.dataset.questionsMode = normalizedMode;
+
+                    if (normalizedMode === 'ai') {
+                        hydrateStoredGeneratedQuestions(modeContentRoot);
+                        refreshQuestionsAiControls(modeContentRoot);
+                    }
+                } catch (error) {
+                    console.error('Не удалось загрузить контент вопросов:', error);
+                    modeContentRoot.innerHTML = '<div style="text-align:center; color: var(--red); margin-top: 24px;">Не удалось загрузить вопросы. Попробуйте обновить страницу.</div>';
+                }
+            };
+
+            modeButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    const mode = button.dataset.questionsMode;
+                    if (normalizeQuestionsMode(mode) === normalizeQuestionsMode(modeContentRoot.dataset.questionsMode)) {
+                        return;
+                    }
+                    loadQuestionsMode(mode);
+                });
+            });
+
+            loadQuestionsMode(getStoredQuestionsMode());
         }
 
         async function initCodingSection() {

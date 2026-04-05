@@ -1,0 +1,36 @@
+<div class="page-content">
+    <div class="page-header">
+        <h1 class="page-title">Вопросы от <span>AI</span></h1>
+        <p class="page-desc" style="color:var(--text-muted); line-height:1.6;">AI-сгенерированные вопросы для подготовки. Работает независимо от основного списка. Выберите категорию и сгенерируйте вопросы.</p>
+    </div>
+
+    <div style="margin-bottom: 20px;">
+        <div style="display:flex;gap:12px;flex-wrap:wrap;">
+            <button class="btn" style="background:var(--accent1);color:#0a0a0a;font-weight:600;padding:12px 24px;border-radius:12px;border:none;cursor:pointer;" onclick="randomQuestion()">🎲 Случайный вопрос</button>
+            <button class="btn" style="background:rgba(255,255,255,0.1);color:#fff;font-weight:600;padding:12px 24px;border-radius:12px;border:none;cursor:pointer;" onclick="toggleAll(true)">Развернуть все ответы</button>
+            <button class="btn" style="background:rgba(255,255,255,0.1);color:#fff;font-weight:600;padding:12px 24px;border-radius:12px;border:none;cursor:pointer;" onclick="toggleAll(false)">Свернуть все</button>
+        </div>
+        <div class="questions-ai-controls mt-4 p-4 rounded-xl" style="background:var(--bg-card);border:1px solid rgba(255,255,255,0.05);">
+            <div style="margin-bottom: 12px;">
+                <button type="button" class="btn btn-secondary token-config-btn questions-token-btn" onclick="openQuestionsTokenSettings(this)">Указать токен</button>
+                <button type="button" class="btn generate-task-btn questions-ai-generate-btn" style="margin-left: 8px;" onclick="generateQuestionsPack(this)">➕ Добавить 10 AI-вопросов</button>
+            </div>
+            <p class="questions-ai-note" style="color:var(--text-dim);font-size:14px;">Сгенерируй еще 10 вопросов и ответов в выбранных категориях.</p>
+        </div>
+    </div>
+
+    <h2 style="font-size: 24px; font-weight: 600; margin-bottom: 16px; margin-top: 32px; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">SQL и Базы Данных</h2>
+    <div class="space-y-4"></div>
+
+    <h2 style="font-size: 24px; font-weight: 600; margin-bottom: 16px; margin-top: 32px; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">Python и PySpark</h2>
+    <div class="space-y-4"></div>
+
+    <h2 style="font-size: 24px; font-weight: 600; margin-bottom: 16px; margin-top: 32px; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">Архитектура Хранилищ (DWH & Data Lake)</h2>
+    <div class="space-y-4"></div>
+
+    <h2 style="font-size: 24px; font-weight: 600; margin-bottom: 16px; margin-top: 32px; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">Streaming и Оркестрация</h2>
+    <div class="space-y-4"></div>
+
+    <h2 style="font-size: 24px; font-weight: 600; margin-bottom: 16px; margin-top: 32px; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">Моделирование и Качество данных</h2>
+    <div class="space-y-4"></div>
+</div>
