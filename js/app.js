@@ -2161,7 +2161,10 @@
 
             wrapper.innerHTML = `
                 <div class="accordion-header" style="padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="toggleAccordion(this)">
-                    <span style="font-weight: 600; font-size: 15px;">${escapeHtml(question)}</span>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span style="font-weight: 600; font-size: 15px;">${escapeHtml(question)}</span>
+                        <button onclick="event.stopPropagation(); toggleFavoriteTask(btoa(unescape(encodeURIComponent(String(this.previousElementSibling.textContent)))), 'Вопрос сгенерированный ИИ', String(this.previousElementSibling.textContent)).then(res=>{if(res!==undefined) {this.textContent=res?'⭐':'☆';}}).catch(e=>{console.error(e)})" style="background:transparent; border:none; font-size:16px; cursor:pointer;" title="В избранное">☆</button>
+                    </div>
                     <span class="accordion-toggle" style="transition: transform 0.3s; color: var(--accent1); font-size: 13px; font-weight: 500;">Показать ответ ▼</span>
                 </div>
                 <div class="accordion-content" style="display: none; padding: 0 16px 16px 16px; color: var(--text-muted); line-height: 1.6; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 8px; padding-top: 12px;">
@@ -2409,7 +2412,10 @@
                     : 'Medium';
 
             card.innerHTML = `
-                <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">🆕 ${escapeHtml(task.title)}</h4>
+                <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                    <h4 style="margin-top:0; color:#fff; font-size: 1.1rem; margin-bottom: 12px;">🆕 ${escapeHtml(task.title)}</h4>
+                    <button onclick="toggleFavoriteTask('${taskId}', 'Лайв-кодинг ИИ', String(this.previousElementSibling.textContent).replace('🆕 ', '')).then(res=>{if(res!==undefined) {this.textContent=res?'⭐':'☆';}}).catch(e=>{console.error(e)})" style="background:transparent; border:none; font-size:20px; cursor:pointer;" title="В избранное">☆</button>
+                </div>
                 <p style="margin-bottom: 10px; color:#cbd5e1;"><strong>Сложность:</strong> ${escapeHtml(difficultyLabel)}</p>
                 <p style="margin-bottom: 12px;">${escapeHtml(task.description)}</p>
                 ${task.tables ? `<p style="margin-bottom: 16px;"><strong>Таблицы/данные:</strong> <code>${escapeHtml(task.tables)}</code></p>` : ''}
@@ -3748,6 +3754,82 @@
             loadQuestionsMode(getStoredQuestionsMode());
         }
 
+        
+
+        async function initProfileSection() {
+            const authSection = document.getElementById('profile-auth-section');
+            const userSection = document.getElementById('profile-user-section');
+            
+            if (!authSection || !userSection) return;
+
+            if (typeof getCurrentUser === 'undefined') {
+                authSection.innerHTML = '<p style="color:var(--text-dim)">База данных отключена.</p>';
+                return;
+            }
+
+            const user = await getCurrentUser();
+            if (user) {
+                authSection.style.display = 'none';
+                userSection.style.display = 'block';
+
+                const meta = user.user_metadata || {};
+                document.getElementById('profile-name').textContent = meta.full_name || meta.user_name || user.email || 'Аноним';
+                document.getElementById('profile-email').textContent = user.email || '';
+                
+                const avatar = document.getElementById('profile-avatar');
+                if (meta.avatar_url) {
+                    avatar.src = meta.avatar_url;
+                } else {
+                    avatar.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="%2324292e"/><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" fill="%23fff"/></svg>';
+                }
+
+                loadProfileStats();
+            } else {
+                authSection.style.display = 'block';
+                userSection.style.display = 'none';
+            }
+        }
+
+        async function loadProfileStats() {
+            const list = document.getElementById('profile-favorites-list');
+            if (!list || typeof supabaseClient === 'undefined' || !supabaseClient) return;
+
+            try {
+                const user = await getCurrentUser();
+                
+                const { count: solvedCount } = await supabaseClient
+                    .from('solved_tasks')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('user_id', user.id);
+                    
+                const { data: favorites } = await supabaseClient
+                    .from('favorites')
+                    .select('*')
+                    .eq('user_id', user.id)
+                    .order('created_at', { ascending: false });
+
+                document.getElementById('stat-solved').textContent = solvedCount || 0;
+                document.getElementById('stat-favorites').textContent = (favorites || []).length || 0;
+
+                if (favorites && favorites.length > 0) {
+                    list.innerHTML = favorites.map(fav => `
+                        <div style="background:var(--bg-card); border:1px solid rgba(255,255,255,0.05); padding:16px; border-radius:12px; display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <span style="font-size:12px; color:var(--accent1); font-weight:600; text-transform:uppercase; margin-bottom:4px; display:block;">${fav.task_type}</span>
+                                <div style="font-weight:600; color:#fff;">${fav.task_title || fav.task_id}</div>
+                            </div>
+                            <button class="btn btn-secondary" style="background:rgba(239,68,68,0.1); color:#ef4444; border:none; padding:8px 16px; font-weight:600; border-radius:8px; cursor:pointer;" onclick="toggleFavoriteTask('${fav.task_id}', '${fav.task_type}', '${fav.task_title}').then(()=>loadProfileStats())">Убрать</button>
+                        </div>
+                    `).join('');
+                } else {
+                    list.innerHTML = '<p style="color: var(--text-dim);">У вас пока нет сохраненных вопросов.</p>';
+                }
+            } catch (err) {
+                console.error('Ошибка загрузки статистики:', err);
+                list.innerHTML = '<p style="color:var(--red);">Не удалось загрузить данные. Проверьте БД.</p>';
+            }
+        }
+
         async function initCodingSection() {
             const root = document.getElementById('coding-content-root');
             if (!root) return;
@@ -3890,6 +3972,9 @@
             const statuses = getAnswerStatusMap();
             statuses[taskId] = status;
             localStorage.setItem(ANSWER_STATUS_STORAGE_KEY, JSON.stringify(statuses));
+            if (status === 'correct' && typeof window.markTaskAsSolved === 'function') {
+                window.markTaskAsSolved(taskId, 'Практическая задача').catch(e => console.error(e));
+            }
         }
 
         function clearAnswerStatus(taskId) {
@@ -4200,6 +4285,7 @@
                 if (tabId === 'interview') initInterviewSection();
                 if (tabId === 'questions') await initQuestionsSection();
                 if (tabId === 'coding') await initCodingSection();
+                if (tabId === 'profile') { if(typeof initProfileSection === 'function') { await initProfileSection(); } }
                 if (typeof updateAnswerProgress !== 'undefined') updateAnswerProgress();
                 saveProgress();
                 

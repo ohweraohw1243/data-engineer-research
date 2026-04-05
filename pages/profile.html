@@ -1,0 +1,44 @@
+<div class="page-content">
+    <div class="page-header">
+        <h1 class="page-title">Личный <span>Кабинет</span></h1>
+        <p class="page-desc" style="color:var(--text-muted); line-height:1.6;">Отслеживайте свой прогресс, сохраняйте лучшие вопросы и управляйте аккаунтом.</p>
+    </div>
+
+    <div id="profile-auth-section" style="margin-top: 20px; margin-bottom: 24px; padding: 24px; border-radius: 16px; background: var(--bg-card); border: 1px solid rgba(255,255,255,0.05); text-align: center;">
+        <h3 style="font-size: 20px; font-weight: 600; margin-bottom: 12px; color: #fff;">Войдите в свой аккаунт</h3>
+        <p style="color: var(--text-dim); margin-bottom: 20px;">Авторизуйтесь через GitHub, чтобы сохранять вопросы в избранное и отслеживать свой прогресс в облаке.</p>
+        <button class="btn btn-secondary" style="background:#24292e; color:#fff; border:1px solid #1b1f23; font-weight:600; padding:12px 24px; border-radius:8px; cursor:pointer;" onclick="signInWithGithub()">
+            Вход через GitHub
+        </button>
+    </div>
+
+    <div id="profile-user-section" style="display: none; margin-top: 20px;">
+        <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 32px; padding: 20px; border-radius: 16px; background: var(--bg-card); border: 1px solid rgba(255,255,255,0.05);">
+            <img id="profile-avatar" src="" alt="Аватар профиля" style="width: 80px; height: 80px; border-radius: 50%; border: 2px solid var(--accent1);" />
+            <div>
+                <h3 id="profile-name" style="font-size: 24px; font-weight: 600; margin-bottom: 4px; color: #fff;">...</h3>
+                <p id="profile-email" style="color: var(--text-dim); margin-bottom: 12px;">...</p>
+                <button class="btn btn-secondary" style="font-weight:600; padding:8px 16px; border-radius:8px; cursor:pointer; background: rgba(239, 68, 68, 0.1); color: #ef4444;" onclick="signOut()">
+                    Выйти
+                </button>
+            </div>
+        </div>
+
+        <h2 style="font-size: 22px; font-weight: 600; margin-bottom: 16px; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">📊 Статистика прогресса</h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 32px;">
+            <div style="background: var(--bg-card); border: 1px solid rgba(255,255,255,0.05); padding: 20px; border-radius: 12px; text-align: center;">
+                <div style="font-size: 32px; font-weight: 700; color: var(--accent1); margin-bottom: 8px;" id="stat-solved">0</div>
+                <div style="color: var(--text-dim); font-size: 14px;">Решённых задач</div>
+            </div>
+            <div style="background: var(--bg-card); border: 1px solid rgba(255,255,255,0.05); padding: 20px; border-radius: 12px; text-align: center;">
+                <div style="font-size: 32px; font-weight: 700; color: var(--accent2); margin-bottom: 8px;" id="stat-favorites">0</div>
+                <div style="color: var(--text-dim); font-size: 14px;">В избранном</div>
+            </div>
+        </div>
+
+        <h2 style="font-size: 22px; font-weight: 600; margin-bottom: 16px; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">⭐ Избранные вопросы</h2>
+        <div id="profile-favorites-list" class="space-y-4" style="margin-bottom: 28px;">
+            <p style="color: var(--text-dim);">Загрузка избранного...</p>
+        </div>
+    </div>
+</div>
