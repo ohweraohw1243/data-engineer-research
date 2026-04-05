@@ -382,6 +382,51 @@
             margin: -8px 0 16px;
         }
 
+        .coding-mode-switcher {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin: 0 0 16px;
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .coding-mode-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #d7e2f8;
+            margin: 0;
+        }
+
+        .coding-mode-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .coding-mode-btn {
+            min-width: 236px;
+        }
+
+        .coding-mode-btn.is-active {
+            border-color: var(--accent1);
+            color: #e9fff8;
+            background: rgba(74, 240, 196, 0.12);
+            box-shadow: 0 0 0 1px rgba(74, 240, 196, 0.15) inset;
+        }
+
+        .coding-mode-hint {
+            margin: 0;
+            font-size: 11px;
+            color: #9aa8c4;
+        }
+
+        .coding-mode-content-root {
+            min-height: 120px;
+        }
+
         .coding-practice-switcher {
             display: flex;
             flex-direction: column;
@@ -1132,6 +1177,7 @@
                 padding: 8px 16px;
             }
 
+            .coding-mode-switcher,
             .coding-practice-switcher,
             .coding-ai-mode-controls,
             .coding-stage-actions,
@@ -1140,7 +1186,12 @@
                 align-items: stretch;
             }
 
+            .coding-mode-actions {
+                flex-direction: column;
+            }
+
             .coding-module-select,
+            .coding-mode-btn,
             .coding-ai-starter-btn,
             .questions-ai-generate-btn,
             .coding-count-input {

@@ -122,13 +122,15 @@
         const TASK_BANK_MANIFEST_SOURCE = 'data/tasks-manifest.json';
         const TASK_BANK_CACHE_BUST = '3';
         const QUESTIONS_CONTENT_SOURCE = 'data/questions-content.html';
-        const CODING_CONTENT_SOURCE = 'data/coding-content-ai.html';
+        const CODING_CONTENT_AI_SOURCE = 'data/coding-content-ai.html';
+        const CODING_CONTENT_LOCAL_SOURCE = 'data/coding-content.html';
         const INTERVIEW_QUESTION_BANK_SOURCE = 'data/interview-questions.json';
         const INTERVIEW_MIN_BANK_SIZE = 25;
         const INTERVIEW_STAGE_ORDER = ['stage1', 'stage2', 'stage3', 'stage4', 'stage5'];
         const LIVE_CODING_GENERATED_TITLES_STORAGE_KEY = 'streamflow_generated_task_titles_v1';
         const LIVE_CODING_GITHUB_TOKEN_STORAGE_KEY = 'streamflow_github_token';
         const LIVE_CODING_SECTION_SELECTION_STORAGE_KEY = 'streamflow_coding_section_selection_v2';
+        const LIVE_CODING_MODE_STORAGE_KEY = 'streamflow_coding_mode_v1';
         const LIVE_CODING_STARTER_FALLBACK_TASKS_PER_STAGE = 6;
         const LIVE_CODING_STAGE_MODEL_LABELS = {
             1: 'SQL',
@@ -571,12 +573,44 @@
                 .trim();
         }
 
+        function normalizeCodingMode(rawMode) {
+            const mode = String(rawMode || '').trim().toLowerCase();
+            return mode === 'local' ? 'local' : 'ai';
+        }
+
+        function getStoredCodingMode() {
+            try {
+                return normalizeCodingMode(localStorage.getItem(LIVE_CODING_MODE_STORAGE_KEY));
+            } catch (error) {
+                return 'ai';
+            }
+        }
+
+        function saveStoredCodingMode(mode) {
+            try {
+                localStorage.setItem(LIVE_CODING_MODE_STORAGE_KEY, normalizeCodingMode(mode));
+            } catch (error) {
+                // noop
+            }
+        }
+
+        function isCodingAiMode(root = null) {
+            const rootMode = String(root?.dataset?.codingMode || '').trim().toLowerCase();
+            if (rootMode === 'ai' || rootMode === 'local') {
+                return rootMode === 'ai';
+            }
+
+            return getStoredCodingMode() === 'ai';
+        }
+
         function hasGeneratedCodingTasks(root) {
             return Boolean(root?.querySelector('.generated-task-box'));
         }
 
         function applyCodingAiModeVisibility(root) {
             if (!root) return;
+            if (!isCodingAiMode(root)) return;
+
             const taskBoxes = root.querySelectorAll('.task-box[data-task-id]');
             taskBoxes.forEach(taskBox => {
                 taskBox.style.display = '';
@@ -586,16 +620,16 @@
             if (!note) return;
 
             if (hasGeneratedCodingTasks(root)) {
-                note.textContent = 'AI-first активен: задачи ниже сформированы генератором.';
+                note.textContent = 'Режим "С ИИ": задачи ниже сгенерированы через AI.';
                 return;
             }
 
             if (!getGitHubModelsToken()) {
-                note.textContent = 'AI-first активен. Укажите токен и сгенерируйте задачи.';
+                note.textContent = 'Режим "С ИИ": укажите токен и сгенерируйте задачи.';
                 return;
             }
 
-            note.textContent = 'AI-first активен: используйте стартовый набор или верхний генератор (этап, модуль, количество задач).';
+            note.textContent = 'Режим "С ИИ": локальный fallback отключен, генерируются только AI-задачи.';
         }
 
         function getStoredGeneratedTaskTitles() {
@@ -930,7 +964,9 @@
             if (!root) return;
             try {
                 root.querySelectorAll('.coding-stage-actions').forEach(control => control.remove());
-                ensureCodingAiModeControls(root);
+                if (isCodingAiMode(root)) {
+                    ensureCodingAiModeControls(root);
+                }
             } catch (error) {
                 console.error('Не удалось обновить контролы генерации по разделам:', error);
             }
@@ -1964,10 +2000,17 @@
         }
 
         async function handleStageTaskGeneration(root, stageHeading, moduleSelect, triggerButton, options = {}) {
+            if (!isCodingAiMode(root)) {
+                if (!options.silentFailure) {
+                    showErrorMessage('AI-генерация доступна только в режиме "С ИИ".');
+                }
+                return false;
+            }
+
             const stageScope = getStageSectionScope(stageHeading);
             if (!stageScope.stageNumber) {
                 showErrorMessage('Не удалось определить этап для генерации задачи.');
-                return;
+                return false;
             }
 
             const stageLabel = stageScope.stageLabel;
@@ -1976,6 +2019,13 @@
 
             if (!token && !options.skipTokenPrompt) {
                 token = openGitHubTokenSettings();
+            }
+
+            if (!token) {
+                if (!options.silentFailure) {
+                    showErrorMessage('Токен не задан. Укажите токен GitHub Models и повторите генерацию.');
+                }
+                return false;
             }
 
             syncGeneratedTaskTitlesFromCodingDom(root);
@@ -1997,48 +2047,35 @@
             setGenerateTaskButtonLoading(triggerButton, true);
             try {
                 let task = null;
-                let usedLocalFallback = false;
+                let lastApiError = null;
 
-                if (token) {
-                    let lastApiError = null;
-                    for (let attempt = 0; attempt < LIVE_CODING_AI_REQUEST_ATTEMPTS; attempt += 1) {
-                        let candidate = null;
-                        try {
-                            candidate = await requestGeneratedLiveCodingTask(stageLabel, moduleName, generationContext, token);
-                        } catch (apiError) {
-                            lastApiError = apiError;
-                            continue;
-                        }
-
-                        const normalizedTitle = normalizeTitleValue(candidate.title).toLowerCase();
-                        if (!existingTitlesSet.has(normalizedTitle)) {
-                            task = candidate;
-                            break;
-                        }
+                for (let attempt = 0; attempt < LIVE_CODING_AI_REQUEST_ATTEMPTS; attempt += 1) {
+                    let candidate = null;
+                    try {
+                        candidate = await requestGeneratedLiveCodingTask(stageLabel, moduleName, generationContext, token);
+                    } catch (apiError) {
+                        lastApiError = apiError;
+                        continue;
                     }
 
-                    if (!task && lastApiError) {
-                        console.warn('AI генерация задачи не удалась после повторов, включаю локальный fallback:', lastApiError);
+                    const normalizedTitle = normalizeTitleValue(candidate.title).toLowerCase();
+                    if (!existingTitlesSet.has(normalizedTitle)) {
+                        task = candidate;
+                        break;
                     }
                 }
 
                 if (!task) {
-                    task = buildLocalFallbackLiveCodingTask(stageScope.stageNumber, moduleName, generationContext);
-                    usedLocalFallback = true;
+                    throw (lastApiError || new Error('AI не вернул новую уникальную задачу'));
                 }
 
-                const source = usedLocalFallback ? 'local' : 'ai';
                 task = {
                     ...task,
-                    source
+                    source: 'ai'
                 };
 
                 if (options.generationStats && typeof options.generationStats === 'object') {
-                    if (source === 'ai') {
-                        options.generationStats.ai = Number(options.generationStats.ai || 0) + 1;
-                    } else {
-                        options.generationStats.local = Number(options.generationStats.local || 0) + 1;
-                    }
+                    options.generationStats.ai = Number(options.generationStats.ai || 0) + 1;
                 }
 
                 appendGeneratedTaskToStage(root, stageHeading, task, moduleName, {
@@ -2048,20 +2085,14 @@
                 applyCodingAiModeVisibility(root);
 
                 if (!options.silentSuccess) {
-                    if (!token) {
-                        showSuccessMessage('Токен не задан: добавлена локальная задача.');
-                    } else if (usedLocalFallback) {
-                        showSuccessMessage('API недоступен: добавлена локальная задача.');
-                    } else {
-                        showSuccessMessage('Новая задача добавлена.');
-                    }
+                    showSuccessMessage('Новая AI-задача добавлена.');
                 }
 
                 return true;
             } catch (error) {
                 console.error('Ошибка генерации задачи:', error);
                 if (!options.silentFailure) {
-                    showErrorMessage('Не удалось сгенерировать задачу, попробуй ещё раз');
+                    showErrorMessage('Не удалось сгенерировать AI-задачу, попробуйте еще раз.');
                 }
                 return false;
             } finally {
@@ -2086,12 +2117,17 @@
                 token = openGitHubTokenSettings();
             }
 
+            if (!token) {
+                showErrorMessage('Токен не задан. Укажите токен GitHub Models и повторите генерацию.');
+                return;
+            }
+
             isGeneratingStarterPack = true;
             setGenerateTaskButtonLoading(triggerButton, true);
 
             let generatedCount = 0;
             let plannedCount = 0;
-            const generationStats = { ai: 0, local: 0 };
+            const generationStats = { ai: 0 };
             try {
                 for (const stageHeading of stageHeadings) {
                     const stageScope = getStageSectionScope(stageHeading);
@@ -2131,7 +2167,7 @@
                     }
                 }
                 applyCodingAiModeVisibility(root);
-                const sourceSummary = ` (AI: ${generationStats.ai}, локально: ${generationStats.local})`;
+                const sourceSummary = ` (AI: ${generationStats.ai})`;
 
                 if (plannedCount === 0) {
                     showSuccessMessage('Для выбранных этапов полный стартовый набор уже сформирован.');
@@ -2249,6 +2285,11 @@
                 if (tokenButton) updateTokenSettingsButtonState(tokenButton);
             }
 
+            if (!token) {
+                showErrorMessage('Токен не задан. Укажите токен GitHub Models и повторите генерацию.');
+                return;
+            }
+
             const targets = [];
 
             if (selectedStage === 'all') {
@@ -2282,7 +2323,7 @@
             setGenerateTaskButtonLoading(triggerButton, true);
 
             let generatedCount = 0;
-            const generationStats = { ai: 0, local: 0 };
+            const generationStats = { ai: 0 };
             try {
                 for (const target of targets) {
                     const created = await handleStageTaskGeneration(
@@ -2306,7 +2347,7 @@
                 }
 
                 applyCodingAiModeVisibility(root);
-                const sourceSummary = ` (AI: ${generationStats.ai}, локально: ${generationStats.local})`;
+                const sourceSummary = ` (AI: ${generationStats.ai})`;
 
                 if (generatedCount === 0) {
                     showErrorMessage('Не удалось добавить задачи. Попробуйте еще раз.');
@@ -2328,6 +2369,11 @@
             if (!root) return;
 
             const contentContainer = root.querySelector('.page-content') || root;
+            if (!isCodingAiMode(root)) {
+                contentContainer.querySelectorAll('.coding-ai-mode-controls').forEach(panel => panel.remove());
+                return;
+            }
+
             const pageHeader = contentContainer.querySelector('.page-header');
             if (!pageHeader) return;
 
@@ -3113,38 +3159,100 @@
             const root = document.getElementById('coding-content-root');
             if (!root) return;
 
-            root.innerHTML = '<div style="text-align:center; color: var(--text-dim); margin-top: 24px;">Загрузка практики...</div>';
+            root.innerHTML = `
+                <div class="coding-mode-switcher">
+                    <p class="coding-mode-label">Выберите формат лайв-кодинга:</p>
+                    <div class="coding-mode-actions">
+                        <button type="button" class="btn btn-secondary coding-mode-btn" data-coding-mode="local">Без ИИ (локальные задачи)</button>
+                        <button type="button" class="btn btn-secondary coding-mode-btn" data-coding-mode="ai">С ИИ (только AI-задачи)</button>
+                    </div>
+                    <p class="coding-mode-hint"></p>
+                </div>
+                <div class="coding-mode-content-root">
+                    <div style="text-align:center; color: var(--text-dim); margin-top: 24px;">Загрузка практики...</div>
+                </div>
+            `;
 
-            try {
-                const html = await loadTaskBankSectionText('coding', CODING_CONTENT_SOURCE);
-                root.innerHTML = html;
+            const modeButtons = Array.from(root.querySelectorAll('.coding-mode-btn'));
+            const modeHint = root.querySelector('.coding-mode-hint');
+            const modeContentRoot = root.querySelector('.coding-mode-content-root');
 
-                try {
-                    syncGeneratedTaskTitlesFromCodingDom(root);
-                    ensureCodingPracticeSelector(root);
-                } catch (error) {
-                    console.error('Ошибка инициализации фильтров/контекстов лайв-кодинга:', error);
-                }
-
-                try {
-                    ensureCodingAiModeControls(root);
-                } catch (error) {
-                    console.error('Ошибка инициализации AI-режима лайв-кодинга:', error);
-                }
-
-                try {
-                    if (typeof ensureTaskHints !== 'undefined') ensureTaskHints(root);
-                    if (typeof setupAnswerField !== 'undefined') {
-                        root.querySelectorAll('[data-task-id]').forEach(setupAnswerField);
-                    }
-                    if (typeof loadSavedAnswers !== 'undefined') loadSavedAnswers();
-                } catch (error) {
-                    console.error('Ошибка инициализации ответов/подсказок лайв-кодинга:', error);
-                }
-            } catch (error) {
-                console.error('Не удалось загрузить контент лайв-кодинга:', error);
-                root.innerHTML = '<div style="text-align:center; color: var(--red); margin-top: 24px;">Не удалось загрузить задания лайв-кодинга. Попробуйте обновить страницу.</div>';
+            if (!modeHint || !modeContentRoot || modeButtons.length === 0) {
+                root.innerHTML = '<div style="text-align:center; color: var(--red); margin-top: 24px;">Не удалось инициализировать режимы лайв-кодинга.</div>';
+                return;
             }
+
+            const applyModeButtonState = mode => {
+                const normalizedMode = normalizeCodingMode(mode);
+                modeButtons.forEach(button => {
+                    const buttonMode = normalizeCodingMode(button.dataset.codingMode);
+                    const isActive = buttonMode === normalizedMode;
+                    button.classList.toggle('is-active', isActive);
+                    button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+                });
+
+                modeHint.textContent = normalizedMode === 'ai'
+                    ? 'Режим "С ИИ": локальный fallback отключен. Все новые задачи добавляются только через AI.'
+                    : 'Режим "Без ИИ": отображаются только локальные задания из базы.';
+            };
+
+            const loadCodingMode = async mode => {
+                const normalizedMode = normalizeCodingMode(mode);
+                saveStoredCodingMode(normalizedMode);
+                applyModeButtonState(normalizedMode);
+
+                modeContentRoot.dataset.codingMode = normalizedMode;
+                modeContentRoot.innerHTML = '<div style="text-align:center; color: var(--text-dim); margin-top: 24px;">Загрузка практики...</div>';
+
+                const sectionName = normalizedMode === 'ai' ? 'coding' : 'coding-local';
+                const source = normalizedMode === 'ai'
+                    ? CODING_CONTENT_AI_SOURCE
+                    : CODING_CONTENT_LOCAL_SOURCE;
+
+                try {
+                    const html = await loadTaskBankSectionText(sectionName, source);
+                    modeContentRoot.innerHTML = html;
+                    modeContentRoot.dataset.codingMode = normalizedMode;
+
+                    try {
+                        if (normalizedMode === 'ai') {
+                            syncGeneratedTaskTitlesFromCodingDom(modeContentRoot);
+                        }
+                        ensureCodingPracticeSelector(modeContentRoot);
+                    } catch (error) {
+                        console.error('Ошибка инициализации фильтров/контекстов лайв-кодинга:', error);
+                    }
+
+                    try {
+                        refreshCodingStageGenerationControls(modeContentRoot);
+                    } catch (error) {
+                        console.error('Ошибка инициализации контролов лайв-кодинга:', error);
+                    }
+
+                    try {
+                        if (typeof ensureTaskHints !== 'undefined') ensureTaskHints(modeContentRoot);
+                        if (typeof setupAnswerField !== 'undefined') {
+                            modeContentRoot.querySelectorAll('[data-task-id]').forEach(setupAnswerField);
+                        }
+                        if (typeof loadSavedAnswers !== 'undefined') loadSavedAnswers();
+                    } catch (error) {
+                        console.error('Ошибка инициализации ответов/подсказок лайв-кодинга:', error);
+                    }
+                } catch (error) {
+                    console.error('Не удалось загрузить контент лайв-кодинга:', error);
+                    modeContentRoot.innerHTML = '<div style="text-align:center; color: var(--red); margin-top: 24px;">Не удалось загрузить задания лайв-кодинга. Попробуйте обновить страницу.</div>';
+                }
+            };
+
+            modeButtons.forEach(button => {
+                if (button.dataset.bound === 'true') return;
+                button.addEventListener('click', () => {
+                    loadCodingMode(button.dataset.codingMode);
+                });
+                button.dataset.bound = 'true';
+            });
+
+            await loadCodingMode(getStoredCodingMode());
         }
 
         function isStageTab(tabId) {
