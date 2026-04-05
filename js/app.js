@@ -4274,6 +4274,15 @@
                 });
 
                 localStorage.setItem('streamflow_current_tab', tabId);
+                
+                // Обновляем Hash-роутинг
+                if (!options.skipHistory) {
+                    const newHash = '#/' + tabId;
+                    if (window.location.hash !== newHash) {
+                        window.history[options.replaceHistory ? 'replaceState' : 'pushState'](null, null, newHash);
+                    }
+                }
+
                 updateStageReadinessIndicators();
                 renderStageReadinessCard(tabId, container);
                 if (typeof ensureTaskHints !== 'undefined') ensureTaskHints(container);
@@ -4666,6 +4675,55 @@
             return keywords.filter(kw => answer.includes(kw));
         }
 
+        function injectMonacoEditor(textarea) {
+            if (textarea.dataset.monacoInjected === 'true') return;
+            textarea.dataset.monacoInjected = 'true';
+            
+            const wrapper = document.createElement('div');
+            wrapper.className = 'monaco-editor-wrapper';
+            const rows = textarea.rows || 10;
+            wrapper.style.height = `${Math.max(150, rows * 20)}px`;
+            wrapper.style.width = '100%';
+            wrapper.style.border = '1px solid rgba(255,255,255,0.2)';
+            wrapper.style.borderRadius = '4px';
+            wrapper.style.marginTop = '8px';
+            wrapper.style.marginBottom = '8px';
+            wrapper.style.overflow = 'hidden';
+
+            textarea.style.display = 'none';
+            textarea.parentElement.insertBefore(wrapper, textarea.nextSibling);
+
+            const ph = (textarea.placeholder || '').toLowerCase();
+            let lang = 'sql';
+            if (ph.includes('import ') || ph.includes('def ') || ph.includes('from ') || ph.includes('spark')) lang = 'python';
+            else if (ph.includes('docker') || ph.includes('image') || ph.includes('yaml')) lang = 'yaml';
+
+            const editor = monaco.editor.create(wrapper, {
+                value: textarea.value || '',
+                language: lang,
+                theme: 'vs-dark',
+                minimap: { enabled: false },
+                scrollBeyondLastLine: false,
+                fontSize: 14,
+                automaticLayout: true
+            });
+
+            editor.onDidChangeModelContent(() => {
+                textarea.value = editor.getValue();
+                textarea.dispatchEvent(new Event('input', { bubbles: true }));
+                textarea.dispatchEvent(new Event('change', { bubbles: true }));
+            });
+
+            // Проверяем программное обновление (например loadSavedAnswers)
+            let lastValue = textarea.value;
+            setInterval(() => {
+                if (textarea.value !== lastValue && textarea.value !== editor.getValue()) {
+                    editor.setValue(textarea.value);
+                }
+                lastValue = textarea.value;
+            }, 500);
+        }
+
         // Оснащение поля ввода функциями
         function setupAnswerField(target) {
             const container = target?.matches?.('.answer-textarea')
@@ -4678,6 +4736,13 @@
             if (!container || !textarea) return;
             if (textarea.dataset.enhanced === 'true') return;
             textarea.dataset.enhanced = 'true';
+
+            // Подключаем Monaco Editor если библиотека загружена
+            if (typeof require !== 'undefined') {
+                require(['vs/editor/editor.main'], function() {
+                    injectMonacoEditor(textarea);
+                });
+            }
 
             // Поддержка Tab для отступов в textarea
             textarea.addEventListener('keydown', (e) => {
@@ -4925,8 +4990,24 @@
                     setupAnswerField(container);
                 });
                 
-                const currTab = localStorage.getItem('streamflow_current_tab') || 'home';
-                switchTab(currTab, { skipStageCheck: true });
+                let currTab = 'home';
+                const hash = window.location.hash.replace('#/', '');
+                if (hash && document.querySelector(`.nav-item[data-tab="${hash}"]`)) {
+                    currTab = hash;
+                } else {
+                    currTab = localStorage.getItem('streamflow_current_tab') || 'home';
+                }
+                switchTab(currTab, { skipStageCheck: true, replaceHistory: true });
+
+                // Слушаем кнопки Назад/Вперед в браузере
+                window.addEventListener('popstate', () => {
+                    let h = window.location.hash.replace('#/', '');
+                    if (!h) h = 'home';
+                    if (document.querySelector(`.nav-item[data-tab="${h}"]`)) {
+                        switchTab(h, { skipStageCheck: true, skipHistory: true });
+                    }
+                });
+
             } catch (error) {
                 console.error('Ошибка при инициализации:', error);
                 showErrorMessage('Ошибка при загрузке данных. Некоторые функции могут работать неправильно.');
