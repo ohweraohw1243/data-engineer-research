@@ -15,6 +15,9 @@ async function signInWithGithub() {
     if (!supabaseClient) return;
     const { data, error } = await supabaseClient.auth.signInWithOAuth({
         provider: 'github',
+        options: {
+            redirectTo: window.location.origin + window.location.pathname
+        }
     });
     if (error) console.error('Error signing in:', error.message);
 }
