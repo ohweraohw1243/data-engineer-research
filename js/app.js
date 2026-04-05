@@ -678,6 +678,13 @@
                 };
             }
 
+            if (normalized.includes('не по выбранному модулю') || normalized.includes('модул')) {
+                return {
+                    code: 'module-mismatch',
+                    userMessage: 'AI вернул задачу не по выбранному модулю. Повторите генерацию или выберите другой модуль.'
+                };
+            }
+
             if (['500', '502', '503', '504'].some(code => normalized.includes(`api: ${code}`) || normalized.includes(` ${code}`))) {
                 return {
                     code: 'server',
@@ -1364,6 +1371,160 @@
             button.textContent = button.dataset.defaultLabel;
         }
 
+        function extractModuleNumber(moduleName) {
+            const match = String(moduleName || '').match(/модуль\s*(\d+)/i);
+            return match ? Number(match[1]) : 0;
+        }
+
+        function getLiveCodingModuleRule(stageNumber, moduleName) {
+            const moduleNumber = extractModuleNumber(moduleName);
+            const moduleLower = String(moduleName || '').toLowerCase();
+
+            if (stageNumber === 1) {
+                if (moduleNumber === 2 || moduleLower.includes('индекс') || moduleLower.includes('производительн')) {
+                    return {
+                        focus: 'SQL производительность: EXPLAIN ANALYZE, индексы (composite/partial), plan tuning, устранение bottleneck.',
+                        avoid: 'общие аналитические отчеты без performance-разбора и DWH-моделирование.',
+                        requiredKeywords: ['index', 'индекс', 'explain', 'analyze', 'plan', 'seq scan', 'bitmap', 'cost', 'кардин', 'filter']
+                    };
+                }
+
+                if (moduleNumber === 3 || moduleLower.includes('dwh') || moduleLower.includes('витрин') || moduleLower.includes('шаблон')) {
+                    return {
+                        focus: 'DWH SQL паттерны: SCD2, MERGE/UPSERT, snapshot/incremental load, fact/dim моделирование, surrogate keys.',
+                        avoid: 'обычные ad-hoc GROUP BY отчеты без DWH-контекста и узкие задачи только про оконные функции.',
+                        requiredKeywords: ['scd', 'merge', 'upsert', 'snapshot', 'incremental', 'fact', 'dim', 'surrogate', 'dwh', 'mart', 'витрин']
+                    };
+                }
+
+                return {
+                    focus: 'SQL аналитика: JOIN, GROUP BY/HAVING, CTE, подзапросы, CASE, оконные функции в бизнес-контексте.',
+                    avoid: 'узкие performance-only кейсы и DWH ETL-паттерны из других модулей.',
+                    requiredKeywords: ['join', 'group by', 'having', 'cte', 'window', 'row_number', 'rank', 'aggregate', 'sum(', 'count(']
+                };
+            }
+
+            if (stageNumber === 2) {
+                if (moduleNumber === 2 || moduleLower.includes('retry') || moduleLower.includes('надежн')) {
+                    return {
+                        focus: 'Надежность ETL: retry/backoff, идемпотентность, обработка ошибок, мониторинг и контроль качества.',
+                        avoid: 'базовые API запросы без надежности и orchestration-only сценарии.',
+                        requiredKeywords: ['retry', 'backoff', 'idempot', 'идемп', 'error', 'exception', 'dq', 'validation']
+                    };
+                }
+
+                if (moduleNumber === 3 || moduleLower.includes('airflow') || moduleLower.includes('orchestration')) {
+                    return {
+                        focus: 'Airflow orchestration: DAG design, task dependencies, retries, SLA, scheduling, sensors.',
+                        avoid: 'чистые python-скрипты без DAG и sql-only задачи.',
+                        requiredKeywords: ['airflow', 'dag', 'task', 'schedule', 'sla', 'operator']
+                    };
+                }
+
+                return {
+                    focus: 'API интеграции и базовые загрузки в ETL: extraction, parsing, basic validation, loading.',
+                    avoid: 'глубокая orchestration и reliability-only сценарии.',
+                    requiredKeywords: ['api', 'request', 'json', 'load', 'ingest', 'staging']
+                };
+            }
+
+            if (stageNumber === 3) {
+                if (moduleNumber === 2 || moduleLower.includes('shuffle') || moduleLower.includes('join')) {
+                    return {
+                        focus: 'Spark join/shuffle оптимизация: broadcast, partitioning, skew mitigation, shuffle reduction.',
+                        avoid: 'чистые transform-only задачи без performance-акцента.',
+                        requiredKeywords: ['join', 'shuffle', 'broadcast', 'partition', 'skew']
+                    };
+                }
+
+                if (moduleNumber === 3 || moduleLower.includes('aqe') || moduleLower.includes('debug')) {
+                    return {
+                        focus: 'Spark performance debugging: AQE, explain plan, skew diagnosis, tuning конфигов.',
+                        avoid: 'базовые трансформации без анализа производительности.',
+                        requiredKeywords: ['aqe', 'explain', 'plan', 'skew', 'tuning', 'adaptive']
+                    };
+                }
+
+                return {
+                    focus: 'Core PySpark трансформации и базовые ETL-пайплайны на DataFrame API.',
+                    avoid: 'узкие tuning-only кейсы.',
+                    requiredKeywords: ['pyspark', 'dataframe', 'transform', 'select', 'withcolumn']
+                };
+            }
+
+            if (stageNumber === 4) {
+                if (moduleNumber === 2 || moduleLower.includes('exactly') || moduleLower.includes('ошиб')) {
+                    return {
+                        focus: 'Exactly-once паттерны, offset management, error handling, DLQ/retry для streaming.',
+                        avoid: 'простые producer/consumer примеры без надежности.',
+                        requiredKeywords: ['exactly-once', 'offset', 'commit', 'dlq', 'retry', 'error']
+                    };
+                }
+
+                if (moduleNumber === 3 || moduleLower.includes('window') || moduleLower.includes('watermark')) {
+                    return {
+                        focus: 'Streaming windows, watermark, event-time processing, late-arrival handling.',
+                        avoid: 'producer/consumer CRUD без stream-aggregation.',
+                        requiredKeywords: ['window', 'watermark', 'event time', 'late', 'streaming']
+                    };
+                }
+
+                return {
+                    focus: 'Kafka producer/consumer паттерны, schema compatibility, basic stream processing flow.',
+                    avoid: 'сложные exactly-once и windowing-only кейсы.',
+                    requiredKeywords: ['kafka', 'producer', 'consumer', 'topic', 'schema']
+                };
+            }
+
+            if (stageNumber === 5) {
+                if (moduleNumber === 2 || moduleLower.includes('clickhouse') || moduleLower.includes('storage')) {
+                    return {
+                        focus: 'ClickHouse storage strategy: table engines, partitioning, order keys, TTL, compression.',
+                        avoid: 'generic architecture рассуждения без ClickHouse-конкретики.',
+                        requiredKeywords: ['clickhouse', 'mergetree', 'partition', 'order by', 'ttl', 'engine']
+                    };
+                }
+
+                if (moduleNumber === 3 || moduleLower.includes('reliability') || moduleLower.includes('trade')) {
+                    return {
+                        focus: 'Reliability и архитектурные trade-offs: SLA/SLO, failure domains, observability, recovery.',
+                        avoid: 'узкие SQL-реализации без архитектурного контекста.',
+                        requiredKeywords: ['sla', 'slo', 'reliability', 'trade-off', 'latency', 'monitoring', 'observability']
+                    };
+                }
+
+                return {
+                    focus: 'DWH/Data Mart modeling: fact/dim design, grain, keys, slowly changing dimensions.',
+                    avoid: 'низкоуровневые performance-оптимизации без моделирования.',
+                    requiredKeywords: ['fact', 'dim', 'grain', 'model', 'schema', 'mart']
+                };
+            }
+
+            return {
+                focus: 'Строгое соответствие выбранному модулю и его практическому контексту.',
+                avoid: 'темы из соседних модулей.',
+                requiredKeywords: []
+            };
+        }
+
+        function isTaskAlignedWithModule(task, stageNumber, moduleName) {
+            const moduleRule = getLiveCodingModuleRule(stageNumber, moduleName);
+            const text = [
+                task?.title,
+                task?.description,
+                task?.tables,
+                task?.hint,
+                task?.solution
+            ].map(value => String(value || '').toLowerCase()).join(' ');
+
+            const required = Array.isArray(moduleRule.requiredKeywords)
+                ? moduleRule.requiredKeywords
+                : [];
+
+            if (required.length === 0) return true;
+            return required.some(keyword => text.includes(String(keyword).toLowerCase()));
+        }
+
         function buildLiveCodingUserPrompt(stageLabel, moduleName, generationContext = {}) {
             const shownTitles = normalizeTaskTitleList(generationContext.shownTitles || []);
             const stageTitles = normalizeTaskTitleList(generationContext.stageTitles || []);
@@ -1384,6 +1545,9 @@
             const stageRule = generationContext.stageRule || {};
             const focusRule = String(stageRule.focus || '').trim();
             const avoidRule = String(stageRule.avoid || '').trim();
+            const moduleRule = getLiveCodingModuleRule(generationContext.stageNumber, moduleName);
+            const moduleFocus = String(moduleRule.focus || '').trim();
+            const moduleAvoid = String(moduleRule.avoid || '').trim();
             const stageLabelLower = String(stageLabel || '').toLowerCase();
             const moduleNameLower = String(moduleName || '').toLowerCase();
             const isStageOneSql = stageLabelLower.includes('sql') || moduleNameLower.includes('sql');
@@ -1394,7 +1558,7 @@
                     : 'Для этапа SQL обеспечь разнообразие: чередуй JOIN, GROUP BY/HAVING, CTE, подзапросы, индексы и EXPLAIN; не своди задачи только к оконным функциям.')
                 : 'Соблюдай разнообразие техник внутри модуля и избегай однотипных задач подряд.';
 
-            return `Сгенерируй 1 новую практическую задачу для middle data engineer.\nЭтап: ${stageLabel}. Модуль: ${moduleName}.\n\nПравила контекста этапа:\n- Focus: ${focusRule || 'только темы выбранного этапа'}\n- Avoid: ${avoidRule || 'не использовать темы других этапов'}\n\nУже были задачи в этом этапе: ${stageTitleList}.\nУже были задачи в этом модуле: ${moduleTitleList}.\nВсе показанные задачи (глобально): ${titleList}.\n\nКритично:\n- Не повторяй ни названия, ни идею задач из списков выше.\n- Задача должна быть строго в контексте выбранного этапа и выбранного модуля.\n- ${moduleDiversificationRule}\n- solution должен быть непустой, прикладной и проверяемый (SQL/Python/псевдокод по теме), минимум 4 строки.\n- hint должен быть конкретным шагом к решению, не общая фраза.\n\nВерни строго этот JSON:\n{\n  "title": "string",\n  "description": "string",\n  "tables": "string",\n  "placeholder": "string",\n  "hint": "string",\n  "solution": "string",\n  "difficulty": "easy | medium | hard"\n}`;
+            return `Сгенерируй 1 новую практическую задачу для middle data engineer.\nЭтап: ${stageLabel}. Модуль: ${moduleName}.\n\nПравила контекста этапа:\n- Stage Focus: ${focusRule || 'только темы выбранного этапа'}\n- Stage Avoid: ${avoidRule || 'не использовать темы других этапов'}\n- Module Focus (ОБЯЗАТЕЛЬНО): ${moduleFocus || 'строго тема выбранного модуля'}\n- Module Avoid: ${moduleAvoid || 'темы соседних модулей'}\n\nУже были задачи в этом этапе: ${stageTitleList}.\nУже были задачи в этом модуле: ${moduleTitleList}.\nВсе показанные задачи (глобально): ${titleList}.\n\nКритично:\n- Не повторяй ни названия, ни идею задач из списков выше.\n- Задача должна быть строго в контексте выбранного этапа и выбранного модуля.\n- ${moduleDiversificationRule}\n- Если результат не соответствует Module Focus, сгенерируй другой вариант.\n- solution должен быть непустой, прикладной и проверяемый (SQL/Python/псевдокод по теме), минимум 4 строки.\n- hint должен быть конкретным шагом к решению, не общая фраза.\n\nВерни строго этот JSON:\n{\n  "title": "string",\n  "description": "string",\n  "tables": "string",\n  "placeholder": "string",\n  "hint": "string",\n  "solution": "string",\n  "difficulty": "easy | medium | hard"\n}`;
         }
 
         function extractJsonObjectFromModelText(rawText) {
@@ -2080,7 +2244,7 @@
 
                 <details style="margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 4px; cursor: pointer; border: 1px solid rgba(74, 222, 128, 0.3);">
                     <summary style="font-weight: 600; color: #4ade80; outline:none;">✅ Показать эталон</summary>
-                    <pre style="background:#1e293b; padding:12px; border-radius:6px; margin-top: 12px; margin-bottom: 0; color:#e2e8f0; overflow-x: auto;"><code class="solution-code">${escapeHtml(safeSolution)}</code></pre>
+                    <pre style="background:#1e293b; padding:12px; border-radius:6px; margin-top: 12px; margin-bottom: 0; color:#e2e8f0; overflow-x: auto;"><code class="generated-solution-code">${escapeHtml(safeSolution)}</code></pre>
                 </details>
             `;
 
@@ -2154,6 +2318,7 @@
             );
 
             const generationContext = {
+                stageNumber: stageScope.stageNumber,
                 shownTitles,
                 stageTitles,
                 moduleTitles,
@@ -2178,8 +2343,12 @@
 
                     const normalizedTitle = normalizeTitleValue(candidate.title).toLowerCase();
                     if (!existingTitlesSet.has(normalizedTitle)) {
-                        task = candidate;
-                        break;
+                        if (isTaskAlignedWithModule(candidate, stageScope.stageNumber, moduleName)) {
+                            task = candidate;
+                            break;
+                        }
+
+                        lastApiError = new Error(`AI вернул задачу не по выбранному модулю: ${moduleName}`);
                     }
                 }
 
@@ -3936,7 +4105,7 @@
         function showSQLSolution(btn) {
             const container = btn.closest('.card, .task-box');
             if (!container) return;
-            const solution = container.querySelector('.solution-code');
+            const solution = container.querySelector('.solution-code, .generated-solution-code');
             if (solution) {
                 const isHidden = window.getComputedStyle(solution).display === 'none';
                 solution.style.display = isHidden ? 'block' : 'none';
@@ -3954,7 +4123,7 @@
                 return generatedSolution;
             }
 
-            const explicitSolution = container.querySelector('.solution-code')?.textContent?.trim();
+            const explicitSolution = container.querySelector('.solution-code, .generated-solution-code')?.textContent?.trim();
             if (explicitSolution) {
                 return explicitSolution;
             }
