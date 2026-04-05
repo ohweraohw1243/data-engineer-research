@@ -2304,6 +2304,11 @@
                 refreshQuestionsAiControls(root);
             }
 
+            if (!token) {
+                showErrorMessage('Токен не задан. Укажите токен GitHub Models и повторите генерацию.');
+                return;
+            }
+
             setQuestionsGenerateButtonLoading(triggerButton, true);
             try {
                 const existingPrompts = collectExistingQuestionPrompts(root);
@@ -2311,44 +2316,43 @@
                 const generationContext = [...existingPrompts];
 
                 const generated = [];
-                let usedLocalFallback = false;
+                let lastApiError = null;
 
-                if (token) {
-                    let lastApiError = null;
-                    for (
-                        let attempt = 0;
-                        attempt < QUESTIONS_AI_REQUEST_ATTEMPTS && generated.length < QUESTIONS_AI_PACK_SIZE;
-                        attempt += 1
-                    ) {
-                        try {
-                            const pack = await requestGeneratedQuestionsPack(generationContext, token);
-                            const fresh = pack.filter(item => {
-                                const key = item.question.toLowerCase();
-                                if (usedPrompts.has(key)) return false;
-                                usedPrompts.add(key);
-                                return true;
-                            });
+                for (
+                    let attempt = 0;
+                    attempt < QUESTIONS_AI_REQUEST_ATTEMPTS && generated.length < QUESTIONS_AI_PACK_SIZE;
+                    attempt += 1
+                ) {
+                    try {
+                        const pack = await requestGeneratedQuestionsPack(generationContext, token);
+                        const fresh = pack.filter(item => {
+                            const key = item.question.toLowerCase();
+                            if (usedPrompts.has(key)) return false;
+                            usedPrompts.add(key);
+                            return true;
+                        });
 
-                            generated.push(...fresh);
-                            generationContext.push(...fresh.map(item => item.question));
-                        } catch (error) {
-                            lastApiError = error;
-                            continue;
+                        generated.push(...fresh);
+                        generationContext.push(...fresh.map(item => item.question));
+                    } catch (error) {
+                        lastApiError = error;
+                        if (error?.isTerminal || isLiveCodingRateLimitError(error)) {
+                            break;
                         }
-                    }
-
-                    if (generated.length === 0 && lastApiError) {
-                        console.warn('AI генерация вопросов не удалась после повторов, включаю локальный fallback:', lastApiError);
+                        continue;
                     }
                 }
 
-                if (generated.length < QUESTIONS_AI_PACK_SIZE) {
-                    const localPack = buildLocalFallbackQuestionPack(
-                        generationContext,
-                        QUESTIONS_AI_PACK_SIZE - generated.length
-                    );
-                    generated.push(...localPack);
-                    usedLocalFallback = true;
+                if (generated.length === 0 && lastApiError) {
+                    console.warn('AI генерация вопросов не удалась после повторов:', lastApiError);
+                    const reason = describeLiveCodingGenerationError(lastApiError);
+                    showErrorMessage(reason.userMessage);
+                    return;
+                }
+
+                if (generated.length === 0) {
+                    showErrorMessage('Не удалось сгенерировать новые вопросы. Измените параметры или попробуйте позже.');
+                    return;
                 }
 
                 const added = appendGeneratedQuestions(root, generated.slice(0, QUESTIONS_AI_PACK_SIZE));
@@ -2357,25 +2361,12 @@
                 }
 
                 refreshQuestionsAiControls(root);
-                if (usedLocalFallback && !token) {
-                    showSuccessMessage(`Токен не задан: добавлено локальных вопросов ${added}.`);
-                } else if (usedLocalFallback) {
-                    showSuccessMessage(`Добавлено вопросов: ${added} (частично локальный fallback).`);
-                } else {
-                    showSuccessMessage(`Добавлено AI-вопросов: ${added}.`);
-                }
+                showSuccessMessage(`Добавлено новых AI-вопросов: ${added}.`);
+
             } catch (error) {
                 console.error('Ошибка генерации вопросов:', error);
-                const existingPrompts = collectExistingQuestionPrompts(root);
-                const fallbackPack = buildLocalFallbackQuestionPack(existingPrompts, QUESTIONS_AI_PACK_SIZE);
-                const added = appendGeneratedQuestions(root, fallbackPack);
-
-                if (added > 0) {
-                    refreshQuestionsAiControls(root);
-                    showSuccessMessage(`Добавлено локальных вопросов: ${added}.`);
-                } else {
-                    showErrorMessage('Не удалось сгенерировать вопросы, попробуйте еще раз.');
-                }
+                const failureReason = describeLiveCodingGenerationError(error);
+                showErrorMessage(failureReason.userMessage);
             } finally {
                 setQuestionsGenerateButtonLoading(triggerButton, false);
             }
