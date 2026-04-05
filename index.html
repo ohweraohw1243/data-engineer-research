@@ -88,32 +88,22 @@
                     Загрузка...
                 </div>
             </div>
-            <!-- HOME PAGE -->
-            
-
-            <!-- WEEK 1: SQL -->
-            
-
-            <!-- WEEK 2: PYTHON -->
-            
-
-            <!-- QUESTIONS PAGE -->
-            
-
-            <!-- CODING PAGE -->
-            
-
-            <!-- RESOURCES PAGE -->
-            
-
-            <!-- MATH PAGE -->
-            
-
-            <!-- CHECKLIST PAGE -->
-            
         </main>
     </div>
 
+    <!-- COMMAND PALETTE (Cmd+K) -->
+    <div id="cmd-palette-backdrop" class="cmd-palette-backdrop" style="display: none;">
+        <div class="cmd-palette-modal">
+            <div class="cmd-input-wrapper">
+                <span class="cmd-icon">🔍</span>
+                <input type="text" id="cmd-input" placeholder="Поиск (например: 'SQL', 'Kafka', 'Построить DWH')" autocomplete="off">
+                <span class="cmd-esc">ESC</span>
+            </div>
+            <div id="cmd-results" class="cmd-results">
+                <!-- Results dynamically generated -->
+            </div>
+        </div>
+    </div>
     
     <!-- Подключаем Monaco Editor -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.46.0/min/vs/loader.min.js"></script>

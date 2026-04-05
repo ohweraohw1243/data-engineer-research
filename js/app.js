@@ -4537,6 +4537,9 @@
                 if (!answerArea.querySelector('.hint-actions')) {
                     const actions = document.createElement('div');
                     actions.className = 'hint-actions';
+                    actions.style.display = 'flex';
+                    actions.style.gap = '8px';
+                    actions.style.alignItems = 'center';
 
                     const button = document.createElement('button');
                     button.type = 'button';
@@ -4544,6 +4547,38 @@
                     button.textContent = 'Подсказка';
                     button.setAttribute('onclick', 'showHint(this, 1)');
                     actions.appendChild(button);
+
+                    const aiBtn = document.createElement('button');
+                    aiBtn.type = 'button';
+                    aiBtn.className = 'hint-btn ai-mentor-btn';
+                    aiBtn.innerHTML = '🤖 ИИ Ментор';
+                    aiBtn.setAttribute('onclick', 'askAIMentor(this)');
+                    
+                    // Highlight the AI button slightly
+                    aiBtn.style.background = 'rgba(56, 189, 248, 0.1)';
+                    aiBtn.style.color = '#38bdf8';
+                    aiBtn.style.borderColor = 'rgba(56, 189, 248, 0.5)';
+                    actions.appendChild(aiBtn);
+
+                    const runBtn = document.createElement('button');
+                    runBtn.type = 'button';
+                    runBtn.className = 'hint-btn run-code-btn';
+                    runBtn.innerHTML = '▶️ Выполнить код';
+                    runBtn.setAttribute('onclick', 'executeTaskCode(this)');
+                    runBtn.style.background = 'rgba(74, 222, 128, 0.1)';
+                    runBtn.style.color = '#4ade80';
+                    runBtn.style.borderColor = 'rgba(74, 222, 128, 0.5)';
+                    actions.appendChild(runBtn);
+                    
+                    const shareBtn = document.createElement('button');
+                    shareBtn.type = 'button';
+                    shareBtn.className = 'hint-btn share-code-btn';
+                    shareBtn.innerHTML = '🔗 Поделиться';
+                    shareBtn.setAttribute('onclick', 'shareCodeSnippet(this)');
+                    shareBtn.style.background = 'rgba(167, 139, 250, 0.1)';
+                    shareBtn.style.color = '#a78bfa';
+                    shareBtn.style.borderColor = 'rgba(167, 139, 250, 0.5)';
+                    actions.appendChild(shareBtn);
 
                     const result = answerArea.querySelector('.check-result');
                     if (result) {
@@ -4579,6 +4614,76 @@
             hintButtons.forEach(button => {
                 button.classList.add('active');
             });
+        }
+
+        // ==== ИИ МЕНТОР ====
+        async function askAIMentor(btn) {
+            const container = btn.closest('.card, .task-box');
+            if (!container) return;
+
+            let mentorDiv = container.querySelector('.ai-mentor-response');
+            if (mentorDiv) mentorDiv.remove();
+
+            mentorDiv = document.createElement('div');
+            mentorDiv.className = 'ai-mentor-response';
+            mentorDiv.style.marginTop = '12px';
+            mentorDiv.style.marginBottom = '12px';
+            mentorDiv.style.padding = '12px';
+            mentorDiv.style.background = 'rgba(56, 189, 248, 0.1)';
+            mentorDiv.style.border = '1px solid rgba(56, 189, 248, 0.3)';
+            mentorDiv.style.borderRadius = '8px';
+            mentorDiv.innerHTML = '<span style="color: #38bdf8;">Анализирую ваш код... 🧠</span>';
+
+            const actionArea = container.querySelector('.hint-actions');
+            if (actionArea) {
+                actionArea.after(mentorDiv);
+            } else {
+                container.querySelector('.answer-input-area')?.appendChild(mentorDiv);
+            }
+
+            const textarea = container.querySelector('.answer-textarea');
+            const userCode = textarea ? textarea.value : '';
+
+            const pTags = Array.from(container.querySelectorAll('p'));
+            const desc = pTags.length > 0 ? pTags[0].textContent + '\n' + (pTags[1] ? pTags[1].textContent : '') : '';
+            
+            const preTags = container.querySelectorAll('pre');
+            const expectedCode = preTags.length > 0 ? Array.from(preTags).map(p => p.textContent).join('\n') : '';
+
+            const token = localStorage.getItem('streamflow_github_token') || LIVE_CODING_GENERATOR_CONFIG?.token;
+            if (!token) {
+                mentorDiv.innerHTML = '<span style="color: #ef4444;">Для вызова ИИ-подсказки требуется GitHub Models Token (введите в режиме "С ИИ").</span>';
+                return;
+            }
+
+            try {
+                const response = await fetch(LIVE_CODING_GENERATOR_CONFIG.apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        model: LIVE_CODING_GENERATOR_CONFIG.model,
+                        messages: [
+                            { role: 'system', content: 'Ты доброжелательный AI-ментор на платформе StreamFlow DWH. Оцени код студента по сравнению с эталоном. Не решай задачу за него и не пиши готовый код! Дай подсказку в 2-3 предложения, на что обратить внимание (напр. синтаксическая ошибка, или стоит использовать другую функцию). Если код на 100% идеален — похвали.' },
+                            { role: 'user', content: `Условие:\n${desc}\n\nЭталон:\n${expectedCode}\n\nКод студента:\n${userCode}` }
+                        ],
+                        temperature: 0.6,
+                        max_tokens: 300
+                    })
+                });
+
+                if (!response.ok) {
+                    const errText = await response.text();
+                    throw new Error(`API ${response.status} - Возможны лимиты Github Models`);
+                }
+                const payload = await response.json();
+                const content = payload.choices?.[0]?.message?.content || 'Нет ответа';
+                mentorDiv.innerHTML = `<strong style="color: #38bdf8;">ИИ Ментор:</strong> <span style="color: #e0f2fe; white-space: pre-wrap; font-size: 14px;">${escapeHtml(content)}</span>`;
+            } catch(e) {
+                mentorDiv.innerHTML = `<span style="color: #ef4444;">Ошибка: ${e.message}</span>`;
+            }
         }
 
         function showSQLSolution(btn) {
@@ -5088,7 +5193,115 @@
         }
 
         // ===== ИНИЦИАЛИЗАЦИЯ =====
+
+// ==== ОБЛАЧНАЯ ПОИСКОВАЯ СТРОКА (Cmd+K / Ctrl+K) ====
+const _CMD_PALETTE_DATA = [
+    { title: 'Главная страница', sub: 'Сводка и метрики', tab: 'home', icon: '🎯' },
+    { title: 'Дорожная карта', sub: 'Общий чеклист', tab: 'roadmap', icon: '🗺️' },
+    { title: 'SQL & Базы Данных', sub: 'Оконные функции, индексы, планы', tab: 'stage1', icon: '🐘' },
+    { title: 'Python', sub: 'ETL, Airflow, Pydantic', tab: 'stage2', icon: '🐍' },
+    { title: 'Spark', sub: 'Tuning, Joins, AQE', tab: 'stage3', icon: '⚡' },
+    { title: 'Kafka', sub: 'Streaming, Consumer, Watermarks', tab: 'stage4', icon: '🌊' },
+    { title: 'System Design', sub: 'Архитектура данных', tab: 'stage5', icon: '🏗️' },
+    { title: 'Практические проекты', sub: 'GitHub и портфолио', tab: 'projects', icon: '💼' },
+    { title: 'Теория (Вопросы)', sub: 'Тренажер вопросов', tab: 'questions', icon: '💬' },
+    { title: 'Лайв-кодинг', sub: 'Писать код с ИИ и без', tab: 'coding', icon: '⌨️' },
+    { title: 'Собеседование', sub: 'Mock-интервью', tab: 'interview', icon: '🎤' },
+    { title: 'Профиль', sub: 'Сохраненные достижения', tab: 'profile', icon: '👤' }
+];
+
+let _cmdPaletteSelectedIndex = 0;
+
+function initCommandPalette() {
+    const backdrop = document.getElementById('cmd-palette-backdrop');
+    const input = document.getElementById('cmd-input');
+    const resultsContainer = document.getElementById('cmd-results');
+    if (!backdrop || !input) return;
+
+    window.addEventListener('keydown', (e) => {
+        if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+            e.preventDefault();
+            backdrop.style.display = 'flex';
+            input.value = '';
+            input.focus();
+            renderCmdResults('');
+        }
+        if (e.key === 'Escape' && backdrop.style.display === 'flex') {
+            backdrop.style.display = 'none';
+        }
+        if (backdrop.style.display === 'flex') {
+            const items = document.querySelectorAll('.cmd-result-item');
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                _cmdPaletteSelectedIndex = Math.min(_cmdPaletteSelectedIndex + 1, items.length - 1);
+                updateCmdSelection(items);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                _cmdPaletteSelectedIndex = Math.max(_cmdPaletteSelectedIndex - 1, 0);
+                updateCmdSelection(items);
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (items[_cmdPaletteSelectedIndex]) items[_cmdPaletteSelectedIndex].click();
+            }
+        }
+    });
+
+    backdrop.addEventListener('click', (e) => {
+        if (e.target === backdrop) backdrop.style.display = 'none';
+    });
+
+    input.addEventListener('input', (e) => renderCmdResults(e.target.value));
+
+    function renderCmdResults(query) {
+        _cmdPaletteSelectedIndex = 0;
+        const q = query.toLowerCase();
+        let filtered = _CMD_PALETTE_DATA;
+        
+        if (q) {
+            filtered = _CMD_PALETTE_DATA.filter(item => 
+                item.title.toLowerCase().includes(q) || 
+                item.sub.toLowerCase().includes(q)
+            );
+            
+            // Если ничего нет в меню, ищем среди локальных задач Stage 1-4
+            if (filtered.length === 0) {
+                // Прямой поиск по LIVE_CODING_LOCAL_FALLBACK_TASK_POOL
+                Object.keys(LIVE_CODING_LOCAL_FALLBACK_TASK_POOL).forEach(stage => {
+                    LIVE_CODING_LOCAL_FALLBACK_TASK_POOL[stage].forEach(task => {
+                        if (task.title.toLowerCase().includes(q) || task.description.toLowerCase().includes(q)) {
+                            filtered.push({
+                                title: task.title,
+                                sub: `Задача по кодингу (Этап ${stage})`,
+                                tab: 'coding', // Отправим на страницу кодинга
+                                icon: '📝'
+                            });
+                        }
+                    });
+                });
+            }
+        }
+
+        resultsContainer.innerHTML = filtered.map((res, i) => `
+            <div class="cmd-result-item ${i === 0 ? 'selected' : ''}" data-index="${i}" onclick="document.getElementById('cmd-palette-backdrop').style.display='none'; switchTab('${res.tab}'); window.location.hash='/${res.tab}';">
+                <span class="cmd-result-item-icon">${res.icon}</span>
+                <div>
+                    <div class="cmd-result-item-title">${escapeHtml(res.title)}</div>
+                    <div class="cmd-result-item-subtitle">${escapeHtml(res.sub)}</div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function updateCmdSelection(items) {
+        items.forEach(el => el.classList.remove('selected'));
+        if (items[_cmdPaletteSelectedIndex]) {
+            items[_cmdPaletteSelectedIndex].classList.add('selected');
+            items[_cmdPaletteSelectedIndex].scrollIntoView({ block: 'nearest' });
+        }
+    }
+}
         document.addEventListener('DOMContentLoaded', function() {
+            if (typeof initCommandPalette === 'function') initCommandPalette();
             document.querySelectorAll('.nav-item').forEach(item => {
                 item.addEventListener('click', () => {
                     const tabId = item.getAttribute('data-tab');
@@ -5444,3 +5657,262 @@
         console.log('   - exportData() → экспорт всех данных');
         console.log('   - clearAnswers() → очистить ответы (сохраняя прогресс)');
         console.log('   - resetAll() → сбросить ВСЕ данные (с подтверждением)');
+// ==== ВЫПОЛНЕНИЕ КОДА В БРАУЗЕРЕ ====
+
+let pyodideInstance = null;
+let sqlInstance = null;
+let executionTerminalInstalled = false;
+
+// Добавим кнопку "Выполнить код" ко всем задачам
+function injectRunButton(container) {
+    if (!container) return;
+    const actions = container.querySelector('.hint-actions');
+    const textArea = container.querySelector('.answer-textarea');
+    if (!actions || !textArea) return;
+    
+    if (!container.querySelector('.run-code-btn')) {
+        const runBtn = document.createElement('button');
+        runBtn.type = 'button';
+        runBtn.className = 'hint-btn run-code-btn';
+        runBtn.innerHTML = '▶️ Выполнить';
+        runBtn.style.background = 'rgba(74, 222, 128, 0.1)';
+        runBtn.style.color = '#4ade80';
+        runBtn.style.borderColor = 'rgba(74, 222, 128, 0.5)';
+        runBtn.setAttribute('onclick', 'executeTaskCode(this)');
+        actions.appendChild(runBtn);
+    }
+}
+
+// Запуск кода при клике
+async function executeTaskCode(btn) {
+    const container = btn.closest('.card, .task-box');
+    const textArea = container.querySelector('.answer-textarea');
+    if (!textArea) return;
+    const code = textArea.value.trim();
+    if (!code) return;
+
+    // Создаем или находим терминал вывода
+    let outputDiv = container.querySelector('.code-execution-output');
+    if (!outputDiv) {
+        outputDiv = document.createElement('div');
+        outputDiv.className = 'code-execution-output';
+        outputDiv.style.marginTop = '12px';
+        outputDiv.style.padding = '12px';
+        outputDiv.style.background = '#0f172a';
+        outputDiv.style.border = '1px solid #334155';
+        outputDiv.style.borderRadius = '6px';
+        outputDiv.style.fontFamily = 'monospace';
+        outputDiv.style.fontSize = '14px';
+        outputDiv.style.color = '#e2e8f0';
+        outputDiv.style.whiteSpace = 'pre-wrap';
+        outputDiv.style.maxHeight = '250px';
+        outputDiv.style.overflow = 'auto';
+        
+        const actionArea = container.querySelector('.hint-actions');
+        actionArea.after(outputDiv);
+    }
+
+    outputDiv.innerHTML = '<span style="color:#94a3b8;">⏳ Выполнение...</span>';
+    
+    // Определяем язык по простому эвристическому правилу
+    const isSQL = /^(select|with|create|insert|update|delete|drop)\b/i.test(code);
+    const isJS = code.includes('console.log') || code.includes('const ') || code.includes('let ');
+    const isPython = !isSQL && !isJS; // По умолчанию считаем питоном или неизвестным, если не очевидно
+
+    try {
+        if (isSQL) {
+            outputDiv.innerHTML = await executeSQL(code);
+        } else if (isPython && !isJS) {
+            outputDiv.innerHTML = await executePython(code);
+        } else {
+            // JS fallback (в браузере небезопасно, но для обучения сойдет. Завернем в песочницу)
+            outputDiv.innerHTML = executeJS(code);
+        }
+    } catch (e) {
+        outputDiv.innerHTML = `<span style="color:#ef4444;">${escapeHtml(e.toString())}</span>`;
+    }
+}
+
+async function executePython(code) {
+    if (!pyodideInstance) {
+        if (typeof loadPyodide === "undefined") {
+            await loadScript("https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js");
+        }
+        pyodideInstance = await loadPyodide({
+            stdout: (msg) => { if (window.pyodideOutputBuffer) window.pyodideOutputBuffer.push(String(msg)); },
+            stderr: (msg) => { if (window.pyodideOutputBuffer) window.pyodideOutputBuffer.push(String(msg)); }
+        });
+    }
+    window.pyodideOutputBuffer = [];
+    try {
+        await pyodideInstance.loadPackagesFromImports(code);
+        await pyodideInstance.runPythonAsync(code);
+        const out = window.pyodideOutputBuffer.join("\n");
+        return out ? escapeHtml(out) : "<span style=\"color:#94a3b8;\">(выполнено успешно, нет вывода)</span>";
+    } catch (e) {
+        return "<span style=\"color:#ef4444;\">" + escapeHtml(e.toString()) + "</span>";
+    }
+}
+
+async function executeSQL(code) {
+    if (!sqlInstance) {
+        if (typeof initSqlJs === 'undefined') {
+            await loadScript('https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.2/sql-wasm.js');
+        }
+        const SQL = await initSqlJs({ locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.2/${file}` });
+        sqlInstance = new SQL.Database();
+    }
+    const res = sqlInstance.exec(code);
+    if (!res || res.length === 0) return '<span style="color:#94a3b8;">(выполнено успешно)</span>';
+    
+    // Рендер таблицы результатов
+    let html = '<table style="width:100%; border-collapse:collapse; text-align:left;">';
+    html += '<thead><tr style="border-bottom:1px solid #334155;">';
+    res[0].columns.forEach(col => { html += `<th style="padding:4px 8px;">${escapeHtml(col)}</th>`; });
+    html += '</tr></thead><tbody>';
+    res[0].values.forEach(row => {
+        html += '<tr style="border-bottom:1px dashed #1e293b;">';
+        row.forEach(val => { html += `<td style="padding:4px 8px; color:#cbd5e1;">${escapeHtml(String(val))}</td>`; });
+        html += '</tr>';
+    });
+    html += '</tbody></table>';
+    return html;
+}
+
+function executeJS(code) {
+    let output = [];
+    const _log = console.log;
+    console.log = function(...args) { output.push(args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ')); };
+    try {
+        new Function(code)();
+    } finally {
+        console.log = _log;
+    }
+    return output.join('\n') || '<span style="color:#94a3b8;">(выполнено успешно)</span>';
+}
+
+function loadScript(src) {
+    return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = src;
+        s.onload = resolve;
+        s.onerror = reject;
+        document.head.appendChild(s);
+    });
+}
+
+// ==== SHARE CODE LINKS ====
+function shareCodeSnippet(btn) {
+    const container = btn.closest('.card, .task-box');
+    const textArea = container.querySelector('.answer-textarea');
+    if (!textArea) return;
+    const code = textArea.value;
+    if (!code.trim()) {
+        alert('Сначала напишите код, чтобы поделиться!');
+        return;
+    }
+    
+    const h4 = container.querySelector('h4');
+    const title = h4 ? h4.textContent.replace('🆕 ', '').replace('⭐', '').replace('☆', '').trim() : 'Лайв-кодинг';
+
+    const payload = JSON.stringify({
+        title: title,
+        code: code
+    });
+    
+    const encoded = btoa(encodeURIComponent(payload));
+    const url = window.location.origin + window.location.pathname + '?share=' + encoded + window.location.hash;
+    
+    navigator.clipboard.writeText(url).then(() => {
+        const oldHtml = btn.innerHTML;
+        btn.innerHTML = '✅ Скопировано!';
+        btn.style.color = '#34d399';
+        setTimeout(() => {
+            btn.innerHTML = oldHtml;
+            btn.style.color = '#a78bfa';
+        }, 2000);
+    }).catch(() => alert('Не удалось скопировать URL.'));
+}
+
+// Check for shared code on boot
+window.addEventListener('DOMContentLoaded', () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const sharedData = urlParams.get('share');
+    if (sharedData) {
+        try {
+            const payload = JSON.parse(decodeURIComponent(atob(sharedData)));
+            if (payload && payload.code) {
+                setTimeout(() => showSharedCodeModal(payload.title, payload.code), 500);
+            }
+        } catch(e) {
+            console.error('Ошибка расшифровки shared code', e);
+        }
+        // Очищаем URL чтобы не мешать при рефреше
+        window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);
+    }
+});
+
+function showSharedCodeModal(title, code) {
+    let modal = document.getElementById('shared-code-modal');
+    if (modal) modal.remove();
+    
+    modal = document.createElement('div');
+    modal.id = 'shared-code-modal';
+    modal.style.position = 'fixed';
+    modal.style.top = '0';
+    modal.style.left = '0';
+    modal.style.width = '100vw';
+    modal.style.height = '100vh';
+    modal.style.backgroundColor = 'rgba(15, 23, 42, 0.85)';
+    modal.style.backdropFilter = 'blur(4px)';
+    modal.style.display = 'flex';
+    modal.style.justifyContent = 'center';
+    modal.style.alignItems = 'center';
+    modal.style.zIndex = '100000';
+    
+    const box = document.createElement('div');
+    box.style.background = '#1e293b';
+    box.style.padding = '24px';
+    box.style.borderRadius = '12px';
+    box.style.width = '600px';
+    box.style.maxWidth = '90%';
+    box.style.border = '1px solid #334155';
+    box.style.boxShadow = '0 20px 25px -5px rgba(0, 0, 0, 0.5)';
+    
+    const header = document.createElement('div');
+    header.style.display = 'flex';
+    header.style.justifyContent = 'space-between';
+    header.style.marginBottom = '16px';
+    header.innerHTML = `<h3 style="margin:0;color:#e2e8f0;font-size:18px;">🔗 Поделились кодом: ${escapeHtml(title)}</h3><button style="background:transparent;border:none;color:#94a3b8;font-size:24px;cursor:pointer;line-height:1;" onclick="document.getElementById('shared-code-modal').remove()">&times;</button>`;
+    
+    const pre = document.createElement('pre');
+    pre.style.background = '#0f172a';
+    pre.style.padding = '16px';
+    pre.style.borderRadius = '8px';
+    pre.style.overflow = 'auto';
+    pre.style.color = '#e2e8f0';
+    pre.style.maxHeight = '400px';
+    pre.textContent = code;
+    
+    const actionRow = document.createElement('div');
+    actionRow.style.marginTop = '16px';
+    actionRow.style.textAlign = 'right';
+    
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'btn btn-primary';
+    copyBtn.style.padding = '8px 16px';
+    copyBtn.textContent = 'Копировать код';
+    copyBtn.onclick = () => {
+        navigator.clipboard.writeText(code).then(() => {
+            copyBtn.textContent = 'Скопировано!';
+            setTimeout(() => copyBtn.textContent = 'Копировать код', 2000);
+        });
+    };
+    
+    actionRow.appendChild(copyBtn);
+    box.appendChild(header);
+    box.appendChild(pre);
+    box.appendChild(actionRow);
+    modal.appendChild(box);
+    document.body.appendChild(modal);
+}
