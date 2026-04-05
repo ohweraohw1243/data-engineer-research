@@ -3496,7 +3496,40 @@
 
             counterEl.textContent = `Вопрос ${index + 1}/${total}`;
             stageEl.textContent = getStageDisplayName(currentQuestion.stage);
-            questionEl.textContent = currentQuestion.prompt;
+            
+            questionEl.textContent = '';
+            questionEl.appendChild(document.createTextNode(currentQuestion.prompt + ' '));
+            
+            const favBtn = document.createElement("button");
+            favBtn.innerHTML = "☆";
+            favBtn.title = "В избранное";
+            favBtn.style.background = "transparent";
+            favBtn.style.border = "none";
+            favBtn.style.fontSize = "20px";
+            favBtn.style.cursor = "pointer";
+            favBtn.style.verticalAlign = "middle";
+            const taskId = btoa(unescape(encodeURIComponent(currentQuestion.prompt)));
+            
+            if (typeof supabaseClient !== "undefined" && supabaseClient) {
+                getCurrentUser().then(user => {
+                    if (user) {
+                        supabaseClient.from("favorites").select("id").eq("user_id", user.id).eq("task_id", taskId).single()
+                        .then(({data}) => { if (data) favBtn.innerHTML = "⭐"; }).catch(()=>{});
+                    }
+                });
+            }
+            
+            favBtn.onclick = (e) => {
+                e.stopPropagation();
+                toggleFavoriteTask(taskId, "Вопрос собеседования", currentQuestion.prompt)
+                    .then(res => { if (res !== undefined) favBtn.innerHTML = res ? "⭐" : "☆"; })
+                    .catch(console.error);
+            };
+            questionEl.appendChild(favBtn);
+
+            if (typeof injectMonacoEditor !== 'undefined') {
+                setTimeout(() => injectMonacoEditor(answerEl), 100);
+            }
 
             answerEl.disabled = interviewState.isFinished;
             answerEl.value = interviewState.answers[currentQuestion.id] || '';
@@ -3525,27 +3558,38 @@
             }
         }
 
-        function checkCurrentInterviewAnswer() {
+        async function checkCurrentInterviewAnswer() {
             const question = getCurrentInterviewQuestion();
             if (!question || interviewState.isFinished) return;
 
-            const answerText = (interviewState.answers[question.id] || '').trim();
+            const answerText = (interviewState.answers[question.id] || "").trim();
             if (!answerText) {
-                showErrorMessage('Введите ответ или нажмите «Пропустить вопрос».');
+                showErrorMessage("Введите ответ или нажмите «Пропустить вопрос».");
                 return;
             }
 
-            const assessment = evaluateInterviewResponse(question, answerText);
+            showSuccessMessage("⏳ ИИ оценивает ваш ответ как Senior Data Engineer...");
+            const aiAssessment = await executeInterviewAICheck(question, answerText);
+            
+            let assessment = { status: "incorrect", similarity: 0 };
+            if (aiAssessment) {
+                assessment.status = aiAssessment.status;
+                assessment.reason = aiAssessment.reason;
+            } else {
+                assessment = evaluateInterviewResponse(question, answerText);
+            }
+            
             interviewState.results[question.id] = assessment.status;
             saveInterviewState();
 
-            if (assessment.status === 'correct') {
-                showSuccessMessage('Ответ засчитан как правильный.');
+            if (assessment.status === "correct") {
+                showSuccessMessage("Оценка ИИ: ✅ Ответ принят!");
             } else {
-                showErrorMessage(`Ответ не совпал с эталоном (сходство ${Math.round(assessment.similarity * 100)}%). Переходим дальше.`);
+                const baseMsg = assessment.reason ? ("❌ ИИ не принял ответ: " + assessment.reason) : ("Ответ не совпал с эталоном (сходство " + Math.round(assessment.similarity * 100) + "%).");
+                showErrorMessage(baseMsg.substring(0, 150) + "... Переходим дальше.");
             }
 
-            advanceInterviewFlow();
+            setTimeout(() => advanceInterviewFlow(), 2000);
         }
 
         function skipCurrentInterviewQuestion() {
@@ -3735,6 +3779,7 @@
                         hydrateStoredGeneratedQuestions(modeContentRoot);
                         refreshQuestionsAiControls(modeContentRoot);
                     }
+                    if (typeof injectFavoriteButtons !== 'undefined') injectFavoriteButtons(modeContentRoot);
                 } catch (error) {
                     console.error('Не удалось загрузить контент вопросов:', error);
                     modeContentRoot.innerHTML = '<div style="text-align:center; color: var(--red); margin-top: 24px;">Не удалось загрузить вопросы. Попробуйте обновить страницу.</div>';
@@ -4008,6 +4053,7 @@
                             syncGeneratedTaskTitlesFromCodingDom(modeContentRoot);
                         }
                         ensureCodingPracticeSelector(modeContentRoot);
+                        if (typeof injectFavoriteButtons !== 'undefined') injectFavoriteButtons(modeContentRoot);
                     } catch (error) {
                         console.error('Ошибка инициализации фильтров/контекстов лайв-кодинга:', error);
                     }
@@ -4400,6 +4446,7 @@
                 updateStageReadinessIndicators();
                 renderStageReadinessCard(tabId, container);
                 if (typeof ensureTaskHints !== 'undefined') ensureTaskHints(container);
+                if (typeof injectFavoriteButtons !== 'undefined') injectFavoriteButtons(container);
                 
                 if (typeof setupAnswerField !== 'undefined') {
                     document.querySelectorAll('[data-task-id]').forEach(setupAnswerField);
@@ -5729,7 +5776,11 @@ async function executeTaskCode(btn) {
             outputDiv.innerHTML = executeJS(code);
         }
     } catch (e) {
-        outputDiv.innerHTML = `<span style="color:#ef4444;">${escapeHtml(e.toString())}</span>`;
+        let errStr = e.toString();
+        if (isSQL && errStr.toLowerCase().includes("no such table")) {
+            errStr += "\n\n💡 Внимание: БД в браузере изначально пустая. Чтобы ваш SELECT сработал, добавьте команды CREATE TABLE и INSERT INTo сверху для создания таблиц с мок-данными.";
+        }
+        outputDiv.innerHTML = `<span style="color:#ef4444;">${escapeHtml(errStr)}</span>`;
     }
 }
 
@@ -5915,4 +5966,151 @@ function showSharedCodeModal(title, code) {
     box.appendChild(actionRow);
     modal.appendChild(box);
     document.body.appendChild(modal);
+}
+
+function injectFavoriteButtons(root = document) {
+    if (!root) return;
+    
+    // Для раздела Вопросы (.accordion-header)
+    const headers = root.querySelectorAll('.accordion-header');
+    headers.forEach(header => {
+        // Проверяем, нет ли уже кнопки
+        if (!header.querySelector('.fav-btn')) {
+            const titleSpan = header.querySelector('span'); // первый span обычно это текст
+            if (!titleSpan) return;
+            
+            const questionText = titleSpan.textContent.trim();
+            const btn = document.createElement('button');
+            btn.innerHTML = '☆';
+            btn.title = 'В избранное';
+            btn.className = 'fav-btn';
+            btn.style.background = 'transparent';
+            btn.style.border = 'none';
+            btn.style.fontSize = '16px';
+            btn.style.cursor = 'pointer';
+            btn.style.marginLeft = '8px';
+            // Не кликаем аккордеон
+            btn.onclick = (e) => {
+                e.stopPropagation();
+                const taskId = btoa(unescape(encodeURIComponent(questionText)));
+                toggleFavoriteTask(taskId, 'Теоретический вопрос', questionText)
+                    .then(res => { if (res !== undefined) btn.innerHTML = res ? '⭐' : '☆'; })
+                    .catch(console.error);
+            };
+            
+            if (typeof supabaseClient !== 'undefined' && supabaseClient) {
+                const taskId = btoa(unescape(encodeURIComponent(questionText)));
+                getCurrentUser().then(user => {
+                    if (user) {
+                        supabaseClient.from('favorites').select('id').eq('user_id', user.id).eq('task_id', taskId).single()
+                        .then(({data}) => { if (data) btn.innerHTML = '⭐'; }).catch(()=>{});
+                    }
+                });
+            }
+
+            // Обернем titleSpan и кнопку во flex контейнер
+            if (titleSpan.parentElement.tagName !== 'DIV' || !titleSpan.parentElement.style.display.includes('flex')) {
+                const wrapper = document.createElement('div');
+                wrapper.style.display = 'flex';
+                wrapper.style.alignItems = 'center';
+                wrapper.style.gap = '8px';
+                header.insertBefore(wrapper, titleSpan);
+                wrapper.appendChild(titleSpan);
+                wrapper.appendChild(btn);
+            } else {
+                titleSpan.parentElement.appendChild(btn);
+            }
+        }
+    });
+
+    // Для раздела Лайв-кодинг (.task-box h4, .card h4)
+    const taskHeaders = root.querySelectorAll('.task-box h4, .card h4');
+    taskHeaders.forEach(h4 => {
+        const container = h4.closest('.task-box, .card');
+        if (!container || !container.hasAttribute('data-task-id')) return;
+        
+        const wrapper = h4.parentElement;
+        if (!wrapper.querySelector('.fav-btn') && !wrapper.dataset.hasFav) {
+            wrapper.dataset.hasFav = "true";
+            const taskId = container.getAttribute('data-task-id');
+            const taskTitle = h4.textContent.trim().replace('🆕 ', '').replace('⭐', '').replace('☆', '');
+            const btn = document.createElement('button');
+            btn.innerHTML = '☆';
+            btn.title = 'В избранное';
+            btn.className = 'fav-btn';
+            btn.style.background = 'transparent';
+            btn.style.border = 'none';
+            btn.style.fontSize = '20px';
+            btn.style.cursor = 'pointer';
+            
+            if (wrapper.style.display !== 'flex') {
+                wrapper.style.display = 'flex';
+                wrapper.style.justifyContent = 'space-between';
+                wrapper.style.alignItems = 'flex-start';
+            }
+
+            if (typeof supabaseClient !== 'undefined' && supabaseClient) {
+                getCurrentUser().then(user => {
+                    if (user) {
+                        supabaseClient.from('favorites').select('id').eq('user_id', user.id).eq('task_id', taskId).single()
+                        .then(({data}) => { if (data) btn.innerHTML = '⭐'; }).catch(()=>{});
+                    }
+                });
+            }
+
+            btn.onclick = (e) => {
+                e.stopPropagation();
+                toggleFavoriteTask(taskId, 'Лайв-кодинг', taskTitle)
+                    .then(res => { if (res !== undefined) btn.innerHTML = res ? '⭐' : '☆'; })
+                    .catch(console.error);
+            };
+            wrapper.appendChild(btn);
+        }
+    });
+}
+async function executeInterviewAICheck(question, answerText) {
+    const token = localStorage.getItem('streamflow_github_token') || (typeof LIVE_CODING_GENERATOR_CONFIG !== 'undefined' ? LIVE_CODING_GENERATOR_CONFIG.token : '');
+    if (!token) {
+        return null; // Fallback on local regex check if no token
+    }
+
+    try {
+        const response = await fetch('https://models.inference.ai.azure.com/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                model: 'gpt-4o-mini', // Используем mini для экономии лимитов
+                messages: [
+                    { role: 'system', content: 'Ты строгий, но справедливый Senior Data Engineer, проводящий собеседование. Твоя задача оценить ответ кандидата на вопрос. Если ответ по сути верен или улавливает ключевую идею (пусть и не слово в слово) - верни строку "correct". Если ответ в корне неверный - верни строку "incorrect". В следующей строке коротко поясни почему.' },
+                    { role: 'user', content: `Вопрос: ${question.prompt}\n\nОжидаемый ответ: ${question.answer || 'Отсутствует'}\n\nОтвет кандидата: ${answerText}` }
+                ],
+                temperature: 0.1,
+                max_tokens: 250
+            })
+        });
+
+        if (!response.ok) {
+            if (response.status === 429) {
+                console.warn('API Rate limit reached, falling back to local check');
+                return null; // fallback
+            }
+            throw new Error('API call failed with status ' + response.status);
+        }
+        const payload = await response.json();
+        const content = payload.choices?.[0]?.message?.content || '';
+        
+        const lines = content.split('\n');
+        const statusStr = lines[0].toLowerCase().trim();
+        const reason = lines.slice(1).join('\n').trim();
+        
+        const isCorrect = statusStr.includes('correct') && !statusStr.includes('incorrect');
+        
+        return { status: isCorrect ? 'correct' : 'incorrect', reason: reason };
+    } catch(e) {
+        console.error('AI Interview evaluation error', e);
+        return null;
+    }
 }
