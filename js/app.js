@@ -172,6 +172,12 @@
         const QUESTIONS_AI_REQUEST_ATTEMPTS = 4;
         const LIVE_CODING_MAX_CONSECUTIVE_FAILURES = 3;
         const LIVE_CODING_GENERATOR_MODEL_FALLBACKS = ['gpt-4o-mini'];
+        const LIVE_CODING_CANDIDATES_PER_REQUEST = 3;
+        const LIVE_CODING_PROMPT_HISTORY_LIMITS = {
+            globalTitles: 60,
+            stageTitles: 40,
+            moduleTitles: 24
+        };
         const LIVE_CODING_GENERATOR_SYSTEM_PROMPT = 'Ты генератор практических задач для подготовки к собеседованию на позицию middle data engineer. Стек: PostgreSQL, PySpark, Kafka, Airflow, ClickHouse. Таблицы используй реалистичные: fact_orders, dim_user, daily_stats, streams, revenue, events. Отвечай ТОЛЬКО валидным JSON без markdown, без пояснений, без текста вне JSON.';
         const QUESTIONS_AI_GENERATED_STORAGE_KEY = 'streamflow_ai_questions_v1';
         const QUESTIONS_AI_PACK_SIZE = 10;
@@ -671,7 +677,7 @@
                 };
             }
 
-            if (normalized.includes('уникальн')) {
+            if (normalized.includes('уникальн') || normalized.includes('дубли')) {
                 return {
                     code: 'duplicates',
                     userMessage: 'AI вернул дубли задач. Смените этап/модуль или повторите попытку.'
@@ -1529,17 +1535,21 @@
             const shownTitles = normalizeTaskTitleList(generationContext.shownTitles || []);
             const stageTitles = normalizeTaskTitleList(generationContext.stageTitles || []);
             const moduleTitles = normalizeTaskTitleList(generationContext.moduleTitles || []);
+            const candidateCountRaw = Number(generationContext.candidateCount);
+            const candidateCount = Number.isFinite(candidateCountRaw)
+                ? Math.max(1, Math.min(5, Math.floor(candidateCountRaw)))
+                : LIVE_CODING_CANDIDATES_PER_REQUEST;
 
             const titleList = shownTitles.length > 0
-                ? JSON.stringify(shownTitles.slice(-160), null, 0)
+                ? JSON.stringify(shownTitles.slice(-LIVE_CODING_PROMPT_HISTORY_LIMITS.globalTitles), null, 0)
                 : '[]';
 
             const stageTitleList = stageTitles.length > 0
-                ? JSON.stringify(stageTitles.slice(-120), null, 0)
+                ? JSON.stringify(stageTitles.slice(-LIVE_CODING_PROMPT_HISTORY_LIMITS.stageTitles), null, 0)
                 : '[]';
 
             const moduleTitleList = moduleTitles.length > 0
-                ? JSON.stringify(moduleTitles.slice(-80), null, 0)
+                ? JSON.stringify(moduleTitles.slice(-LIVE_CODING_PROMPT_HISTORY_LIMITS.moduleTitles), null, 0)
                 : '[]';
 
             const stageRule = generationContext.stageRule || {};
@@ -1558,7 +1568,7 @@
                     : 'Для этапа SQL обеспечь разнообразие: чередуй JOIN, GROUP BY/HAVING, CTE, подзапросы, индексы и EXPLAIN; не своди задачи только к оконным функциям.')
                 : 'Соблюдай разнообразие техник внутри модуля и избегай однотипных задач подряд.';
 
-            return `Сгенерируй 1 новую практическую задачу для middle data engineer.\nЭтап: ${stageLabel}. Модуль: ${moduleName}.\n\nПравила контекста этапа:\n- Stage Focus: ${focusRule || 'только темы выбранного этапа'}\n- Stage Avoid: ${avoidRule || 'не использовать темы других этапов'}\n- Module Focus (ОБЯЗАТЕЛЬНО): ${moduleFocus || 'строго тема выбранного модуля'}\n- Module Avoid: ${moduleAvoid || 'темы соседних модулей'}\n\nУже были задачи в этом этапе: ${stageTitleList}.\nУже были задачи в этом модуле: ${moduleTitleList}.\nВсе показанные задачи (глобально): ${titleList}.\n\nКритично:\n- Не повторяй ни названия, ни идею задач из списков выше.\n- Задача должна быть строго в контексте выбранного этапа и выбранного модуля.\n- ${moduleDiversificationRule}\n- Если результат не соответствует Module Focus, сгенерируй другой вариант.\n- solution должен быть непустой, прикладной и проверяемый (SQL/Python/псевдокод по теме), минимум 4 строки.\n- hint должен быть конкретным шагом к решению, не общая фраза.\n\nВерни строго этот JSON:\n{\n  "title": "string",\n  "description": "string",\n  "tables": "string",\n  "placeholder": "string",\n  "hint": "string",\n  "solution": "string",\n  "difficulty": "easy | medium | hard"\n}`;
+            return `Сгенерируй ${candidateCount} новых практических задач для middle data engineer.\nЭтап: ${stageLabel}. Модуль: ${moduleName}.\n\nПравила контекста этапа:\n- Stage Focus: ${focusRule || 'только темы выбранного этапа'}\n- Stage Avoid: ${avoidRule || 'не использовать темы других этапов'}\n- Module Focus (ОБЯЗАТЕЛЬНО): ${moduleFocus || 'строго тема выбранного модуля'}\n- Module Avoid: ${moduleAvoid || 'темы соседних модулей'}\n\nУже были задачи в этом этапе: ${stageTitleList}.\nУже были задачи в этом модуле: ${moduleTitleList}.\nВсе показанные задачи (глобально): ${titleList}.\n\nКритично:\n- Не повторяй ни названия, ни идею задач из списков выше.\n- Каждая задача должна быть строго в контексте выбранного этапа и выбранного модуля.\n- ${moduleDiversificationRule}\n- Если задача не соответствует Module Focus, не включай ее в итоговый JSON.\n- solution должен быть непустой, прикладной и проверяемый (SQL/Python/псевдокод по теме), минимум 4 строки.\n- hint должен быть конкретным шагом к решению, не общая фраза.\n\nВерни строго этот JSON:\n{\n  "tasks": [\n    {\n      "title": "string",\n      "description": "string",\n      "tables": "string",\n      "placeholder": "string",\n      "hint": "string",\n      "solution": "string",\n      "difficulty": "easy | medium | hard"\n    }\n  ]\n}`;
         }
 
         function extractJsonObjectFromModelText(rawText) {
@@ -1614,6 +1624,34 @@
                 solution,
                 difficulty
             };
+        }
+
+        function normalizeGeneratedTaskCandidates(payload, desiredCount = LIVE_CODING_CANDIDATES_PER_REQUEST) {
+            const source = Array.isArray(payload?.tasks)
+                ? payload.tasks
+                : (Array.isArray(payload) ? payload : [payload]);
+
+            const maxCount = Math.max(1, Math.min(5, Number(desiredCount) || LIVE_CODING_CANDIDATES_PER_REQUEST));
+            const unique = [];
+            const seen = new Set();
+
+            source.forEach(item => {
+                try {
+                    const normalized = normalizeGeneratedTaskPayload(item);
+                    const key = normalizeTitleValue(normalized.title).toLowerCase();
+                    if (!key || seen.has(key)) return;
+                    seen.add(key);
+                    unique.push(normalized);
+                } catch (error) {
+                    // Ignore malformed candidates and keep valid ones.
+                }
+            });
+
+            if (unique.length === 0) {
+                throw new Error('Модель не вернула валидные задачи в пакете');
+            }
+
+            return unique.slice(0, maxCount);
         }
 
         function extractModelContent(responseData) {
@@ -1760,19 +1798,24 @@
         }
 
         async function requestGeneratedLiveCodingTask(stageLabel, moduleName, generationContext, token) {
+            const candidateCountRaw = Number(generationContext?.candidateCount);
+            const candidateCount = Number.isFinite(candidateCountRaw)
+                ? Math.max(1, Math.min(5, Math.floor(candidateCountRaw)))
+                : LIVE_CODING_CANDIDATES_PER_REQUEST;
+
             const result = await requestGitHubModelsContent(token, [
                 { role: 'system', content: LIVE_CODING_GENERATOR_SYSTEM_PROMPT },
                 { role: 'user', content: buildLiveCodingUserPrompt(stageLabel, moduleName, generationContext) }
             ], {
                 model: LIVE_CODING_GENERATOR_CONFIG.model,
-                temperature: 0.9,
-                maxTokens: 1000,
+                temperature: 0.8,
+                maxTokens: 1300,
                 timeoutMs: 22000,
-                maxProviderAttempts: 3,
+                maxProviderAttempts: 2,
                 modelFallbacks: LIVE_CODING_GENERATOR_MODEL_FALLBACKS
             });
 
-            return normalizeGeneratedTaskPayload(extractJsonObjectFromModelText(result.content));
+            return normalizeGeneratedTaskCandidates(extractJsonObjectFromModelText(result.content), candidateCount);
         }
 
         function normalizeQuestionsCategory(rawCategory) {
@@ -2319,6 +2362,7 @@
 
             const generationContext = {
                 stageNumber: stageScope.stageNumber,
+                candidateCount: LIVE_CODING_CANDIDATES_PER_REQUEST,
                 shownTitles,
                 stageTitles,
                 moduleTitles,
@@ -2333,22 +2377,39 @@
                 let lastApiError = null;
 
                 for (let attempt = 0; attempt < LIVE_CODING_AI_REQUEST_ATTEMPTS; attempt += 1) {
-                    let candidate = null;
+                    let candidates = null;
                     try {
-                        candidate = await requestGeneratedLiveCodingTask(stageLabel, moduleName, generationContext, token);
+                        candidates = await requestGeneratedLiveCodingTask(stageLabel, moduleName, generationContext, token);
                     } catch (apiError) {
                         lastApiError = apiError;
                         continue;
                     }
 
-                    const normalizedTitle = normalizeTitleValue(candidate.title).toLowerCase();
-                    if (!existingTitlesSet.has(normalizedTitle)) {
+                    const pack = Array.isArray(candidates) ? candidates : [];
+                    let hadUniqueCandidate = false;
+
+                    for (const candidate of pack) {
+                        const normalizedTitle = normalizeTitleValue(candidate.title).toLowerCase();
+                        if (existingTitlesSet.has(normalizedTitle)) {
+                            continue;
+                        }
+
+                        hadUniqueCandidate = true;
+
                         if (isTaskAlignedWithModule(candidate, stageScope.stageNumber, moduleName)) {
                             task = candidate;
                             break;
                         }
 
                         lastApiError = new Error(`AI вернул задачу не по выбранному модулю: ${moduleName}`);
+                    }
+
+                    if (task) {
+                        break;
+                    }
+
+                    if (!hadUniqueCandidate) {
+                        lastApiError = new Error('AI вернул только дубли задач.');
                     }
                 }
 
